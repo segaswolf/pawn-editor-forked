@@ -1,5 +1,30 @@
-Steer the story in the direction you want it to go. Heal injuries, teleport missing pawns back, change backstories that do not fit the narrative.
+# Pawn Editor Forked (Community Fork)
 
-Pawn Editor is a new editor for your pawns inspired by great mods like Character Editor and Prepare Carefully.
+Maintained fork of Pawn Editor for RimWorld 1.6.
 
-Your last colonist exerts her final breath as she dies. Not even her ultratech armor or archotech implants could save your colony from... a rabbit? Tend to your pawns and shape them in a way that fits the story you had in mind.
+## Purpose
+
+This fork keeps Pawn Editor usable in large modlists and ongoing colonies.
+It focuses on stability fixes, compatibility, and predictable in-game behavior.
+
+## Latest change (v2.0.2)
+
+- In-game top-right Pawn Editor button now appears only with Dev Mode + God Mode.
+- In-game `Edit` gizmo appears only with Dev Mode + God Mode.
+- Social tab defaults to showing all relations on first open.
+
+This avoids exposing the edit gizmo during normal gameplay while keeping quick access for debug/admin workflows.
+
+## Package ID
+
+- `segaswolf.pawneditor.fork`
+
+## Load order
+
+- Place after Harmony.
+- Use this fork instead of the original Pawn Editor package.
+
+## Notes for Workshop release
+
+- Keep the same package ID: `segaswolf.pawneditor.fork`
+- Upload folder: this mod root (`About`, `Defs`, `Languages`, `Textures`, `1.6`, optional `Source`)

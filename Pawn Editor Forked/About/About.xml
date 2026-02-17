@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>Pawn Editor</name>
-    <author>Segas Wolf ((Fork of ISOREX, legodude17, Taranchuk, TreadTheDawnGames, mycroftjr, Inglix, fofajardo)</author>
+  <name>Pawn Editor Forked</name>
+  <author>Segas Wolf (Fork of ISOREX, legodude17, Taranchuk, TreadTheDawnGames, mycroftjr, Inglix, fofajardo)</author>
   <supportedVersions>
     <li>1.5</li>
     <li>1.6</li>
   </supportedVersions>
   <packageId>segaswolf.pawneditor.fork</packageId>
-  <modVersion>2.0.0</modVersion>
+  <modVersion>2.0.2</modVersion>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>
@@ -23,14 +23,17 @@
     <li>Ludeon.RimWorld.Biotech</li>
     <li>brrainz.harmony</li>
   </loadAfter>
- <description>
-Pawn Editor – Community Fork maintained by Segas Wolf.
+  <description>
+Pawn Editor - Community Fork maintained by Segas Wolf.
 
 Stability and compatibility fixes for RimWorld 1.6.
 Original mod created by ISOR3X / legodude17.
 
-This fork aims to provide long-term maintenance and bug fixes.
-</description>
+v2.0.2 update:
+- In-game top-right Pawn Editor button now requires Dev Mode + God Mode.
+- In-game Edit gizmo continues to require Dev Mode + God Mode.
+- Social tab now defaults to showing all relations on first open.
+  </description>
 
   <modIconPath IgnoreIfNoMatchingField="True">ModIcon</modIconPath>
 </ModMetaData>

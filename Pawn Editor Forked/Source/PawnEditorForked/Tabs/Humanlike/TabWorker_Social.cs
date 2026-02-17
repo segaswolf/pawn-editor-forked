@@ -11,9 +11,17 @@ namespace PawnEditor;
 public class TabWorker_Social : TabWorker_Table<Pawn>
 {
     private Vector2 scrollPos;
+    private static bool initializedShowAllRelations;
 
     public override void DrawTabContents(Rect rect, Pawn pawn)
     {
+        if (!initializedShowAllRelations)
+        {
+            SocialCardUtility.showAllRelations = true;
+            initializedShowAllRelations = true;
+            table?.ClearCache();
+        }
+
         var headerRect = rect.TakeTopPart(170);
         var portraitRect = headerRect.TakeLeftPart(170);
         headerRect = headerRect.ContractedBy(8f, 0f);
