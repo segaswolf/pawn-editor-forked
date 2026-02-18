@@ -15,6 +15,7 @@ public class PawnEditorMod : Mod
     public static Harmony Harm;
     public static PawnEditorSettings Settings;
     public static PawnEditorMod Instance;
+    private static bool devButtonDrawnInRow;
 
     public PawnEditorMod(ModContentPack content) : base(content)
     {
@@ -29,6 +30,8 @@ public class PawnEditorMod : Mod
             postfix: new(typeof(StartingThingsManager), nameof(StartingThingsManager.RestoreScenario)));
         Harm.Patch(AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI)),
             new(GetType(), nameof(Keybind)));
+        Harm.Patch(AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI)),
+            postfix: new(GetType(), nameof(AddDevButtonFallback)));
 
         LongEventHandler.ExecuteWhenFinished(delegate
         {
@@ -121,8 +124,35 @@ public class PawnEditorMod : Mod
         // Harmony auto-injects __instance because it matches the patched method's type.
         if (__instance.widgetRow == null) return;
 
+        devButtonDrawnInRow = true;
+
         if (__instance.widgetRow.ButtonIcon(TexPawnEditor.OpenPawnEditor, "PawnEditor.CharacterEditor".Translate()))
             Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
+    }
+
+    public static void AddDevButtonFallback(DebugWindowsOpener __instance)
+    {
+        if (!Settings.InGameDevButton) return;
+        if (!Prefs.DevMode) return;
+
+        if (devButtonDrawnInRow)
+        {
+            devButtonDrawnInRow = false;
+            return;
+        }
+
+        if (__instance?.widgetRow != null)
+        {
+            if (__instance.widgetRow.ButtonIcon(TexPawnEditor.OpenPawnEditor, "PawnEditor.CharacterEditor".Translate()))
+                Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
+            return;
+        }
+
+        var size = 24f;
+        var rect = new Rect(UI.screenWidth - size - 10f, 10f, size, size);
+        if (Widgets.ButtonImage(rect, TexPawnEditor.OpenPawnEditor))
+            Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
+        TooltipHandler.TipRegion(rect, "PawnEditor.CharacterEditor".Translate());
     }
 
     public static bool OverrideVanilla(Rect rect, Page_ConfigureStartingPawns __instance)
@@ -210,11 +240,11 @@ public class PawnEditorMod : Mod
         return codes;
     }
 
-    public static IEnumerable<Gizmo> AddEditButton(IEnumerable<Gizmo> gizmos, Pawn __instance)
-    {
-        if (!Prefs.DevMode || !DebugSettings.godMode) return gizmos;
-
-        return gizmos.Append(new Command_Action
+    // FIX #006: No DevMode/GodMode gate here — Settings.ShowOpenButton controls
+    // whether this postfix is registered at all (see ApplySettings line 104).
+    // Original had DebugSettings.ShowDevGizmos; the fork wrongly required godMode.
+    public static IEnumerable<Gizmo> AddEditButton(IEnumerable<Gizmo> gizmos, Pawn __instance) =>
+        gizmos.Append(new Command_Action
         {
             defaultLabel = "PawnEditor.Edit".Translate(),
             defaultDesc = "PawnEditor.Edit.Desc".Translate(),
@@ -224,7 +254,6 @@ public class PawnEditorMod : Mod
                 PawnEditor.Select(__instance);
             }
         });
-    }
 
 
     public static void Notify_ConfigurePawns()
