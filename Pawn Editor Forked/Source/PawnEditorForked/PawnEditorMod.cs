@@ -14,6 +14,7 @@ public class PawnEditorMod : Mod
 {
     public static Harmony Harm;
     public static PawnEditorSettings Settings;
+    private static bool _waitingForHotkey;
     public static PawnEditorMod Instance;
 
     public PawnEditorMod(ModContentPack content) : base(content)
@@ -81,6 +82,20 @@ public class PawnEditorMod : Mod
         listing.CheckboxLabeled("PawnEditor.EnforceHARRestrictions".Translate(), ref HARCompat.EnforceRestrictions,
             "PawnEditor.EnforceHARRestrictions.Desc".Translate());
         listing.CheckboxLabeled("PawnEditor.HideRandomFactions".Translate(), ref Settings.HideFactions, "PawnEditor.HideRandomFactions.Desc".Translate());
+
+        // Hotkey picker
+        var hotkeyRect = listing.GetRect(30f);
+        Widgets.Label(hotkeyRect.LeftHalf(), "PawnEditor.EditorHotkey".Translate());
+        var hotkeyLabel = _waitingForHotkey ? "PawnEditor.PressAnyKey".Translate().ToString() : Settings.EditorHotkey.ToString();
+        if (Widgets.ButtonText(hotkeyRect.RightHalf(), hotkeyLabel))
+            _waitingForHotkey = true;
+        if (_waitingForHotkey && Event.current.type == EventType.KeyDown && Event.current.keyCode != KeyCode.None)
+        {
+            Settings.EditorHotkey = Event.current.keyCode;
+            _waitingForHotkey = false;
+            Event.current.Use();
+        }
+
         listing.End();
     }
 
@@ -125,7 +140,15 @@ public class PawnEditorMod : Mod
 
     public static void Keybind()
     {
-        if (KeyBindingDefOf.PawnEditor_OpenEditor.KeyDownEvent)
+        // Support both vanilla KeyBinding and custom hotkey
+        bool triggered = false;
+        try { triggered = KeyBindingDefOf.PawnEditor_OpenEditor.KeyDownEvent; } catch { }
+        if (!triggered && Event.current.type == EventType.KeyDown && Event.current.keyCode == Settings.EditorHotkey)
+        {
+            triggered = true;
+            Event.current.Use();
+        }
+        if (triggered)
         {
             if (!PawnEditor.Pregame)
                 if (Find.WindowStack.IsOpen<Dialog_PawnEditor_InGame>()) Find.WindowStack.TryRemove(typeof(Dialog_PawnEditor_InGame));
@@ -247,6 +270,7 @@ public class PawnEditorSettings : ModSettings
     public bool ShowOpenButton = true;
     public bool UseSilver;
     public bool HideFactions;
+    public KeyCode EditorHotkey = KeyCode.KeypadMinus;
 
     public override void ExposeData()
     {
@@ -260,6 +284,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref HideFactions, nameof(HideFactions));
         Scribe_Values.Look(ref CountNPCs, nameof(CountNPCs));
         Scribe_Values.Look(ref HediffLocationLimit, nameof(HediffLocationLimit), HediffLocation.RecipeDef);
+        Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
 
         if (HARCompat.Active) Scribe_Values.Look(ref HARCompat.EnforceRestrictions, "EnforceHARRestrictions", true);
 

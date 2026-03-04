@@ -157,6 +157,12 @@ public static partial class PawnEditor
         CopyDup_Needs(source, newPawn);
         CopyDup_Abilities(source, newPawn);
         CopyDup_Apparel(source, newPawn);
+        CopyDup_WorkPriorities(source, newPawn);
+        CopyDup_Relations(source, newPawn);
+        CopyDup_RoyalTitles(source, newPawn);
+        CopyDup_Records(source, newPawn);
+        CopyDup_Inventory(source, newPawn);
+        FacialAnimCompat.CopyFacialData(source, newPawn);
 
         // ── Guest status ──
         if (source.guest != null && newPawn.guest != null)
@@ -304,6 +310,15 @@ public static partial class PawnEditor
             dst.style.BodyTattoo = src.style.BodyTattoo;
             dst.style.FaceTattoo = src.style.FaceTattoo;
         }
+
+        // Force graphics refresh after style changes (tattoos, beard)
+        try
+        {
+            dst.Drawer?.renderer?.SetAllGraphicsDirty();
+            PortraitsCache.SetDirty(dst);
+            GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(dst);
+        }
+        catch { }
     }
 
     private static void CopyDup_Skills(Pawn src, Pawn dst)
@@ -568,5 +583,116 @@ public static partial class PawnEditor
             pawn.Name = NameTriple.FromString(candidate);
             Log.Warning($"[Pawn Editor] Duplicate pawn name collision; renamed clone to '{candidate}'.");
         }
+    }
+
+    // ── Copy: Work Priorities ──
+
+    private static void CopyDup_WorkPriorities(Pawn src, Pawn dst)
+    {
+        if (src.workSettings == null || dst.workSettings == null) return;
+        try
+        {
+            dst.workSettings.EnableAndInitialize();
+            foreach (var wd in DefDatabase<WorkTypeDef>.AllDefsListForReading)
+            {
+                if (src.WorkTypeIsDisabled(wd) || dst.WorkTypeIsDisabled(wd)) continue;
+                dst.workSettings.SetPriority(wd, src.workSettings.GetPriority(wd));
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_WorkPriorities: {ex.Message}"); }
+    }
+
+    // ── Copy: Social Relations ──
+
+    private static void CopyDup_Relations(Pawn src, Pawn dst)
+    {
+        if (src.relations == null || dst.relations == null) return;
+        try
+        {
+            foreach (var rel in src.relations.DirectRelations.ToList())
+            {
+                if (rel.def == null || rel.otherPawn == null) continue;
+                if (rel.otherPawn == src) continue; // Don't create self-relation
+                if (!dst.relations.DirectRelationExists(rel.def, rel.otherPawn))
+                    dst.relations.AddDirectRelation(rel.def, rel.otherPawn);
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations: {ex.Message}"); }
+    }
+
+    // ── Copy: Royal Titles (Royalty DLC) ──
+
+    private static void CopyDup_RoyalTitles(Pawn src, Pawn dst)
+    {
+        if (!ModsConfig.RoyaltyActive) return;
+        if (src.royalty == null || dst.royalty == null) return;
+        try
+        {
+            // Copy psylink level
+            var srcLevel = src.GetPsylinkLevel();
+            var dstLevel = dst.GetPsylinkLevel();
+            for (int i = dstLevel; i < srcLevel; i++)
+                dst.ChangePsylinkLevel(1);
+
+            // Copy titles
+            foreach (var title in src.royalty.AllTitlesForReading)
+            {
+                if (title?.def == null || title.faction == null) continue;
+                dst.royalty.SetTitle(title.faction, title.def, false);
+            }
+
+            // Copy favor
+            foreach (var faction in Find.FactionManager.AllFactions)
+            {
+                var favor = src.royalty.GetFavor(faction);
+                if (favor > 0)
+                    dst.royalty.SetFavor(faction, favor);
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_RoyalTitles: {ex.Message}"); }
+    }
+
+    // ── Copy: Records ──
+
+    private static void CopyDup_Records(Pawn src, Pawn dst)
+    {
+        if (src.records == null || dst.records == null) return;
+        try
+        {
+            foreach (var rd in DefDatabase<RecordDef>.AllDefsListForReading)
+            {
+                var val = src.records.GetValue(rd);
+                if (val != 0f)
+                    dst.records.AddTo(rd, val - dst.records.GetValue(rd));
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Records: {ex.Message}"); }
+    }
+
+    // ── Copy: Inventory ──
+
+    private static void CopyDup_Inventory(Pawn src, Pawn dst)
+    {
+        if (src.inventory?.innerContainer == null || dst.inventory?.innerContainer == null) return;
+        try
+        {
+            dst.inventory.innerContainer.ClearAndDestroyContents();
+            foreach (var thing in src.inventory.innerContainer)
+            {
+                if (thing?.def == null) continue;
+                try
+                {
+                    var copy = thing.Stuff != null
+                        ? ThingMaker.MakeThing(thing.def, thing.Stuff)
+                        : ThingMaker.MakeThing(thing.def);
+                    copy.stackCount = thing.stackCount;
+                    if (thing.TryGetComp<CompQuality>() is { } srcQ && copy.TryGetComp<CompQuality>() is { } dstQ)
+                        dstQ.SetQuality(srcQ.Quality, ArtGenerationContext.Outsider);
+                    dst.inventory.innerContainer.TryAdd(copy);
+                }
+                catch { }
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Inventory: {ex.Message}"); }
     }
 }

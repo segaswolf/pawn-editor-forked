@@ -27,7 +27,8 @@ public partial class TabWorker_Bio_Humanlike
             traitsLastHeight = Text.LineHeight;
         }
         else
-            traitsLastHeight = GenUI.DrawElementStack(traitRect, 24, pawn.story.traits.TraitsSorted, delegate(Rect r, Trait trait)
+            // FIX: Snapshot traits list to prevent ArgumentOutOfRangeException if list changes during render
+            traitsLastHeight = GenUI.DrawElementStack(traitRect, 24, pawn.story.traits.TraitsSorted.ToList(), delegate(Rect r, Trait trait)
                 {
                     GUI.color = CharacterCardUtility.StackElementBackground;
                     GUI.DrawTexture(r, BaseContent.WhiteTex);

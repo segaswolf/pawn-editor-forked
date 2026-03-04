@@ -20,4 +20,6 @@
     <PawnEditor.EnforceHARRestrictions.Desc>When true, HAR's restrictions for things like apparel and thoughts will be enforced in the editor.</PawnEditor.EnforceHARRestrictions.Desc>
     <PawnEditor.HideRandomFactions>Hide non-colony faction names</PawnEditor.HideRandomFactions>
     <PawnEditor.HideRandomFactions.Desc>Whether to hide non-colony factions while editing pawns before starting.</PawnEditor.HideRandomFactions.Desc>
+    <PawnEditor.EditorHotkey>Editor hotkey</PawnEditor.EditorHotkey>
+    <PawnEditor.PressAnyKey>Press any key...</PawnEditor.PressAnyKey>
 </LanguageData>

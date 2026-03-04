@@ -247,63 +247,100 @@ public static class StartingThingsManager
 
         public StartingPreset()
         {
-            humans = Find.GameInitData.startingAndOptionalPawns.ListFullCopy();
-            foreach (var possesion in Find.GameInitData.startingPossessions)
+            try
             {
-                startingPossessions[possesion.Key] = new PawnPossesions
+                humans = Find.GameInitData.startingAndOptionalPawns.ListFullCopy();
+                foreach (var possesion in Find.GameInitData.startingPossessions)
                 {
-                    possessions = possesion.Value,
-                };
+                    startingPossessions[possesion.Key] = new PawnPossesions
+                    {
+                        possessions = possesion.Value,
+                    };
+                }
+                takingCount = Find.GameInitData.startingPawnCount;
+                animals = startingAnimals.ListFullCopy();
+                mechs = startingMechs.ListFullCopy();
+                thingsPossessions = startingThings.ListFullCopy();
+                thingsNear = startingThingsNear.ListFullCopy();
+                thingsFar = startingThingsFar.ListFullCopy();
             }
-            takingCount = Find.GameInitData.startingPawnCount;
-            animals = startingAnimals.ListFullCopy();
-            mechs = startingMechs.ListFullCopy();
-            thingsPossessions = startingThings.ListFullCopy();
-            thingsNear = startingThingsNear.ListFullCopy();
-            thingsFar = startingThingsFar.ListFullCopy();
+            catch (System.Exception ex)
+            {
+                Log.Error($"[Pawn Editor] StartingPreset save failed: {ex.Message}");
+                humans ??= new();
+                animals ??= new();
+                mechs ??= new();
+                thingsPossessions ??= new();
+                thingsNear ??= new();
+                thingsFar ??= new();
+            }
         }
 
         public void ExposeData()
         {
-            Scribe_Collections.Look(ref humans, nameof(humans), LookMode.Deep);
-            Scribe_Collections.Look(ref animals, nameof(animals), LookMode.Deep);
-            Scribe_Collections.Look(ref mechs, nameof(mechs), LookMode.Deep);
-            Scribe_Collections.Look(ref thingsPossessions, nameof(thingsPossessions), LookMode.Deep);
-            Scribe_Collections.Look(ref thingsNear, nameof(thingsNear), LookMode.Deep);
-            Scribe_Collections.Look(ref thingsFar, nameof(thingsFar), LookMode.Deep);
-            Scribe_Values.Look(ref takingCount, nameof(takingCount));
-            Scribe_Collections.Look(ref startingPossessions, nameof(startingPossessions), LookMode.Deep, LookMode.Deep);
+            try
+            {
+                Scribe_Collections.Look(ref humans, nameof(humans), LookMode.Deep);
+                Scribe_Collections.Look(ref animals, nameof(animals), LookMode.Deep);
+                Scribe_Collections.Look(ref mechs, nameof(mechs), LookMode.Deep);
+                Scribe_Collections.Look(ref thingsPossessions, nameof(thingsPossessions), LookMode.Deep);
+                Scribe_Collections.Look(ref thingsNear, nameof(thingsNear), LookMode.Deep);
+                Scribe_Collections.Look(ref thingsFar, nameof(thingsFar), LookMode.Deep);
+                Scribe_Values.Look(ref takingCount, nameof(takingCount));
+                Scribe_Collections.Look(ref startingPossessions, nameof(startingPossessions), LookMode.Deep, LookMode.Deep);
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[Pawn Editor] StartingPreset.ExposeData() failed: {ex.Message}");
+                // Initialize any null lists to prevent downstream NullRefs
+                humans ??= new();
+                animals ??= new();
+                mechs ??= new();
+                thingsPossessions ??= new();
+                thingsNear ??= new();
+                thingsFar ??= new();
+                startingPossessions ??= new();
+            }
             if (Scribe.mode == LoadSaveMode.PostLoadInit) Apply();
         }
 
         public void Apply()
         {
-            Find.GameInitData.startingAndOptionalPawns.Clear();
-            Find.GameInitData.startingAndOptionalPawns.AddRange(humans);
-            Find.GameInitData.startingPossessions = new Dictionary<Pawn, List<ThingDefCount>>();
-            foreach (var pawn in Find.GameInitData.startingAndOptionalPawns)
+            try
             {
-                Find.GameInitData.startingPossessions[pawn] = new List<ThingDefCount>();
-            }
-            if (startingPossessions != null)
-            {
-                foreach (var possesion in startingPossessions)
+                Find.GameInitData.startingAndOptionalPawns.Clear();
+                Find.GameInitData.startingAndOptionalPawns.AddRange(humans ?? new());
+                Find.GameInitData.startingPossessions = new Dictionary<Pawn, List<ThingDefCount>>();
+                foreach (var pawn in Find.GameInitData.startingAndOptionalPawns)
                 {
-                    Find.GameInitData.startingPossessions[possesion.Key] = possesion.Value.possessions;
+                    Find.GameInitData.startingPossessions[pawn] = new List<ThingDefCount>();
                 }
+                if (startingPossessions != null)
+                {
+                    foreach (var possesion in startingPossessions)
+                    {
+                        if (possesion.Key != null)
+                            Find.GameInitData.startingPossessions[possesion.Key] = possesion.Value.possessions;
+                    }
+                }
+                Find.GameInitData.startingPawnCount = takingCount;
+                startingAnimals.Clear();
+                startingMechs.Clear();
+                startingThings.Clear();
+                startingThingsNear.Clear();
+                startingThingsFar.Clear();
+                startingAnimals.AddRange(animals ?? new());
+                startingMechs.AddRange(mechs ?? new());
+                startingThings.AddRange(thingsPossessions ?? new());
+                startingThingsNear.AddRange(thingsNear ?? new());
+                startingThingsFar.AddRange(thingsFar ?? new());
+                PawnEditor.RecachePawnList();
             }
-            Find.GameInitData.startingPawnCount = takingCount;
-            startingAnimals.Clear();
-            startingMechs.Clear();
-            startingThings.Clear();
-            startingThingsNear.Clear();
-            startingThingsFar.Clear();
-            startingAnimals.AddRange(animals);
-            startingMechs.AddRange(mechs);
-            startingThings.AddRange(thingsPossessions);
-            startingThingsNear.AddRange(thingsNear);
-            startingThingsFar.AddRange(thingsFar);
-            PawnEditor.RecachePawnList();
+            catch (System.Exception ex)
+            {
+                Log.Error($"[Pawn Editor] StartingPreset.Apply() failed: {ex.Message}\n{ex.StackTrace}");
+                Messages.Message("[Pawn Editor] Failed to load starting preset. Some pawns may be missing.", MessageTypeDefOf.RejectInput, false);
+            }
         }
     }
 }

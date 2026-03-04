@@ -52,6 +52,13 @@ public static class PawnBlueprintSaveLoad
         WriteHediffs(writer, pawn);
         WriteAbilities(writer, pawn);
         WriteApparel(writer, pawn);
+        WriteRelations(writer, pawn);
+        WriteWorkPriorities(writer, pawn);
+        WriteInventory(writer, pawn);
+        WriteRoyalTitles(writer, pawn);
+        WriteRecords(writer, pawn);
+        FacialAnimCompat.WriteFacialData(writer, pawn);
+        WriteModList(writer);
 
         writer.WriteEndElement(); // PawnBlueprint
         writer.WriteEndDocument();
@@ -268,7 +275,16 @@ public static class PawnBlueprintSaveLoad
             w.WriteAttributeString("defName", hediff.def.defName);
             w.WriteAttributeString("severity", hediff.Severity.ToString("F3"));
             if (hediff.Part != null)
+            {
                 w.WriteAttributeString("bodyPart", hediff.Part.def.defName);
+                // Save label for left/right disambiguation (e.g. "left lung" vs "right lung")
+                if (!hediff.Part.Label.NullOrEmpty())
+                    w.WriteAttributeString("bodyPartLabel", hediff.Part.Label);
+            }
+            if (hediff.IsPermanent())
+                w.WriteAttributeString("isPermanent", "true");
+            if (hediff.ageTicks > 0)
+                w.WriteAttributeString("ageTicks", hediff.ageTicks.ToString());
             WriteSourceMod(w, hediff.def);
             w.WriteEndElement();
         }
@@ -346,6 +362,205 @@ public static class PawnBlueprintSaveLoad
             }
             w.WriteEndElement();
         }
+    }
+
+    // ── Save: Social Relations ──
+
+    private static void WriteRelations(XmlWriter w, Pawn pawn)
+    {
+        if (pawn.relations == null) return;
+        var directRelations = pawn.relations.DirectRelations;
+        if (directRelations == null || directRelations.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("relations");
+            foreach (var rel in directRelations)
+            {
+                if (rel.def == null || rel.otherPawn == null) continue;
+                w.WriteStartElement("li");
+                WriteDefWithSource(w, "def", rel.def);
+                // Save the other pawn's name and ID for matching on load
+                w.WriteElementString("otherPawnID", rel.otherPawn.ThingID ?? "");
+                if (rel.otherPawn.Name is NameTriple nt)
+                {
+                    w.WriteElementString("otherPawnFirst", nt.First ?? "");
+                    w.WriteElementString("otherPawnNick", nt.Nick ?? "");
+                    w.WriteElementString("otherPawnLast", nt.Last ?? "");
+                }
+                else if (rel.otherPawn.Name != null)
+                {
+                    w.WriteElementString("otherPawnName", rel.otherPawn.Name.ToStringFull ?? "");
+                }
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRelations: {ex.Message}"); }
+    }
+
+    // ── Save: Work Priorities ──
+
+    private static void WriteWorkPriorities(XmlWriter w, Pawn pawn)
+    {
+        if (pawn.workSettings == null) return;
+
+        try
+        {
+            var workDefs = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            if (workDefs == null || workDefs.Count == 0) return;
+
+            // Check if any priorities are actually set
+            bool anySet = false;
+            foreach (var wd in workDefs)
+            {
+                if (!pawn.WorkTypeIsDisabled(wd) && pawn.workSettings.GetPriority(wd) != 0)
+                {
+                    anySet = true;
+                    break;
+                }
+            }
+            if (!anySet) return;
+
+            w.WriteStartElement("workPriorities");
+            foreach (var wd in workDefs)
+            {
+                if (pawn.WorkTypeIsDisabled(wd)) continue;
+                var pri = pawn.workSettings.GetPriority(wd);
+                if (pri == 0) continue;
+                w.WriteStartElement("li");
+                w.WriteElementString("def", wd.defName);
+                w.WriteElementString("priority", pri.ToString());
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteWorkPriorities: {ex.Message}"); }
+    }
+
+    // ── Save: Inventory ──
+
+    private static void WriteInventory(XmlWriter w, Pawn pawn)
+    {
+        if (pawn.inventory?.innerContainer == null) return;
+        var items = pawn.inventory.innerContainer;
+        if (items.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("inventory");
+            foreach (var thing in items)
+            {
+                if (thing?.def == null) continue;
+                w.WriteStartElement("li");
+                WriteDefWithSource(w, "def", thing.def);
+                if (thing.Stuff != null) WriteDefWithSource(w, "stuff", thing.Stuff);
+                w.WriteElementString("stackCount", thing.stackCount.ToString());
+                if (thing.TryGetComp<CompQuality>() is { } cq)
+                    w.WriteElementString("quality", ((int)cq.Quality).ToString());
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteInventory: {ex.Message}"); }
+    }
+
+    // ── Save: Royal Titles (Royalty DLC) ──
+
+    private static void WriteRoyalTitles(XmlWriter w, Pawn pawn)
+    {
+        if (!ModsConfig.RoyaltyActive || pawn.royalty == null) return;
+        var titles = pawn.royalty.AllTitlesForReading;
+        if (titles == null || titles.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("royalTitles");
+            foreach (var title in titles)
+            {
+                if (title?.def == null || title.faction == null) continue;
+                w.WriteStartElement("li");
+                WriteDefWithSource(w, "titleDef", title.def);
+                w.WriteElementString("faction", title.faction.def?.defName ?? "");
+                w.WriteElementString("receivedTick", title.receivedTick.ToString());
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+
+            // Psylink level
+            var psylinkLevel = pawn.GetPsylinkLevel();
+            if (psylinkLevel > 0)
+                w.WriteElementString("psylinkLevel", psylinkLevel.ToString());
+
+            // Favor with factions
+            w.WriteStartElement("favor");
+            foreach (var faction in Find.FactionManager.AllFactions)
+            {
+                var favor = pawn.royalty.GetFavor(faction);
+                if (favor > 0)
+                {
+                    w.WriteStartElement("li");
+                    w.WriteElementString("faction", faction.def?.defName ?? "");
+                    w.WriteElementString("amount", favor.ToString());
+                    w.WriteEndElement();
+                }
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRoyalTitles: {ex.Message}"); }
+    }
+
+    // ── Save: Records ──
+
+    private static void WriteRecords(XmlWriter w, Pawn pawn)
+    {
+        if (pawn.records == null) return;
+
+        try
+        {
+            var allRecordDefs = DefDatabase<RecordDef>.AllDefsListForReading;
+            if (allRecordDefs == null || allRecordDefs.Count == 0) return;
+
+            bool anyNonZero = false;
+            foreach (var rd in allRecordDefs)
+            {
+                if (pawn.records.GetValue(rd) != 0f) { anyNonZero = true; break; }
+            }
+            if (!anyNonZero) return;
+
+            w.WriteStartElement("records");
+            foreach (var rd in allRecordDefs)
+            {
+                var val = pawn.records.GetValue(rd);
+                if (val == 0f) continue;
+                w.WriteStartElement("li");
+                w.WriteElementString("def", rd.defName);
+                w.WriteElementString("value", val.ToString("G9"));
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRecords: {ex.Message}"); }
+    }
+
+    // ── Save: Mod List (for compatibility warnings) ──
+
+    private static void WriteModList(XmlWriter w)
+    {
+        try
+        {
+            w.WriteStartElement("modList");
+            foreach (var mod in LoadedModManager.RunningMods)
+            {
+                if (mod == null) continue;
+                w.WriteStartElement("li");
+                w.WriteElementString("packageId", mod.PackageId ?? "");
+                w.WriteElementString("name", mod.Name ?? "");
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteModList: {ex.Message}"); }
     }
 
     // ── Save helpers ──
@@ -479,6 +694,12 @@ public static class PawnBlueprintSaveLoad
         LoadHediffs(pawn, root);
         LoadAbilities(pawn, root);
         LoadApparel(pawn, root);
+        LoadRelations(pawn, root);
+        LoadWorkPriorities(pawn, root);
+        LoadInventory(pawn, root);
+        LoadRoyalTitles(pawn, root);
+        LoadRecords(pawn, root);
+        FacialAnimCompat.LoadFacialData(pawn, root);
 
         // Biotech extras
         if (ModsConfig.BiotechActive && pawn.genes != null)
@@ -520,6 +741,20 @@ public static class PawnBlueprintSaveLoad
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             PortraitsCache.SetDirty(pawn);
             GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
+        }
+        catch { }
+
+        // v3d7: Re-apply headType AFTER graphics refresh — genes and Facial Animations
+        // can override head visuals during SetAllGraphicsDirty, so we force it back
+        try
+        {
+            var savedHeadType = ResolveDef<HeadTypeDef>(root.SelectSingleNode("appearance"), "headType");
+            if (savedHeadType != null && pawn.story != null)
+            {
+                pawn.story.headType = savedHeadType;
+                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
+                PortraitsCache.SetDirty(pawn);
+            }
         }
         catch { }
 
@@ -647,6 +882,15 @@ public static class PawnBlueprintSaveLoad
                 var faceTattoo = ResolveDef<TattooDef>(styleNode, "faceTattoo");
                 if (faceTattoo != null) pawn.style.FaceTattoo = faceTattoo;
             }
+
+            // Force graphics refresh after style changes (tattoos, beard)
+            try
+            {
+                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
+                PortraitsCache.SetDirty(pawn);
+                GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
+            }
+            catch { }
         }
         catch (Exception ex) { Warn($"Style: {ex.Message}"); }
     }
@@ -777,6 +1021,9 @@ public static class PawnBlueprintSaveLoad
         var hediffsNode = root.SelectSingleNode("hediffs");
         if (hediffsNode == null) return;
 
+        // Track which part+def combos we've already added to handle left/right duplicates
+        var usedSlots = new List<(HediffDef def, BodyPartRecord part)>();
+
         try
         {
             foreach (XmlNode li in hediffsNode.SelectNodes("li"))
@@ -790,15 +1037,29 @@ public static class PawnBlueprintSaveLoad
                 if (def == null) { Warn($"Hediff '{defName}' not found, skipping"); continue; }
                 if (!def.duplicationAllowed) continue;
 
-                // Body part
+                // Body part — match by label first (left/right), fallback to defName
                 BodyPartRecord part = null;
                 var partDef = li.Attributes?["bodyPart"]?.Value;
+                var partLabel = li.Attributes?["bodyPartLabel"]?.Value;
                 if (!partDef.NullOrEmpty())
                 {
-                    part = pawn.RaceProps.body.AllParts.FirstOrDefault(p => p.def.defName == partDef);
+                    // Try label match first (e.g. "left lung" vs "right lung")
+                    if (!partLabel.NullOrEmpty())
+                        part = pawn.RaceProps.body.AllParts.FirstOrDefault(p =>
+                            p.def.defName == partDef && p.Label == partLabel);
+
+                    // Fallback: match by defName, skip parts already used for this hediff def
+                    if (part == null)
+                        part = pawn.RaceProps.body.AllParts.FirstOrDefault(p =>
+                            p.def.defName == partDef && !usedSlots.Any(s => s.def == def && s.part == p));
+
+                    // Last resort: any part with this defName
+                    if (part == null)
+                        part = pawn.RaceProps.body.AllParts.FirstOrDefault(p => p.def.defName == partDef);
+
                     if (part == null)
                     {
-                        Warn($"Body part '{partDef}' not found for hediff '{defName}', skipping");
+                        Warn($"Body part '{partDef}' ({partLabel}) not found for hediff '{defName}', skipping");
                         continue;
                     }
                 }
@@ -809,12 +1070,29 @@ public static class PawnBlueprintSaveLoad
 
                 try
                 {
-                    if (pawn.health.hediffSet.hediffs.Any(h => h.def == def && h.Part == part)) continue;
+                    // Skip only if this exact def+part was already added by us
+                    if (usedSlots.Any(s => s.def == def && s.part == part)) continue;
 
                     var hediff = HediffMaker.MakeHediff(def, pawn, part);
                     var sev = ParseFloat(li.Attributes?["severity"]?.Value, -1f);
                     if (sev >= 0f) hediff.Severity = sev;
+
+                    // Restore permanent state (scars)
+                    var isPermanent = li.Attributes?["isPermanent"]?.Value == "true";
+                    if (isPermanent && hediff is HediffWithComps hwc)
+                    {
+                        var permComp = hwc.comps?.OfType<HediffComp_GetsPermanent>().FirstOrDefault();
+                        if (permComp != null)
+                            permComp.IsPermanent = true;
+                    }
+
+                    // Restore hediff age
+                    var ageTicksStr = li.Attributes?["ageTicks"]?.Value;
+                    if (!ageTicksStr.NullOrEmpty() && int.TryParse(ageTicksStr, out var ageTicks))
+                        hediff.ageTicks = ageTicks;
+
                     pawn.health.hediffSet.AddDirect(hediff);
+                    usedSlots.Add((def, part));
                 }
                 catch (Exception ex) { Warn($"Hediff '{defName}': {ex.Message}"); }
             }
@@ -955,6 +1233,258 @@ public static class PawnBlueprintSaveLoad
             }
             catch (Exception ex) { Warn($"Equipment: {ex.Message}"); }
         }
+    }
+
+    // ── Load: Social Relations ──
+
+    private static void LoadRelations(Pawn pawn, XmlNode root)
+    {
+        if (pawn.relations == null) return;
+        var relationsNode = root.SelectSingleNode("relations");
+        if (relationsNode == null) return;
+
+        try
+        {
+            foreach (XmlNode li in relationsNode.SelectNodes("li"))
+            {
+                var relDef = ResolveDef<PawnRelationDef>(li, "def");
+                if (relDef == null) continue;
+
+                // Try to find the other pawn by ID first, then by name
+                var otherPawnID = GetText(li, "otherPawnID");
+                var otherFirst = GetText(li, "otherPawnFirst");
+                var otherNick = GetText(li, "otherPawnNick");
+                var otherLast = GetText(li, "otherPawnLast");
+                var otherName = GetText(li, "otherPawnName");
+
+                Pawn otherPawn = null;
+
+                // Search among all reachable pawns
+                var allPawns = GetAllReachablePawns();
+                if (!otherPawnID.NullOrEmpty())
+                    otherPawn = allPawns.FirstOrDefault(p => p.ThingID == otherPawnID);
+
+                // Fallback: match by name
+                if (otherPawn == null && !otherFirst.NullOrEmpty())
+                {
+                    otherPawn = allPawns.FirstOrDefault(p =>
+                        p.Name is NameTriple nt &&
+                        nt.First == otherFirst && nt.Last == otherLast);
+                }
+
+                if (otherPawn == null && !otherName.NullOrEmpty())
+                {
+                    otherPawn = allPawns.FirstOrDefault(p =>
+                        p.Name?.ToStringFull == otherName);
+                }
+
+                if (otherPawn == null)
+                {
+                    Warn($"Relation '{relDef.defName}': could not find other pawn '{otherFirst} {otherLast}'");
+                    continue;
+                }
+
+                // Don't add duplicate relations
+                if (!pawn.relations.DirectRelationExists(relDef, otherPawn))
+                {
+                    pawn.relations.AddDirectRelation(relDef, otherPawn);
+                }
+            }
+        }
+        catch (Exception ex) { Warn($"Relations: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Collects all pawns that might be relation targets — starting pawns, world pawns, map pawns.
+    /// </summary>
+    private static List<Pawn> GetAllReachablePawns()
+    {
+        var result = new List<Pawn>();
+        try
+        {
+            // Pregame starting pawns
+            if (Find.GameInitData?.startingAndOptionalPawns != null)
+                result.AddRange(Find.GameInitData.startingAndOptionalPawns);
+
+            // All maps
+            if (Current.Game?.Maps != null)
+            {
+                foreach (var map in Current.Game.Maps)
+                {
+                    if (map?.mapPawns?.AllPawns != null)
+                        result.AddRange(map.mapPawns.AllPawns);
+                }
+            }
+
+            // World pawns
+            if (Find.World?.worldPawns?.AllPawnsAliveOrDead != null)
+                result.AddRange(Find.World.worldPawns.AllPawnsAliveOrDead);
+        }
+        catch { }
+        return result.Distinct().ToList();
+    }
+
+    // ── Load: Work Priorities ──
+
+    private static void LoadWorkPriorities(Pawn pawn, XmlNode root)
+    {
+        if (pawn.workSettings == null) return;
+        var wpNode = root.SelectSingleNode("workPriorities");
+        if (wpNode == null) return;
+
+        try
+        {
+            pawn.workSettings.EnableAndInitialize();
+            foreach (XmlNode li in wpNode.SelectNodes("li"))
+            {
+                var defName = GetText(li, "def");
+                var priority = ParseInt(GetText(li, "priority"), 0);
+                if (defName.NullOrEmpty() || priority == 0) continue;
+
+                var wd = DefDatabase<WorkTypeDef>.GetNamedSilentFail(defName);
+                if (wd == null) continue;
+                if (pawn.WorkTypeIsDisabled(wd)) continue;
+
+                pawn.workSettings.SetPriority(wd, priority);
+            }
+        }
+        catch (Exception ex) { Warn($"WorkPriorities: {ex.Message}"); }
+    }
+
+    // ── Load: Inventory ──
+
+    private static void LoadInventory(Pawn pawn, XmlNode root)
+    {
+        if (pawn.inventory?.innerContainer == null) return;
+        var invNode = root.SelectSingleNode("inventory");
+        if (invNode == null) return;
+
+        try
+        {
+            foreach (XmlNode li in invNode.SelectNodes("li"))
+            {
+                var thingDef = ResolveDef<ThingDef>(li, "def");
+                if (thingDef == null) continue;
+
+                var stuffDef = ResolveDef<ThingDef>(li, "stuff");
+                var stackCount = ParseInt(GetText(li, "stackCount"), 1);
+
+                Thing thing;
+                if (stuffDef != null && thingDef.MadeFromStuff)
+                    thing = ThingMaker.MakeThing(thingDef, stuffDef);
+                else
+                    thing = ThingMaker.MakeThing(thingDef);
+
+                thing.stackCount = stackCount;
+
+                var qualityStr = GetText(li, "quality");
+                if (!qualityStr.NullOrEmpty() && thing.TryGetComp<CompQuality>() is { } cq)
+                {
+                    if (Enum.TryParse<QualityCategory>(qualityStr, out var q)
+                        || (int.TryParse(qualityStr, out var qi) && Enum.IsDefined(typeof(QualityCategory), qi)))
+                    {
+                        var qual = qualityStr.All(char.IsDigit) ? (QualityCategory)int.Parse(qualityStr) : q;
+                        cq.SetQuality(qual, ArtGenerationContext.Outsider);
+                    }
+                }
+
+                pawn.inventory.innerContainer.TryAdd(thing);
+            }
+        }
+        catch (Exception ex) { Warn($"Inventory: {ex.Message}"); }
+    }
+
+    // ── Load: Royal Titles (Royalty DLC) ──
+
+    private static void LoadRoyalTitles(Pawn pawn, XmlNode root)
+    {
+        if (!ModsConfig.RoyaltyActive || pawn.royalty == null) return;
+        var titlesNode = root.SelectSingleNode("royalTitles");
+        var psylinkStr = GetText(root, "psylinkLevel");
+
+        try
+        {
+            // Psylink level
+            if (!psylinkStr.NullOrEmpty())
+            {
+                var targetLevel = ParseInt(psylinkStr, 0);
+                var currentLevel = pawn.GetPsylinkLevel();
+                for (int i = currentLevel; i < targetLevel; i++)
+                {
+                    pawn.ChangePsylinkLevel(1);
+                }
+            }
+
+            // Titles
+            if (titlesNode != null)
+            {
+                foreach (XmlNode li in titlesNode.SelectNodes("li"))
+                {
+                    var titleDef = ResolveDef<RoyalTitleDef>(li, "titleDef");
+                    if (titleDef == null) continue;
+
+                    var factionDefName = GetText(li, "faction");
+                    if (factionDefName.NullOrEmpty()) continue;
+
+                    var faction = Find.FactionManager?.AllFactions?
+                        .FirstOrDefault(f => f.def?.defName == factionDefName);
+                    if (faction == null)
+                    {
+                        Warn($"Royal title '{titleDef.defName}': faction '{factionDefName}' not found");
+                        continue;
+                    }
+
+                    pawn.royalty.SetTitle(faction, titleDef, false);
+                }
+            }
+
+            // Favor
+            var favorNode = root.SelectSingleNode("favor");
+            if (favorNode != null)
+            {
+                foreach (XmlNode li in favorNode.SelectNodes("li"))
+                {
+                    var factionDefName = GetText(li, "faction");
+                    var amount = ParseInt(GetText(li, "amount"), 0);
+                    if (factionDefName.NullOrEmpty() || amount <= 0) continue;
+
+                    var faction = Find.FactionManager?.AllFactions?
+                        .FirstOrDefault(f => f.def?.defName == factionDefName);
+                    if (faction != null)
+                        pawn.royalty.SetFavor(faction, amount);
+                }
+            }
+        }
+        catch (Exception ex) { Warn($"RoyalTitles: {ex.Message}"); }
+    }
+
+    // ── Load: Records ──
+
+    private static void LoadRecords(Pawn pawn, XmlNode root)
+    {
+        if (pawn.records == null) return;
+        var recordsNode = root.SelectSingleNode("records");
+        if (recordsNode == null) return;
+
+        try
+        {
+            foreach (XmlNode li in recordsNode.SelectNodes("li"))
+            {
+                var defName = GetText(li, "def");
+                var value = ParseFloat(GetText(li, "value"), 0f);
+                if (defName.NullOrEmpty()) continue;
+
+                var rd = DefDatabase<RecordDef>.GetNamedSilentFail(defName);
+                if (rd == null) continue;
+
+                // RecordDef can be "time" (int-based) or "count" (float-based)
+                if (rd.type == RecordType.Time)
+                    pawn.records.AddTo(rd, value - pawn.records.GetValue(rd));
+                else
+                    pawn.records.AddTo(rd, value - pawn.records.GetValue(rd));
+            }
+        }
+        catch (Exception ex) { Warn($"Records: {ex.Message}"); }
     }
 
     // ═══════════════════════════════════════════════════════════════

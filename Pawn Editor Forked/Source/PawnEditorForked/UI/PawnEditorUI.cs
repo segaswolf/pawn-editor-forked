@@ -319,6 +319,10 @@ public static partial class PawnEditor
                         try { newPawn.Notify_DisabledWorkTypesChanged(); } catch { }
                         NotifyColonistBarsDirty();
                         try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
+
+                        // v3d7: Recache pawn list and tabs so UI shows the new pawn
+                        try { PawnList.UpdateCache(selectedFaction, selectedCategory); } catch { }
+                        try { CheckChangeTabGroup(); } catch { }
                     });
                 });
             });
@@ -550,7 +554,8 @@ public static partial class PawnEditor
         Widgets.DrawBox(rect);
         GUI.color = Color.white;
         GUI.DrawTexture(rect, Command.BGTex);
-        GUI.DrawTexture(rect, image);
+        if (image != null)
+            GUI.DrawTexture(rect, image);
         if (Widgets.ButtonImage(rect.ContractedBy(8).RightPartPixels(16).TopPartPixels(16), TexUI.RotRightTex))
             curRot.Rotate(RotationDirection.Counterclockwise);
 
