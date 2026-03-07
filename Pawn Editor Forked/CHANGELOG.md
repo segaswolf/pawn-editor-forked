@@ -1,5 +1,20 @@
 # Changelog
 
+## v3d7 - work in progress
+
+### New features
+- Blueprint save/load system fully expanded (relations, work priorities, inventory, royal titles, records, mod list)
+- Pawn duplication with full appearance, gear, and faction copy
+- Facial Animations mod compatibility (face type, eyeball color, brow, lid, mouth, skin, head controllers)
+
+### Fixes
+
+- **Faction leader not restored after blueprint replace** (`PawnEditorUI.cs`): When replacing an NPC faction leader via blueprint, the faction now correctly keeps the new pawn as its leader instead of going leaderless.
+- **VE Hussar Giant gene visual offset not applied on load** (`LeftPanel.cs`, `PawnEditorUI.cs`): Gene `PostAdd()` runs before the pawn is spawned, so the renderer is unavailable. Portrait cache and texture atlas are now explicitly invalidated after spawn, so size/draw offsets apply correctly without needing a reload or re-applying the xenotype.
+- **ListingMenu_Items crash on open** (`ListingMenu_Items.cs`): `TypeInitializationException` caused by mods with null `ThingDef` or `StyleDef` entries in `StyleCategoryDef.thingDefStyles`. Added null guards throughout.
+- **Facial Animations face data lost after finalize** (`FacialAnimCompat.cs`): FA Genetic Heads overrides head visuals during `SetAllGraphicsDirty`. FA data is now re-applied after finalize.
+
+
 ## v2.1 - 2026-02-17
 
 All fixes below are applied to the community fork.

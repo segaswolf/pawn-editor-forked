@@ -758,6 +758,10 @@ public static class PawnBlueprintSaveLoad
         }
         catch { }
 
+        // v3d7: Re-apply FA data AFTER finalize — FA Genetic Heads overrides
+        // head/eyes/brows during SetAllGraphicsDirty based on genes, so we force back
+        FacialAnimCompat.LoadFacialData(pawn, root);
+
         // Apply ideo certainty LAST (after all finalization that might reset it)
         if (ModsConfig.IdeologyActive && pawn.ideo != null)
         {

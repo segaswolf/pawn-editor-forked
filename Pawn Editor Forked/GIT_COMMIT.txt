@@ -1,0 +1,54 @@
+=== COMMIT MESSAGE ===
+
+fix: faction leader restore + giant gene offset + FA compat + items crash (v3d7)
+
+- FIX: Replacing an NPC faction leader via blueprint no longer leaves the
+  faction leaderless. Leader role is restored to the new pawn after replace.
+  (PawnEditorUI.cs)
+
+- FIX: VE Hussar / Giant gene visual offset now applies correctly after
+  blueprint load or clone. PortraitsCache and GlobalTextureAtlasManager
+  invalidated post-spawn so draw offsets register without a reload.
+  (LeftPanel.cs, PawnEditorUI.cs)
+
+- FIX: Facial Animations face data (face type, eye color, brow, lid, mouth)
+  preserved after finalize. FA data re-applied after SetAllGraphicsDirty
+  to survive FA Genetic Heads override. (FacialAnimCompat.cs — in zip)
+
+- FIX: ListingMenu_Items TypeInitializationException from mods with null
+  ThingDef or StyleDef in StyleCategoryDef.thingDefStyles. (in zip)
+
+- ADD: Blueprint save/load expanded — relations, work priorities, inventory,
+  royal titles, records, mod list with full CopyDup support.
+
+- ADD: Hotkey picker in settings with Scribe persistence.
+
+=== TAG ===
+
+git tag v3d7
+git push origin main --tags
+
+=== RELEASE TITLE ===
+
+v3d7 — FA compatibility, faction leader fix, giant gene offset, blueprint expansion
+
+=== RELEASE NOTES ===
+
+## What's new in v3d7
+
+### ✅ Facial Animations compatibility
+Face type, eyeball color, brow, lid, mouth, skin, and head controllers all copy correctly on duplicate and blueprint load. FA Genetic Heads timing issue fixed — face data survives the SetAllGraphicsDirty override.
+
+### ✅ Bug fixes
+- **Faction leaderless bug**: Replacing an NPC faction leader via blueprint now correctly assigns the new pawn as leader
+- **Giant gene visual offset** (VE Hussar / VFE-Deserters): Draw offset applies immediately after load — no need to reload or re-apply the xenotype
+- **ListingMenu_Items crash**: TypeInitializationException from mods with null style entries now handled gracefully
+
+### ✅ Blueprint system expanded
+Save/load now covers: relations, work priorities, inventory, royal titles, records, and active mod list. Full CopyDup support for all new modules.
+
+### ✅ Hotkey picker
+Custom editor hotkey in mod settings, persists across sessions.
+
+---
+If you reported the faction leader or giant gene issues, please confirm in the issue thread whether this release resolves it. 🙏

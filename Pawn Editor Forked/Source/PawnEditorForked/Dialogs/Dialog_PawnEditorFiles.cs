@@ -54,6 +54,10 @@ public abstract class Dialog_PawnEditorFiles : Dialog_FileList
                     Find.WindowStack.Add(new Dialog_Confirm("ConfirmDelete".Translate(localFile.Name), "ConfirmDelete" + type, delegate
                     {
                         localFile.Delete();
+                        // v3d7: Also delete the portrait PNG saved alongside the XML
+                        var pngPath = Path.ChangeExtension(localFile.FullName, ".png");
+                        if (File.Exists(pngPath))
+                            File.Delete(pngPath);
                         ReloadFiles();
                     }, true));
                 }

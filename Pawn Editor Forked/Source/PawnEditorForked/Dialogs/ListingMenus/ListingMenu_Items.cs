@@ -38,24 +38,30 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
     static ListingMenu_Items()
     {
         foreach (var styleCategoryDef in DefDatabase<StyleCategoryDef>.AllDefs)
-        foreach (var thingDefStyle in styleCategoryDef.thingDefStyles) // A list of thing defs and their style def to apply.
         {
-            if (ThingStyles.Select(ts => ts.ThingDef).Contains(thingDefStyle.ThingDef))
+            if (styleCategoryDef?.thingDefStyles == null) continue;
+            foreach (var thingDefStyle in styleCategoryDef.thingDefStyles)
             {
-                // If the def already exists in the list, add the style to the existing list.
-                ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.thingDef).StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
-                continue;
-            }
+                // Skip entries with null ThingDef or StyleDef — can happen with broken/partial mod defs
+                if (thingDefStyle == null || thingDefStyle.ThingDef == null || thingDefStyle.StyleDef == null) continue;
 
-            
-            ThingStyles.Add(new()
-            {
-                ThingDef = thingDefStyle.ThingDef,
-                StyleDefs = new()
+                if (ThingStyles.Select(ts => ts.ThingDef).Contains(thingDefStyle.ThingDef))
                 {
-                    { thingDefStyle.styleDef, styleCategoryDef }
+                    // If the def already exists in the list, add the style to the existing list.
+                    ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.thingDef)
+                               .StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
+                    continue;
                 }
-            });
+
+                ThingStyles.Add(new()
+                {
+                    ThingDef = thingDefStyle.ThingDef,
+                    StyleDefs = new()
+                    {
+                        { thingDefStyle.styleDef, styleCategoryDef }
+                    }
+                });
+            }
         }
 
         MakeItemLists();
@@ -257,16 +263,23 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
 
     private static void MakeItemLists()
     {
-        apparel = DefDatabase<ThingDef>.AllDefs.Where(td => td.IsApparel && td.apparel.developmentalStageFilter.Has(DevelopmentalStage.Adult)).ToList();
-        kidApparel = DefDatabase<ThingDef>.AllDefs.Where(td => td.IsApparel && td.apparel.developmentalStageFilter.Has(DevelopmentalStage.Child)).ToList();
-        equipment = DefDatabase<ThingDef>.AllDefs.Where(td => td.equipmentType == EquipmentType.Primary).ToList();
-        items = DefDatabase<ThingDef>.AllDefs.Where(td => td.category == ThingCategory.Item).ToList();
+        apparel = DefDatabase<ThingDef>.AllDefs
+            .Where(td => td != null && td.IsApparel && td.apparel != null
+                && td.apparel.developmentalStageFilter.Has(DevelopmentalStage.Adult)).ToList();
+        kidApparel = DefDatabase<ThingDef>.AllDefs
+            .Where(td => td != null && td.IsApparel && td.apparel != null
+                && td.apparel.developmentalStageFilter.Has(DevelopmentalStage.Child)).ToList();
+        equipment = DefDatabase<ThingDef>.AllDefs
+            .Where(td => td != null && td.equipmentType == EquipmentType.Primary).ToList();
+        items = DefDatabase<ThingDef>.AllDefs
+            .Where(td => td != null && td.category == ThingCategory.Item).ToList();
         starting = DefDatabase<ThingDef>.AllDefs.Where(td =>
-                (td.category == ThingCategory.Item && td.scatterableOnMapGen && !td.destroyOnDrop) || (td.category == ThingCategory.Building && td.Minifiable)
-                                                                                                   || (td.category == ThingCategory.Building
-                                                                                                       && td.scatterableOnMapGen))
+                td != null &&
+                ((td.category == ThingCategory.Item && td.scatterableOnMapGen && !td.destroyOnDrop)
+                || (td.category == ThingCategory.Building && td.Minifiable)
+                || (td.category == ThingCategory.Building && td.scatterableOnMapGen)))
             .ToList();
-        all = DefDatabase<ThingDef>.AllDefs.ToList();
+        all = DefDatabase<ThingDef>.AllDefs.Where(td => td != null).ToList();
     }
 
     private static List<ThingDef> GetItemList(ItemType itemType2, Pawn pawn = null)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using PawnEditor.Utils;
@@ -329,6 +329,11 @@ public static partial class PawnEditor
                         {
                             addedPawn.Notify_Teleported();
                             EnsurePawnGraphicsInitialized(addedPawn);
+                            // FIX: VE Hussar Giant gene offset — genes run PostAdd before spawn
+                            // so the renderer is null. Invalidate all caches post-spawn so the
+                            // visual offset applies correctly without needing a reload.
+                            try { PortraitsCache.SetDirty(addedPawn); } catch { }
+                            try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(addedPawn); } catch { }
                         }
                         catch
                         {

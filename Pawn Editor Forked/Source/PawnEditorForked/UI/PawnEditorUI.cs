@@ -248,6 +248,9 @@ public static partial class PawnEditor
                 try { stableClone.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
                 try { PortraitsCache.SetDirty(stableClone); } catch { }
                 try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(stableClone); } catch { }
+                // v3d7: Re-apply FA data — SetAllGraphicsDirty triggers FA Genetic Heads
+                // which overrides face shape, so we force it back from the source pawn
+                FacialAnimCompat.CopyFacialData(selectedPawn, stableClone);
                 NotifyColonistBarsDirty();
                 try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
             });
@@ -273,6 +276,11 @@ public static partial class PawnEditor
                 }
 
                 var oldPawn = selectedPawn; // Capture reference before async callback
+
+                // FIX: Capture faction leadership before replace so we can restore it
+                var leaderFaction = (!Pregame && originalFaction != null && originalFaction.leader == oldPawn)
+                    ? originalFaction
+                    : null;
 
                 BlueprintLoadUtility.LoadPawnBlueprintReplace(oldPawn, selectedCategory.ToString(), newPawn =>
                 {
@@ -312,10 +320,20 @@ public static partial class PawnEditor
                         if (!Pregame && originalFaction != null && newPawn.Faction != originalFaction)
                             newPawn.SetFaction(originalFaction);
 
+                        // FIX: Restore faction leadership if old pawn was a leader
+                        if (leaderFaction != null)
+                        {
+                            leaderFaction.leader = newPawn;
+                            Log.Message($"[Pawn Editor] Restored faction leader: {newPawn.LabelShort} \u2192 {leaderFaction.Name}");
+                        }
+
                         // Full UI refresh (prevents TacticalGroups and similar mods from crashing)
                         selectedPawn = newPawn;
                         try { EnsurePawnGraphicsInitialized(newPawn); } catch { }
                         try { newPawn.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
+                        // FIX: VE Hussar Giant gene offset — invalidate portrait/atlas caches post-spawn
+                        try { PortraitsCache.SetDirty(newPawn); } catch { }
+                        try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(newPawn); } catch { }
                         try { newPawn.Notify_DisabledWorkTypesChanged(); } catch { }
                         NotifyColonistBarsDirty();
                         try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
