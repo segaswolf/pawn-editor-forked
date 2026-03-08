@@ -76,7 +76,7 @@ public static class RelationUtilities
                     ? "PawnEditor.MustBeOneEachGender".Translate()
                     : new SuccessInfo(() =>
                     {
-                        Log.Message("3: " + list.ToStringSafeEnumerable() + " - pawn: " + pawn + " - otherPawn: " + otherPawn); ;
+
                         if (list.Count >= 1)
                         {
                             pawn.SetParent(list[0]);

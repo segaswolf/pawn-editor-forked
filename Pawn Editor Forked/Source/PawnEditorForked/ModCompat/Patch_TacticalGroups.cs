@@ -64,7 +64,7 @@ public static class Patch_TacticalGroups
                     harmony.Patch(colonistBarPrefix,
                         finalizer: new HarmonyMethod(typeof(Patch_TacticalGroups),
                             nameof(Finalizer_SwallowAndLog)));
-                    Log.Message("[Pawn Editor] TacticalGroups HarmonyPatches.ColonistBarOnGUI finalizer applied.");
+                    Log.Message("[Pawn Editor] TacticalGroups HarmonyPatches.ColonistBarOnGUI finalizer applied.");  // startup — once only, intentional
                 }
             }
 
@@ -83,7 +83,7 @@ public static class Patch_TacticalGroups
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
         if (method == null)
         {
-            Log.Message($"[Pawn Editor] TacticalGroups.{methodName} not found, skipping patch.");
+            Log.Warning($"[Pawn Editor] TacticalGroups.{methodName} not found, skipping patch.");
             return;
         }
 

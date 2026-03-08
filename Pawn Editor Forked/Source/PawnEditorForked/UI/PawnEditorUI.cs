@@ -277,11 +277,6 @@ public static partial class PawnEditor
 
                 var oldPawn = selectedPawn; // Capture reference before async callback
 
-                // FIX: Capture faction leadership before replace so we can restore it
-                var leaderFaction = (!Pregame && originalFaction != null && originalFaction.leader == oldPawn)
-                    ? originalFaction
-                    : null;
-
                 BlueprintLoadUtility.LoadPawnBlueprintReplace(oldPawn, selectedCategory.ToString(), newPawn =>
                 {
                     LongEventHandler.ExecuteWhenFinished(() =>
@@ -304,13 +299,14 @@ public static partial class PawnEditor
                             if (!Pregame && Find.WorldPawns != null)
                                 Find.WorldPawns.RemoveAndDiscardPawnViaGC(oldPawn);
                         }
-                        catch { }
+                        catch (Exception ex) { Log.Warning($"[Pawn Editor] RemoveAndDiscardPawnViaGC: {ex.Message}"); }
 
                         // Place new pawn
                         if (map != null)
                         {
                             GenSpawn.Spawn(newPawn, pos, map, rot, WipeMode.VanishOrMoveAside, true);
-                            try { newPawn.Notify_Teleported(); } catch { }
+                            try { newPawn.Notify_Teleported(); }
+                            catch (Exception ex) { Log.Warning($"[Pawn Editor] Notify_Teleported: {ex.Message}"); }
                         }
                         else if (parent != null)
                         {
@@ -320,20 +316,10 @@ public static partial class PawnEditor
                         if (!Pregame && originalFaction != null && newPawn.Faction != originalFaction)
                             newPawn.SetFaction(originalFaction);
 
-                        // FIX: Restore faction leadership if old pawn was a leader
-                        if (leaderFaction != null)
-                        {
-                            leaderFaction.leader = newPawn;
-                            Log.Message($"[Pawn Editor] Restored faction leader: {newPawn.LabelShort} \u2192 {leaderFaction.Name}");
-                        }
-
                         // Full UI refresh (prevents TacticalGroups and similar mods from crashing)
                         selectedPawn = newPawn;
                         try { EnsurePawnGraphicsInitialized(newPawn); } catch { }
                         try { newPawn.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
-                        // FIX: VE Hussar Giant gene offset — invalidate portrait/atlas caches post-spawn
-                        try { PortraitsCache.SetDirty(newPawn); } catch { }
-                        try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(newPawn); } catch { }
                         try { newPawn.Notify_DisabledWorkTypesChanged(); } catch { }
                         NotifyColonistBarsDirty();
                         try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }

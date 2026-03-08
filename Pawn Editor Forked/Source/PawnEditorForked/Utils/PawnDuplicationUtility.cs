@@ -181,7 +181,7 @@ public static partial class PawnEditor
                     newPawn.ideo.SetIdeo(source.Ideo);
                 newPawn.ideo.certaintyInt = source.ideo.Certainty;
             }
-            catch { }
+            catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup ideo certainty: {ex.Message}"); }
         }
 
         // Clones keep the same name as the original (vanilla Obelisk behavior)
@@ -297,7 +297,7 @@ public static partial class PawnEditor
             PortraitsCache.SetDirty(dst);
             GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(dst);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup graphics refresh (appearance): {ex.Message}"); }
     }
 
     private static void CopyDup_Style(Pawn src, Pawn dst)
@@ -318,7 +318,7 @@ public static partial class PawnEditor
             PortraitsCache.SetDirty(dst);
             GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(dst);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup graphics refresh (style): {ex.Message}"); }
     }
 
     private static void CopyDup_Skills(Pawn src, Pawn dst)
@@ -376,7 +376,7 @@ public static partial class PawnEditor
             if (hediff is Hediff_AddedPart && !hediff.def.organicAddedBodypart && hediff.Part != null)
             {
                 try { dst.health.RestorePart(hediff.Part, null, checkStateChange: false); }
-                catch { /* body part mismatch — safe to skip */ }
+                catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] RestorePart mismatch (safe): {ex.Message}"); }
             }
         }
     }
@@ -421,7 +421,7 @@ public static partial class PawnEditor
                         copy.pawn = dst;
                         dstMemories.Add(copy);
                     }
-                    catch { /* thought may reference invalid context — skip */ }
+                    catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] CopyDup thought memory (safe): {ex.Message}"); }
                 }
             }
         }
@@ -489,7 +489,7 @@ public static partial class PawnEditor
                         if (srcColorComp != null && dstColorComp != null && srcColorComp.Active)
                             dstColorComp.SetColor(srcColorComp.Color);
                     }
-                    catch { }
+                    catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup apparel color: {ex.Message}"); }
                     dst.apparel.Wear(copy, dropReplacedApparel: false, locked: src.apparel.IsLocked(worn));
                 }
                 catch (Exception ex)
@@ -541,7 +541,7 @@ public static partial class PawnEditor
             var duplicateOfField = tracker == null ? null : AccessTools.Field(tracker.GetType(), "duplicateOf");
             duplicateOfField?.SetValue(tracker, int.MinValue);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] ClearDuplicateTracker: {ex.Message}"); }
 
         // Remove DuplicateSickness hediff if present
         try
@@ -551,7 +551,7 @@ public static partial class PawnEditor
             if (sickness != null)
                 pawn.health.RemoveHediff(sickness);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] RemoveDuplicateSickness: {ex.Message}"); }
     }
 
     private static void FinalizeSpawnState(Pawn pawn)
@@ -564,7 +564,7 @@ public static partial class PawnEditor
         {
             EnsurePawnGraphicsInitialized(pawn);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] EnsurePawnGraphicsInitialized: {ex.Message}"); }
     }
 
     private static void EnsureUniqueCloneName(Pawn pawn)
@@ -602,22 +602,99 @@ public static partial class PawnEditor
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_WorkPriorities: {ex.Message}"); }
     }
 
-    // ── Copy: Social Relations ──
+    // ── Copy: Social Relations (hybrid) ──
+    //
+    // Three passes:
+    //   1. Establish src's direct relations on dst, bidirectionally (uses the def's Worker
+    //      so reflexive relations like Spouse/Lover are added on BOTH sides correctly).
+    //   2. Copy dst's social memories toward others (so dst's opinion values aren't 0).
+    //   3. Hybrid pass: for every OTHER pawn B that has memories ABOUT src, copy to dst
+    //      the ones that are POSITIVE (baseMoodEffect > 0). This gives the clone the
+    //      goodwill others had for the original, without inheriting bad history.
 
     private static void CopyDup_Relations(Pawn src, Pawn dst)
     {
         if (src.relations == null || dst.relations == null) return;
+
+        // ── Pass 1: Direct relation definitions — bidirectional via def.Worker ──
         try
         {
             foreach (var rel in src.relations.DirectRelations.ToList())
             {
                 if (rel.def == null || rel.otherPawn == null) continue;
-                if (rel.otherPawn == src) continue; // Don't create self-relation
+                if (rel.otherPawn == src) continue; // no self-relations
+                // Use the mod's extension method (RelationUtilities) so the Worker fires,
+                // OnRelationCreated runs, and reflexive relations are set on BOTH pawns.
                 if (!dst.relations.DirectRelationExists(rel.def, rel.otherPawn))
-                    dst.relations.AddDirectRelation(rel.def, rel.otherPawn);
+                    rel.def.AddDirectRelation(dst, rel.otherPawn);
             }
         }
-        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations: {ex.Message}"); }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations (direct): {ex.Message}"); }
+
+        // ── Pass 2: dst's own social memories toward others ──
+        try
+        {
+            var srcMems = src.needs?.mood?.thoughts?.memories;
+            var dstMems = dst.needs?.mood?.thoughts?.memories;
+            if (srcMems != null && dstMems != null)
+            {
+                foreach (var mem in srcMems.Memories.ToList())
+                {
+                    // ISocialThought is the RimWorld 1.6 interface for memories with an otherPawn
+                    if (!(mem is Thought_Memory memBase)) continue;
+                    if (!(mem is ISocialThought socialThought)) continue;
+                    var otherPawnRef = socialThought.OtherPawn();
+                    if (otherPawnRef == null || otherPawnRef == src) continue;
+                    if (memBase.def == null) continue;
+                    try
+                    {
+                        var newMem = ThoughtMaker.MakeThought(memBase.def, memBase.CurStageIndex) as Thought_Memory;
+                        if (newMem == null) continue;
+                        newMem.age = memBase.age;
+                        dstMems.TryGainMemory(newMem, otherPawnRef);
+                    }
+                    catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] CopyDup own memory skip: {ex.Message}"); }
+                }
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations (own memories): {ex.Message}"); }
+
+        // ── Pass 3: Hybrid — transfer positive memories OTHER pawns have about src → dst ──
+        // Logic: the clone inherits goodwill, but not grudges or bad history.
+        //   baseMoodEffect > 0  → copy (love, admiration, shared good moments)
+        //   baseMoodEffect <= 0 → skip (fights, betrayals — the clone never did those)
+        try
+        {
+            var allPawns = PawnBlueprintSaveLoad.GetAllReachablePawnsPublic();
+            foreach (var other in allPawns)
+            {
+                if (other == src || other == dst) continue;
+                var otherMems = other.needs?.mood?.thoughts?.memories;
+                if (otherMems == null) continue;
+
+                foreach (var mem in otherMems.Memories.ToList())
+                {
+                    if (!(mem is Thought_Memory memBase)) continue;
+                    if (!(mem is ISocialThought socialThought)) continue;
+                    if (socialThought.OtherPawn() != src) continue; // only memories ABOUT src
+                    if (memBase.def == null) continue;
+
+                    // Hybrid filter: only positive feelings transfer to the clone
+                    var stage = memBase.CurStage;
+                    if (stage == null || stage.baseMoodEffect <= 0) continue;
+
+                    try
+                    {
+                        var newMem = ThoughtMaker.MakeThought(memBase.def, memBase.CurStageIndex) as Thought_Memory;
+                        if (newMem == null) continue;
+                        newMem.age = memBase.age;
+                        otherMems.TryGainMemory(newMem, dst);
+                    }
+                    catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] CopyDup hybrid memory skip: {ex.Message}"); }
+                }
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations (hybrid pass): {ex.Message}"); }
     }
 
     // ── Copy: Royal Titles (Royalty DLC) ──
@@ -690,7 +767,7 @@ public static partial class PawnEditor
                         dstQ.SetQuality(srcQ.Quality, ArtGenerationContext.Outsider);
                     dst.inventory.innerContainer.TryAdd(copy);
                 }
-                catch { }
+                catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] CopyDup inventory item: {ex.Message}"); }
             }
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Inventory: {ex.Message}"); }

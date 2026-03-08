@@ -65,7 +65,7 @@ public static class PawnBlueprintSaveLoad
 
         // Save portrait alongside
         try { PawnEditor.SavePawnTex(pawn, Path.ChangeExtension(filePath, ".png"), Rot4.South); }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] SavePawnTex portrait: {ex.Message}"); }
     }
 
     // ── Save: Identity ──
@@ -378,6 +378,9 @@ public static class PawnBlueprintSaveLoad
             foreach (var rel in directRelations)
             {
                 if (rel.def == null || rel.otherPawn == null) continue;
+                // Skip self-referential relations — they can't be meaningfully restored
+                // on a replacement pawn (ThingID changes) and cause load errors
+                if (rel.otherPawn == pawn) continue;
                 w.WriteStartElement("li");
                 WriteDefWithSource(w, "def", rel.def);
                 // Save the other pawn's name and ID for matching on load
@@ -397,6 +400,44 @@ public static class PawnBlueprintSaveLoad
             w.WriteEndElement();
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRelations: {ex.Message}"); }
+
+        // ── Save social memories (opinion values) ──
+        try
+        {
+            var memories = pawn.needs?.mood?.thoughts?.memories?.Memories;
+            if (memories == null) return;
+
+            // ISocialThought is the RimWorld 1.6 interface for memories with an otherPawn
+            var socialMems = memories
+                .Where(m => m is ISocialThought st && m.def != null
+                         && st.OtherPawn() != null && st.OtherPawn() != pawn)
+                .Cast<Thought_Memory>()
+                .ToList();
+            if (socialMems.Count == 0) return;
+
+            w.WriteStartElement("socialMemories");
+            foreach (var mem in socialMems)
+            {
+                var otherPawnRef = ((ISocialThought)mem).OtherPawn();
+                try
+                {
+                    w.WriteStartElement("li");
+                    WriteDefWithSource(w, "def", mem.def);
+                    w.WriteElementString("stageIndex", mem.CurStageIndex.ToString());
+                    w.WriteElementString("age", mem.age.ToString());
+                    w.WriteElementString("otherPawnID", otherPawnRef.ThingID ?? "");
+                    if (otherPawnRef.Name is NameTriple nt2)
+                    {
+                        w.WriteElementString("otherPawnFirst", nt2.First ?? "");
+                        w.WriteElementString("otherPawnLast", nt2.Last ?? "");
+                    }
+                    w.WriteEndElement();
+                }
+                catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] WriteRelations memory skip: {ex.Message}"); }
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRelations (memories): {ex.Message}"); }
     }
 
     // ── Save: Work Priorities ──
@@ -742,7 +783,7 @@ public static class PawnBlueprintSaveLoad
             PortraitsCache.SetDirty(pawn);
             GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadAppearance graphics refresh: {ex.Message}"); }
 
         // v3d7: Re-apply headType AFTER graphics refresh — genes and Facial Animations
         // can override head visuals during SetAllGraphicsDirty, so we force it back
@@ -756,7 +797,7 @@ public static class PawnBlueprintSaveLoad
                 PortraitsCache.SetDirty(pawn);
             }
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadStyle graphics refresh: {ex.Message}"); }
 
         // v3d7: Re-apply FA data AFTER finalize — FA Genetic Heads overrides
         // head/eyes/brows during SetAllGraphicsDirty based on genes, so we force back
@@ -860,7 +901,7 @@ public static class PawnBlueprintSaveLoad
                 PortraitsCache.SetDirty(pawn);
                 GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
             }
-            catch { }
+            catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadAppearance inner graphics refresh: {ex.Message}"); }
         }
         catch (Exception ex) { Warn($"Appearance: {ex.Message}"); }
     }
@@ -894,7 +935,7 @@ public static class PawnBlueprintSaveLoad
                 PortraitsCache.SetDirty(pawn);
                 GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
             }
-            catch { }
+            catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadStyle inner graphics refresh: {ex.Message}"); }
         }
         catch (Exception ex) { Warn($"Style: {ex.Message}"); }
     }
@@ -1244,63 +1285,124 @@ public static class PawnBlueprintSaveLoad
     private static void LoadRelations(Pawn pawn, XmlNode root)
     {
         if (pawn.relations == null) return;
+
+        // Cache once — avoids iterating all maps/world pawns multiple times per load
+        var allPawns = GetAllReachablePawns();
+
         var relationsNode = root.SelectSingleNode("relations");
-        if (relationsNode == null) return;
+        if (relationsNode != null)
+        {
+            try
+            {
+
+                foreach (XmlNode li in relationsNode.SelectNodes("li"))
+                {
+                    var relDef = ResolveDef<PawnRelationDef>(li, "def");
+                    if (relDef == null) continue;
+
+                    var otherPawnID = GetText(li, "otherPawnID");
+                    var otherFirst  = GetText(li, "otherPawnFirst");
+                    var otherNick   = GetText(li, "otherPawnNick");
+                    var otherLast   = GetText(li, "otherPawnLast");
+                    var otherName   = GetText(li, "otherPawnName");
+
+                    // Self-pawn check: if the saved ID or name matches this pawn itself,
+                    // skip — self-relations aren't meaningful after a blueprint replace
+                    // (the original ThingID is gone; matching by name would create a self-loop)
+                    bool isSelf = (!otherPawnID.NullOrEmpty() && otherPawnID == pawn.ThingID)
+                                  || (!otherFirst.NullOrEmpty() && !otherLast.NullOrEmpty()
+                                      && pawn.Name is NameTriple selfNt
+                                      && selfNt.First == otherFirst && selfNt.Last == otherLast);
+                    if (isSelf) continue;
+
+                    Pawn otherPawn = null;
+
+                    if (!otherPawnID.NullOrEmpty())
+                        otherPawn = allPawns.FirstOrDefault(p => p != pawn && p.ThingID == otherPawnID);
+
+                    if (otherPawn == null && !otherFirst.NullOrEmpty())
+                        otherPawn = allPawns.FirstOrDefault(p =>
+                            p != pawn &&
+                            p.Name is NameTriple nt &&
+                            nt.First == otherFirst && nt.Last == otherLast);
+
+                    if (otherPawn == null && !otherName.NullOrEmpty())
+                        otherPawn = allPawns.FirstOrDefault(p =>
+                            p != pawn && p.Name?.ToStringFull == otherName);
+
+                    if (otherPawn == null)
+                    {
+                        Warn($"Relation '{relDef.defName}': could not find other pawn '{otherFirst} {otherLast}'");
+                        continue;
+                    }
+
+                    if (!pawn.relations.DirectRelationExists(relDef, otherPawn))
+                        pawn.relations.AddDirectRelation(relDef, otherPawn);
+                }
+            }
+            catch (Exception ex) { Warn($"Relations: {ex.Message}"); }
+        }
+
+        // ── Load social memories (opinion values) ──
+        var memNode = root.SelectSingleNode("socialMemories");
+        if (memNode == null) return;
+
+        var dstMems = pawn.needs?.mood?.thoughts?.memories;
+        if (dstMems == null) return;
 
         try
         {
-            foreach (XmlNode li in relationsNode.SelectNodes("li"))
+            foreach (XmlNode li in memNode.SelectNodes("li"))
             {
-                var relDef = ResolveDef<PawnRelationDef>(li, "def");
-                if (relDef == null) continue;
-
-                // Try to find the other pawn by ID first, then by name
-                var otherPawnID = GetText(li, "otherPawnID");
-                var otherFirst = GetText(li, "otherPawnFirst");
-                var otherNick = GetText(li, "otherPawnNick");
-                var otherLast = GetText(li, "otherPawnLast");
-                var otherName = GetText(li, "otherPawnName");
-
-                Pawn otherPawn = null;
-
-                // Search among all reachable pawns
-                var allPawns = GetAllReachablePawns();
-                if (!otherPawnID.NullOrEmpty())
-                    otherPawn = allPawns.FirstOrDefault(p => p.ThingID == otherPawnID);
-
-                // Fallback: match by name
-                if (otherPawn == null && !otherFirst.NullOrEmpty())
+                try
                 {
-                    otherPawn = allPawns.FirstOrDefault(p =>
-                        p.Name is NameTriple nt &&
-                        nt.First == otherFirst && nt.Last == otherLast);
-                }
+                    var def = ResolveDef<ThoughtDef>(li, "def");
+                    if (def == null) continue;
 
-                if (otherPawn == null && !otherName.NullOrEmpty())
-                {
-                    otherPawn = allPawns.FirstOrDefault(p =>
-                        p.Name?.ToStringFull == otherName);
-                }
+                    var otherPawnID    = GetText(li, "otherPawnID");
+                    var otherFirst     = GetText(li, "otherPawnFirst");
+                    var otherLast      = GetText(li, "otherPawnLast");
+                    int.TryParse(GetText(li, "stageIndex"), out int stageIndex);
+                    int.TryParse(GetText(li, "age"),        out int age);
 
-                if (otherPawn == null)
-                {
-                    Warn($"Relation '{relDef.defName}': could not find other pawn '{otherFirst} {otherLast}'");
-                    continue;
-                }
+                    // Self-pawn check
+                    bool isSelf = (!otherPawnID.NullOrEmpty() && otherPawnID == pawn.ThingID)
+                                  || (!otherFirst.NullOrEmpty() && !otherLast.NullOrEmpty()
+                                      && pawn.Name is NameTriple selfNt
+                                      && selfNt.First == otherFirst && selfNt.Last == otherLast);
+                    if (isSelf) continue;
 
-                // Don't add duplicate relations
-                if (!pawn.relations.DirectRelationExists(relDef, otherPawn))
-                {
-                    pawn.relations.AddDirectRelation(relDef, otherPawn);
+                    Pawn otherPawn = null;
+                    if (!otherPawnID.NullOrEmpty())
+                        otherPawn = allPawns.FirstOrDefault(p => p != pawn && p.ThingID == otherPawnID);
+                    if (otherPawn == null && !otherFirst.NullOrEmpty())
+                        otherPawn = allPawns.FirstOrDefault(p =>
+                            p != pawn &&
+                            p.Name is NameTriple nt &&
+                            nt.First == otherFirst && nt.Last == otherLast);
+                    if (otherPawn == null) continue;
+
+                    var newMem = ThoughtMaker.MakeThought(def, stageIndex) as Thought_Memory;
+                    if (newMem == null || !(newMem is ISocialThought)) continue;
+                    newMem.age = age;
+                    // TryGainMemory with otherPawn calls InitSocialThought internally
+                    dstMems.TryGainMemory(newMem, otherPawn);
                 }
+                catch (Exception ex) { if (Verse.Prefs.DevMode) Log.Warning($"[Pawn Editor] LoadRelations memory skip: {ex.Message}"); }
             }
         }
-        catch (Exception ex) { Warn($"Relations: {ex.Message}"); }
+        catch (Exception ex) { Warn($"SocialMemories: {ex.Message}"); }
+        // Note: for blueprint load the pawn IS the same object in memory, so third-party
+        // memories already point to it correctly. No hybrid pass needed here — that's
+        // only required for CopyDup (clone) where a brand-new pawn object is created.
     }
 
     /// <summary>
     /// Collects all pawns that might be relation targets — starting pawns, world pawns, map pawns.
     /// </summary>
+    // internal so PawnDuplicationUtility can reuse it for the hybrid social pass
+    internal static List<Pawn> GetAllReachablePawnsPublic() => GetAllReachablePawns();
+
     private static List<Pawn> GetAllReachablePawns()
     {
         var result = new List<Pawn>();
@@ -1324,7 +1426,7 @@ public static class PawnBlueprintSaveLoad
             if (Find.World?.worldPawns?.AllPawnsAliveOrDead != null)
                 result.AddRange(Find.World.worldPawns.AllPawnsAliveOrDead);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] GetAllReachablePawns: {ex.Message}"); }
         return result.Distinct().ToList();
     }
 
@@ -1637,7 +1739,7 @@ public static class PawnBlueprintSaveLoad
                     return reader.Name == "PawnBlueprint";
             }
         }
-        catch { }
+        catch { } // Format check — failure means it's not a blueprint, safe to swallow
         return false;
     }
 }

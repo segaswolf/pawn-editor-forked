@@ -51,7 +51,7 @@ public class PawnEditorMod : Mod
                     name ??= (string)method?.Invoke(null, Array.Empty<object>());
                     field = AccessTools.Field(type, "Name");
                     name ??= (string)field?.GetValue(null);
-                    if (name != null) Log.Message($"[Pawn Editor] {name} compatibility active.");
+                    if (name != null && Prefs.DevMode) Log.Message($"[Pawn Editor] {name} compatibility active.");
                 }
 
             Settings = GetSettings<PawnEditorSettings>();

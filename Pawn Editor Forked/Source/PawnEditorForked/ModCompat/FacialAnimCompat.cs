@@ -64,8 +64,9 @@ public static class FacialAnimCompat
         skinTypeDef = AccessTools.TypeByName("FacialAnimation.SkinTypeDef");
         faHeadTypeDef = AccessTools.TypeByName("FacialAnimation.HeadTypeDef");
 
-        Log.Message($"[Pawn Editor] FA controllers: eye={eyeballControllerType?.Name ?? "?"}, " +
-            $"head={headControllerType?.Name ?? "?"}, draw={drawFaceCompType?.Name ?? "?"}");
+        if (Verse.Prefs.DevMode)
+            Log.Message($"[Pawn Editor] FA controllers: eye={eyeballControllerType?.Name ?? "?"}, " +
+                $"head={headControllerType?.Name ?? "?"}, draw={drawFaceCompType?.Name ?? "?"}");
     }
 
     private static Type[] ControllerTypes =>
@@ -91,7 +92,7 @@ public static class FacialAnimCompat
                 if (compType.IsInstanceOfType(comp))
                     return comp;
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] FA FindComp({compType?.Name}): {ex.Message}"); }
         return null;
     }
 
@@ -115,7 +116,7 @@ public static class FacialAnimCompat
                 type = type.BaseType;
             }
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] FA GetCurrentType: {ex.Message}"); }
         return null;
     }
 
@@ -161,7 +162,7 @@ public static class FacialAnimCompat
             var field = AccessTools.Field(comp.GetType(), "faceType");
             if (field != null) return field.GetValue(comp) as Def;
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] FA GetFaceType: {ex.Message}"); }
         return null;
     }
 
@@ -208,7 +209,7 @@ public static class FacialAnimCompat
                 type = type.BaseType;
             }
         }
-        catch { }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] FA GetEyeballColor: {ex.Message}"); }
         return null;
     }
 
@@ -261,7 +262,8 @@ public static class FacialAnimCompat
                 faComps.Append($" [{typeName}]");
         }
         if (faComps.Length > 0)
-            Log.Message($"[Pawn Editor] FA comps on {pawn.LabelShort}:{faComps}");
+            if (Verse.Prefs.DevMode)
+                Log.Message($"[Pawn Editor] FA comps on {pawn.LabelShort}:{faComps}");
         else
             Log.Warning($"[Pawn Editor] FA: No face-related comps found on {pawn.LabelShort}. Total comps: {pawn.AllComps.Count}");
 
@@ -282,7 +284,8 @@ public static class FacialAnimCompat
             }
         }
         if (foundComps.Length > 0)
-            Log.Message($"[Pawn Editor] FA data:{foundComps}");
+            if (Verse.Prefs.DevMode)
+                Log.Message($"[Pawn Editor] FA data:{foundComps}");
         else
             Log.Warning($"[Pawn Editor] FA: No controller comps found via FindComp");
 
