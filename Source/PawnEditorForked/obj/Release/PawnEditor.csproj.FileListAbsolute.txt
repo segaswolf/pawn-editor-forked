@@ -1,0 +1,7 @@
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.csproj.AssemblyReference.cache
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.GeneratedMSBuildEditorConfig.editorconfig
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.AssemblyInfoInputs.cache
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.AssemblyInfo.cs
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.csproj.CoreCompileInputs.cache
+C:\Git\Pawn Editor Forked\1.6\Assemblies\PawnEditor.dll
+C:\Git\Pawn Editor Forked\Source\PawnEditorForked\obj\Release\PawnEditor.dll

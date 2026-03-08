@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Pawn Editor Forked</name>
+  <author>Segas Wolf (Fork of ISOREX, legodude17, Taranchuk, TreadTheDawnGames, mycroftjr, Inglix, fofajardo)</author>
+  <supportedVersions>
+    <li>1.5</li>
+    <li>1.6</li>
+  </supportedVersions>
+  <packageId>segaswolf.pawneditor.fork</packageId>
+  <modVersion>2.1.0</modVersion>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+      <steamWorkshopUrl>https://steamcommunity.com/workshop/filedetails/?id=2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>Ludeon.RimWorld</li>
+    <li>Ludeon.RimWorld.Royalty</li>
+    <li>Ludeon.RimWorld.Ideology</li>
+    <li>Ludeon.RimWorld.Biotech</li>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+  <description>
+Pawn Editor - Community Fork maintained by Segas Wolf.
+
+Stability and compatibility fixes for RimWorld 1.6.
+Original mod created by ISOR3X / legodude17.
+
+v2.1.0 update:
+- Applied stability patch set (#001, #002, #004, #007, #008, #009, #010, #012, #018, #019).
+- Top-right button requires Dev Mode.
+- Selected pawn Edit gizmo requires Dev Mode + God Mode.
+- Social tab defaults to showing all relations on first open.
+  </description>
+
+  <modIconPath IgnoreIfNoMatchingField="True">ModIcon</modIconPath>
+</ModMetaData>

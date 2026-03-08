@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "mid60tF3kVw=",
+  "success": true,
+  "projectFilePath": "C:\\Git\\Pawn Editor Forked\\Source\\PawnEditorForked\\PawnEditor.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\SZWE\\.nuget\\packages\\krafs.publicizer\\2.3.0\\krafs.publicizer.2.3.0.nupkg.sha512",
+    "C:\\Users\\SZWE\\.nuget\\packages\\krafs.rimworld.ref\\1.6.4489-beta\\krafs.rimworld.ref.1.6.4489-beta.nupkg.sha512",
+    "C:\\Users\\SZWE\\.nuget\\packages\\lib.harmony\\2.3.3\\lib.harmony.2.3.3.nupkg.sha512"
+  ],
+  "logs": []
+}
