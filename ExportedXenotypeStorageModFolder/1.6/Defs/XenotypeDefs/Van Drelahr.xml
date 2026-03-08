@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <XenotypeDef>
+    <defName>GegeXT_VanDrelahr</defName>
+    <label>Van Drelahr</label>
+    <description>This xenotype was engineered to thrive in hostile worlds where most beings fail.
+Their bodies combine physical resilience, accelerated learning, and remarkable adaptability, the result of advanced archogenetic design focused on long-term survival rather than raw, short-term power.
+
+They possess sharpened senses, improved reflexes, and a mind inclined toward analysis, planning, and constant self-improvement. They are neither simple soldiers nor ordinary colonists; instead, they are meant to be the backbone of a colony, capable of learning quickly, working efficiently, and enduring extreme conditions without breaking easily.
+
+Despite their advantages, they are not emotionless constructs. They retain curiosity, emotional depth, and a strong instinct to protect what they consider their own—be it a community, a project, or an ideal. Their genetics favor intelligent cooperation and sustained growth, making them an ideal choice for ambitious colonies that seek to endure beyond a single generation.
+
+In the wrong hands, they can become an unrelenting force.
+In the right hands, they are the foundation of a civilization that refuses to disappear.</description>
+    <descriptionShort>Genetically enhanced humans designed for adaptability, rapid learning, and long-term survival in extreme environments.</descriptionShort>
+    <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_4</iconPath>
+    <inheritable>true</inheritable>
+    <genes>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_SelfRepairingTissue</li>
+      <li>Ageless</li>
+      <li>Deathless</li>
+      <li MayRequire="ebsg.archite">EBSG_MajorGeneticStreamlining</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_WarHowl</li>
+      <li MayRequire="vanillaracesexpanded.archon">VRE_SlowShooter</li>
+      <li MayRequire="det.halffoot">DV_Melee_Fast</li>
+      <li MayRequire="morebiotechstylegenes.mod">ToxResist_Weakness</li>
+      <li MayRequire="morebiotechstylegenes.mod">ToxEnviromentResist_Weakness</li>
+      <li MayRequire="morebiotechstylegenes.mod">MBSG_FireWeaknessMinor</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREH_BulletproofSkin</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteRobustness</li>
+      <li>TotalHealing</li>
+      <li>Immunity_Weak</li>
+      <li MayRequire="det.stoneborn">DV_MightyLiver</li>
+      <li MayRequire="vanillaracesexpanded.fungoid">VRE_PartialAntirotLungs</li>
+      <li MayRequire="vanillaracesexpanded.pigskin">VRE_FastAging</li>
+      <li MayRequire="sarg.alphagenes">AG_GeneInfectionImmunity</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_ProgressiveAttunement</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchitePsychicSensitivity</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREH_Unconstrained</li>
+      <li>Aggression_Aggressive</li>
+      <li MayRequire="sarg.alphagenes">AG_InnerPeace</li>
+      <li MayRequire="sarg.alphagenes">AG_Enforcer</li>
+      <li MayRequire="sarg.alphagenes">AG_ToughSinews</li>
+      <li>MinTemp_SmallDecrease</li>
+      <li>MaxTemp_SmallDecrease</li>
+      <li MayRequire="sarg.alphagenes">AG_HeatSlowness</li>
+      <li>RobustDigestion</li>
+      <li MayRequire="sarg.alphagenes">AG_EfficientMandibles</li>
+      <li MayRequire="sarg.alphagenes">AG_SurvivalInstinct_High</li>
+      <li MayRequire="ebsg.archite">EBSG_StrongArchiteMetabolism</li>
+      <li>Sleepy</li>
+      <li MayRequire="sarg.alphagenes">AG_Beauty_Angelic</li>
+      <li MayRequire="sarg.alphagenes">AG_Teratophilia</li>
+      <li MayRequire="morebiotechstylegenes.mod">Libido_SuperHigh</li>
+      <li MayRequire="sarg.alphagenes">AG_ReducedFertile</li>
+      <li MayRequire="sarg.alphagenes">AG_SlowGestation</li>
+      <li MayRequire="redmattis.bettergeneinheritance">BGI_PrimaryGenes</li>
+      <li MayRequire="sarg.alphagenes">AG_DecreasedMechRepair</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Tail_Wolf</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineTail</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineEars</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Ears_Wolf</li>
+      <li MayRequire="det.venators">DV_FacePlating</li>
+      <li>Voice_Human</li>
+      <li>VoiceRoar</li>
+      <li MayRequire="sarg.alphagenes">AG_NoAntennae</li>
+      <li MayRequire="sarg.alphagenes">AG_NoLowerAntennae</li>
+      <li MayRequire="sarg.alphagenes">AG_DrakonoriBody</li>
+      <li MayRequire="sarg.alphagenes">AG_Digitigrade</li>
+      <li>Body_Standard</li>
+      <li>Body_Hulk</li>
+      <li MayRequire="vanillaracesexpanded.pigskin">VRE_ExtraMeat</li>
+      <li MayRequire="sarg.alphagenes">AG_RatVomit</li>
+      <li MayRequire="vanillaracesexpanded.pigskin">VRE_Brave</li>
+      <li MayRequire="vanillaracesexpanded.starjack">VREStarjack_GravshipAffinity</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREH_Dutiful</li>
+      <li MayRequire="det.brawnum">DV_StrongBack</li>
+      <li MayRequire="sarg.alphagenes">AG_ChameleonVision</li>
+      <li MayRequire="sarg.alphagenes">AG_ForsakenBodyEmblem</li>
+      <li MayRequire="elsov.highborn">HBX_Manipulative</li>
+      <li>Hands_Human</li>
+      <li>ElongatedFingers</li>
+      <li MayRequire="vanillaracesexpanded.saurid">VRESaurids_SauridClaws</li>
+      <li>Furskin</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineNose</li>
+      <li MayRequire="ebsg.archite">EBSG_ArchiteLearning</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_SuperiorDodge</li>
+      <li>AptitudePoor_Shooting</li>
+      <li>AptitudePoor_Intellectual</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREHx_WeaponMaster</li>
+      <li MayRequire="hlx.ultratechalteredcarbon">AC_SleeveQuality_Legendary</li>
+    </genes>
+  </XenotypeDef>
+</Defs>

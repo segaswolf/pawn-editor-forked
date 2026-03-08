@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+    <name>Lycan Color Fix (Pawn Editor Compatible)</name>
+    <author>SegasWolf</author>
+    <packageId>segaswolf.lycancolorfix</packageId>
+    <supportedVersions>
+        <li>1.6</li>
+    </supportedVersions>
+    <modDependencies>
+        <li>
+            <packageId>OskarPotocki.VRE.Lycanthrope</packageId>
+            <displayName>Vanilla Races Expanded - Lycanthrope</displayName>
+        </li>
+    </modDependencies>
+    <loadAfter>
+        <li>OskarPotocki.VRE.Lycanthrope</li>
+        <li>OskarPotocki.VanillaFactionsExpanded.Core</li>
+    </loadAfter>
+    <description>Fixes Lycan color channels so body fur and tail follow skin color instead of hair color.
+
+[h2]What this changes:[/h2]
+- Chest fur: now follows [b]Skin[/b] color (was Hair)
+- Wolf tail: now follows [b]Skin[/b] color (was Hair)
+- Canine ears and nose: unchanged (already Skin)
+
+[h2]Result:[/h2]
+- Set skin color → face, body fur, tail, ears, nose all match
+- Set hair color → only hair changes
+- Compatible with Pawn Editor for full color customization
+
+[h2]Requires:[/h2]
+- Biotech DLC
+- Vanilla Races Expanded - Lycanthrope</description>
+</ModMetaData>

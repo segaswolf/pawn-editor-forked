@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <!-- Remove dangling pawnkind entries that reference missing Medieval Overhaul pawnkind -->
+  <Operation Class="PatchOperationRemove">
+    <xpath>Defs/FactionDef/pawnGroupMakers/li/options/DankPyon_Schrat_Plain</xpath>
+  </Operation>
+
+  <!-- Remove dangling style ref added by external patch when style def is missing -->
+  <Operation Class="PatchOperationRemove">
+    <xpath>Defs/StyleCategoryDef[defName="Ferny_Baby"]/thingDefStyles/li[styleDef="Ferny_PFK_MiniTable"]</xpath>
+  </Operation>
+</Patch>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Cross-Ref Stability Fix (Local)</name>
+  <author>Segas Wolf</author>
+  <packageId>localfix.crossref.stability</packageId>
+<supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <loadAfter>
+    <li>ferny.progressioncore</li>
+    <li>ferny.progressionaesthetics</li>
+    <li>ferny.progressionwarfare</li>
+    <li>GonDragon.TechTree</li>
+    <li>KidApparelExpanded.Goblins4Lyfe</li>
+    <li>koberiddle.betterarchitectmenu.tweaks</li>
+    <li>ferny.progressiontemporary</li>
+    <li>ferny.temporarypatches</li>
+    <li>vanillaexpanded.vfesecurity</li>
+    <li>ferny.progressioneducation</li>
+  </loadAfter>
+  <description>Consolidated local fallback defs to reduce cross-reference errors after patch packs remove categories/researches. Also includes a Medieval Fridge XML cleanup patch.</description>
+</ModMetaData>

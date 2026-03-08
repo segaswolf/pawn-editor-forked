@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!--  Chest Fur: change colorType from Hair to Skin         -->
+    <!--  So body fur follows skin color, not hair color        -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <Operation Class="PatchOperationReplace">
+        <xpath>/Defs/GeneDef[defName="VRE_ChestFur"]/renderNodeProperties/li[nodeClass="PawnRenderNode_Fur"]/colorType</xpath>
+        <value>
+            <colorType>Skin</colorType>
+        </value>
+    </Operation>
+
+    <!-- Remove VEF skin+hair blending for fur (no longer needed,   -->
+    <!-- fur should just follow skin color cleanly)                  -->
+    <Operation Class="PatchOperationRemove">
+        <success>Always</success>
+        <xpath>/Defs/GeneDef[defName="VRE_ChestFur"]/modExtensions/li[@Class="VEF.Genes.GeneExtension"]</xpath>
+    </Operation>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!--  Wolf Tail: change colorType from Hair to Skin         -->
+    <!--  So tail follows skin color, matching body fur         -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <Operation Class="PatchOperationReplace">
+        <xpath>/Defs/GeneDef[defName="VRE_CanineTail"]/renderNodeProperties/li/colorType</xpath>
+        <value>
+            <colorType>Skin</colorType>
+        </value>
+    </Operation>
+
+</Patch>

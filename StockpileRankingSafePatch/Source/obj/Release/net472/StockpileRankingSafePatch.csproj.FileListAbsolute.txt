@@ -1,0 +1,9 @@
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\bin\Release\net472\StockpileRankingSafePatch.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\bin\Release\net472\StockpileRankingSafePatch.pdb
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.csproj.AssemblyReference.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.GeneratedMSBuildEditorConfig.editorconfig
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.AssemblyInfoInputs.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.AssemblyInfo.cs
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.csproj.CoreCompileInputs.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\StockpileRankingSafePatch\Source\obj\Release\net472\StockpileRankingSafePatch.pdb

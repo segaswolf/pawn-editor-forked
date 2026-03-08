@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <!-- Kid Apparel Expanded fallback texture paths for missing files -->
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidSlicecap"]/graphicData/texPath</xpath>
+    <value>
+      <texPath>Things/Pawn/Humanlike/Apparel/SliceCap/SliceCap</texPath>
+    </value>
+  </Operation>
+
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidSlicecap"]/apparel/wornGraphicPaths/li[1]</xpath>
+    <value>
+      <li>Things/Pawn/Humanlike/Apparel/SliceCap/SliceCapA</li>
+    </value>
+  </Operation>
+
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidSlicecap"]/apparel/wornGraphicPaths/li[2]</xpath>
+    <value>
+      <li>Things/Pawn/Humanlike/Apparel/SliceCap/SliceCapB</li>
+    </value>
+  </Operation>
+
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidSlicecap"]/apparel/wornGraphicPaths/li[3]</xpath>
+    <value>
+      <li>Things/Pawn/Humanlike/Apparel/SliceCap/SliceCapC</li>
+    </value>
+  </Operation>
+
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidEltexSkullcap"]/graphicData/texPath</xpath>
+    <value>
+      <texPath>Things/Pawn/Humanlike/Apparel/EltexSkullcap/EltexSkullcap</texPath>
+    </value>
+  </Operation>
+
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/ThingDef[defName="Apparel_KidEltexSkullcap"]/apparel/wornGraphicPath</xpath>
+    <value>
+      <wornGraphicPath>Things/Pawn/Humanlike/Apparel/EltexSkullcap/EltexSkullcap</wornGraphicPath>
+    </value>
+  </Operation>
+</Patch>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Runtime Stability Fix (Local)</name>
+  <author>Segas Wolf</author>
+  <packageId>localfix.runtime.stability</packageId>
+<supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>ElSov.Highborn</li>
+    <li>telardo.MultiFloors</li>
+    <li>ferny.progressioncore</li>
+  </loadAfter>
+  <description>Consolidated runtime fixes: Highborn social gene empty-list guard, MultiFloors prepatcher-hook exception guard, and safe UI throttling for heavy architect dropdown menus.</description>
+</ModMetaData>

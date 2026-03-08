@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_DeployableBarrier</defName>
+    <label>deployable barrier (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_Turret_FloorTurret</defName>
+    <label>floor turret (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_Turret_SentryGun</defName>
+    <label>sentry gun (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_Turret_ChargeRailgunTurret</defName>
+    <label>charge railgun turret (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_Turret_EMPTurret</defName>
+    <label>emp turret (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_ShieldGenerator_Small</defName>
+    <label>small shield generator (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>VFES_ShieldGenerator_Large</defName>
+    <label>large shield generator (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>DankPyon_ResearchingSpot</defName>
+    <label>researching spot (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>AM_FloorLabeling</defName>
+    <label>floor labeling (fallback)</label>
+    <description>Fallback def to satisfy cross references.</description>
+    <thingClass>Building</thingClass>
+  </ThingDef>
+</Defs>

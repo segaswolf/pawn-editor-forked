@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ResearchProjectDef>
+    <defName>Irrigation</defName>
+    <label>irrigation</label>
+    <description>Basic irrigation techniques for agriculture support systems.</description>
+    <baseCost>800</baseCost>
+    <techLevel>Industrial</techLevel>
+    <tab>Production</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>3</researchViewX>
+    <researchViewY>1</researchViewY>
+  </ResearchProjectDef>
+
+  <ResearchProjectDef>
+    <defName>Gothicstyle_Vampire_Furniture</defName>
+    <label>gothic vampire furniture</label>
+    <description>Dark decorative furniture and architecture inspired by gothic vampire aesthetics.</description>
+    <baseCost>800</baseCost>
+    <techLevel>Industrial</techLevel>
+    <tab>Production</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>5</researchViewX>
+    <researchViewY>1</researchViewY>
+  </ResearchProjectDef>
+
+  <ResearchProjectDef>
+    <defName>VFES_SiegeEquipment</defName>
+    <label>siege equipment</label>
+    <description>Enables basic siege-oriented defenses and support equipment.</description>
+    <baseCost>1200</baseCost>
+    <techLevel>Industrial</techLevel>
+    <tab>Military</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>8</researchViewX>
+    <researchViewY>2</researchViewY>
+  </ResearchProjectDef>
+
+  <ResearchProjectDef>
+    <defName>PenelsFramesResearch</defName>
+    <label>panels and frames</label>
+    <description>Construction methods for decorative panels and structural frames.</description>
+    <baseCost>500</baseCost>
+    <techLevel>Medieval</techLevel>
+    <tab>Construction</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>2</researchViewX>
+    <researchViewY>1</researchViewY>
+  </ResearchProjectDef>
+
+  <ResearchProjectDef>
+    <defName>DoubleFramesResearch</defName>
+    <label>double frames</label>
+    <description>Improved frame construction patterns and variants.</description>
+    <baseCost>700</baseCost>
+    <techLevel>Medieval</techLevel>
+    <tab>Construction</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>2.5</researchViewX>
+    <researchViewY>1.5</researchViewY>
+  </ResearchProjectDef>
+
+
+  <ResearchProjectDef>
+    <defName>Devilstrand</defName>
+    <label>devilstrand</label>
+    <description>Recovery fallback for devilstrand research reference.</description>
+    <baseCost>1200</baseCost>
+    <techLevel>Industrial</techLevel>
+    <tab>Production</tab>
+    <requiredResearchBuilding>ResearchBench</requiredResearchBuilding>
+    <researchViewX>4.2</researchViewX>
+    <researchViewY>1.3</researchViewY>
+  </ResearchProjectDef>
+
+</Defs>

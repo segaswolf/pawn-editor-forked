@@ -1,0 +1,9 @@
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\bin\Release\net472\NeuralSuperchargerOwnershipFix.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\bin\Release\net472\NeuralSuperchargerOwnershipFix.pdb
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.csproj.AssemblyReference.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.GeneratedMSBuildEditorConfig.editorconfig
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.AssemblyInfoInputs.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.AssemblyInfo.cs
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.csproj.CoreCompileInputs.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\NeuralSuperchargerOwnershipFix\Source\obj\Release\net472\NeuralSuperchargerOwnershipFix.pdb

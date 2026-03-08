@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Stockpile Ranking Safe Patch (Local)</name>
+  <author>Segas Wolf</author>
+  <packageId>local.stockpilerankingsafepatch</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <loadAfter>
+    <li>Memegoddess.StockpileRanking</li>
+  </loadAfter>
+  <description>Local runtime safety patch for Stockpile Ranking. Uses Prefix-based guards to prevent exceptions from RankComp before they occur, instead of suppressing them.</description>
+</ModMetaData>

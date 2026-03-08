@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/iconPath</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]</xpath>
+      <value>
+        <iconPath />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/iconPath</xpath>
+    <value>
+      <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_6</iconPath>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/inheritable</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]</xpath>
+      <value>
+        <inheritable />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/inheritable</xpath>
+    <value>
+      <inheritable>true</inheritable>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/label</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]</xpath>
+      <value>
+        <label />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/label</xpath>
+    <value>
+      <label>seraphin</label>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/genes</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]</xpath>
+      <value>
+        <genes />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_StrainGōder"]/genes</xpath>
+    <value>
+      <genes>
+        <li>VQEA_Herculean</li>
+        <li>VQEA_PerfectVision</li>
+        <li>VQEA_SelfRepairingTissue</li>
+        <li>Ageless</li>
+        <li>Deathless</li>
+        <li>EBSG_MajorGeneticStreamlining</li>
+        <li>VRE_WarHowl</li>
+        <li>VRE_LeapjumpLegs</li>
+        <li>DV_DodgeChance_Low</li>
+        <li>DV_Melee_Slow</li>
+        <li>ToxResist_MajorWeakness</li>
+        <li>MBSG_UVSensitivity_ExtremelyMinor</li>
+        <li>FireWeakness</li>
+        <li>CYB_DampAdaptation</li>
+        <li>VREH_BulletproofSkin</li>
+        <li>Pain_Extra</li>
+        <li>AG_RegenerationMinor</li>
+        <li>DiseaseFree</li>
+        <li>Immunity_Weak</li>
+        <li>DV_MightyLiver</li>
+        <li>VRE_PartialAntirotLungs</li>
+        <li>AG_HardBones</li>
+        <li>AG_Clean</li>
+        <li>AG_AcidWeakness</li>
+        <li>VRE_ProgressiveAttunement</li>
+        <li>CYB_Psyphon</li>
+        <li>MBSG_MoveSpeed_MarginallySlow</li>
+        <li>VREH_Unconstrained</li>
+        <li>Aggression_Aggressive</li>
+        <li>AG_InnerPeace</li>
+        <li>AG_Rowdy</li>
+        <li>AG_Enforcer</li>
+        <li>VRE_Territorial</li>
+        <li>VREStarjack_Cryostasis</li>
+        <li>MinTemp_SmallDecrease</li>
+        <li>MaxTemp_SmallDecrease</li>
+        <li>AG_HeatSlowness</li>
+        <li>CYB_PackBond</li>
+        <li>CYB_Domineering</li>
+        <li>CYB_Psychopathic</li>
+        <li>CYB_PreyDrive</li>
+        <li>AG_EfficientMandibles</li>
+        <li>AG_SurvivalInstinct_High</li>
+        <li>EBSG_StrongArchiteMetabolism</li>
+        <li>SlightlyBelowAverageSleep</li>
+        <li>AG_Beauty_Angelic</li>
+        <li>AG_Teratophilia</li>
+        <li>Libido_SuperHigh</li>
+        <li>VRE_Libido_VeryHigh</li>
+        <li>AG_SlowGestation</li>
+        <li>VRE_EarlyMaturity</li>
+        <li>CYB_Caste_Abundant</li>
+        <li>CYB_ExpansiveStomach</li>
+        <li>VRE_RapidAging</li>
+        <li>Instability_Minor</li>
+        <li>AG_BandwidthIncrease</li>
+        <li>AG_DecreasedMechRepair</li>
+        <li>BDWG_Tail_Wolf</li>
+        <li>VRE_CanineEars</li>
+        <li>BDWG_Ears_Wolf</li>
+        <li>CYB_CatEarsFluffy</li>
+        <li>CYB_CatEarsLarge</li>
+        <li>CYB_Blood_Black</li>
+        <li>PaccaVoiceVanillaMediumDog</li>
+        <li>PaccaVoiceVanillaWarg</li>
+        <li>VRE_PerfectBody</li>
+        <li>AG_Digitigrade</li>
+        <li>Body_Standard</li>
+        <li>Body_Hulk</li>
+        <li>AG_ChemfuelVomit</li>
+        <li>VRE_Brave</li>
+        <li>VREStarjack_GravshipAffinity</li>
+        <li>VREH_Dutiful</li>
+        <li>CYB_WorkSpeed_High</li>
+        <li>DV_ExtendedMemory</li>
+        <li>HBX_Manipulative</li>
+        <li>Hair_Grayless</li>
+        <li>VRE_CanineNose</li>
+        <li>AG_DangerousRaidPresence</li>
+        <li>Furskin</li>
+        <li>EBSG_MinorArchiteLearning</li>
+        <li>VREHx_WeaponMaster</li>
+        <li>AC_SleeveQuality_Legendary</li>
+      </genes>
+    </value>
+  </Operation>
+</Patch>

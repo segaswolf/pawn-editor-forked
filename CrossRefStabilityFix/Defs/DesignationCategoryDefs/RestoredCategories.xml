@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <DesignationCategoryDef>
+    <defName>Ferny_Automation</defName>
+    <label>automation</label>
+    <description>Automation devices and utility machinery.</description>
+    <order>250</order>
+  </DesignationCategoryDef>
+
+  <DesignationCategoryDef>
+    <defName>Eaves</defName>
+    <label>eaves</label>
+    <description>Roof-edge structures and architectural eaves.</description>
+    <order>251</order>
+  </DesignationCategoryDef>
+
+  <DesignationCategoryDef>
+    <defName>Museum_Decoration</defName>
+    <label>museum decoration</label>
+    <description>Decorative furniture and displays for museum-themed content.</description>
+    <order>252</order>
+  </DesignationCategoryDef>
+</Defs>

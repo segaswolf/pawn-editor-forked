@@ -1,0 +1,125 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <XenotypeDef>
+    <defName>GegeXT_VanDrelarh</defName>
+    <label>VanDrelarh</label>
+    <description>The VanDrelarh are remnants of a forgotten experiment, abducted wanderers reshaped in a forsaken laboratory that sought to forge the ultimate predators. Blending feral strength with fragments of ancient knowledge, these creatures are incomplete—beasts caught between what they were and what they were meant to become. When the lab fell to unknown forces, only a few escaped into the world. Time twists them: some fight to keep their humanity, while others yield to the beast inside, becoming relentless hunters under the broken moon.</description>
+    <descriptionShort>Half-made children of a forsaken experiment, the VanDrelarh wander as fractured predators—part human, part beast, bearing forbidden knowledge and the curse of eventual transformation.</descriptionShort>
+    <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_8</iconPath>
+    <inheritable>true</inheritable>
+    <genes>
+      <li>Deathless</li>
+      <li MayRequire="ebsg.archite">EBSG_MajorGeneticStreamlining</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_AnimaAffinity</li>
+      <li MayRequire="sarg.alphagenes">AG_NightlingAffinity</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_WarHowl</li>
+      <li MayRequire="elsov.highborn">HBX_Fencer</li>
+      <li MayRequire="morebiotechstylegenes.mod">ToxResist_Weakness</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorElementalProtection</li>
+      <li MayRequire="morebiotechstylegenes.mod">ToxEnviromentResist_ExtremeWeakness</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteRobustness</li>
+      <li MayRequire="ebsg.aio">EBSG_DamagedKidney</li>
+      <li MayRequire="ebsg.aio">EBSG_DamagedLung</li>
+      <li MayRequire="ebsg.aio">EBSG_DamagedArm</li>
+      <li MayRequire="ebsg.aio">EBSG_DamagedLeg</li>
+      <li MayRequire="ebsg.aio">EBSG_SlightlyDamagedBrain</li>
+      <li MayRequire="ebsg.aio">EBSG_SlightlyDamagedHeart</li>
+      <li MayRequire="ebsg.aio">EBSG_SlightlyDamagedLiver</li>
+      <li MayRequire="ebsg.aio">EBSG_SlightlyDamagedSpine</li>
+      <li MayRequire="ebsg.aio">EBSG_DamagedStomach</li>
+      <li MayRequire="det.stoneborn">DV_MightyLiver</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteWoundHealing</li>
+      <li MayRequire="ebsg.aio">EBSG_SlightlySlowBloodRecovery</li>
+      <li MayRequire="ebsg.aio">EBSG_Hemophilia</li>
+      <li MayRequire="sarg.alphagenes">AG_Clean</li>
+      <li>Ageless</li>
+      <li MayRequire="ebsg.archite">EBSG_ArchiteCarry</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteSenses</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_ProgressiveAttunement</li>
+      <li MayRequire="morebiotechstylegenes.mod">PsychicAbility_SlightlyEnhanced</li>
+      <li MayRequire="ebsg.aio">EBSG_InnatePsychicAmplifier</li>
+      <li MayRequire="ebsg.aio">EBSG_MeditationFocus</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteEnhancedEntropyRecovery</li>
+      <li MayRequire="sarg.alphagenes">AG_ArmouredSpeed</li>
+      <li>Aggression_Aggressive</li>
+      <li MayRequire="sarg.alphagenes">AG_InnerPeace</li>
+      <li MayRequire="sarg.alphagenes">AG_Rowdy</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteEnhancedBrawler</li>
+      <li MayRequire="sarg.alphagenes">AG_Enforcer</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteEnhancedShooter</li>
+      <li>Mood_Optimist</li>
+      <li MayRequire="ebsg.aio">EBSG_MinorHedonism</li>
+      <li MayRequire="ebsg.aio">EBSG_MinorAesthetism</li>
+      <li MayRequire="ebsg.aio">EBSG_MinorGloominess</li>
+      <li>MaxTemp_SmallDecrease</li>
+      <li MayRequire="sarg.alphagenes">AG_HeatSlowness</li>
+      <li MayRequire="ebsg.aio">EBSGA_BiomeAdaptability</li>
+      <li MayRequire="ebsg.aio">EBSG_SomewhatGoodSlayer</li>
+      <li MayRequire="ebsg.aio">EBSG_BadHumanlikeSlayer</li>
+      <li MayRequire="ebsg.aio">EBSG_BadMechanoidSlayer</li>
+      <li MayRequire="ebsg.aio">EBSG_BadAnimalSlayer</li>
+      <li MayRequire="ebsg.aio">EBSG_BadEntitySlayer</li>
+      <li MayRequire="ebsg.aio">EBSG_BiggerStomach</li>
+      <li MayRequire="morebiotechstylegenes.mod">MBSG_SturdyDigestion</li>
+      <li MayRequire="ebsg.archite">EBSGA_ArchiteEatingSpeed</li>
+      <li MayRequire="sarg.alphagenes">AG_SurvivalInstinct_High</li>
+      <li MayRequire="ebsg.archite">EBSG_StrongArchiteMetabolism</li>
+      <li MayRequire="ebsg.archite">EBSG_ArchiteNeverSleep</li>
+      <li MayRequire="sarg.alphagenes">AG_Beauty_Angelic</li>
+      <li MayRequire="sarg.alphagenes">AG_Teratophilia</li>
+      <li>Fertile</li>
+      <li MayRequire="sarg.alphagenes">AG_FastGestation</li>
+      <li MayRequire="ebsg.aio">EBSG_FertilityExtension</li>
+      <li MayRequire="redmattis.bettergeneinheritance">BGI_PrimaryGenes</li>
+      <li MayRequire="sarg.alphagenes">AG_BandwidthIncrease</li>
+      <li MayRequire="sarg.alphagenes">AG_DecreasedMechRepair</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Tail_Wolf</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineTail</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineEars</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Ears_Wolf</li>
+      <li>Voice_Human</li>
+      <li>VoiceRoar</li>
+      <li MayRequire="sarg.alphagenes">AG_AcidFangs</li>
+      <li MayRequire="sarg.alphagenes">AG_NoTusks</li>
+      <li MayRequire="sarg.alphagenes">AG_NoAntennae</li>
+      <li MayRequire="sarg.alphagenes">AG_NoLowerAntennae</li>
+      <li MayRequire="sarg.alphagenes">AG_Digitigrade</li>
+      <li>Body_Standard</li>
+      <li>Body_Hulk</li>
+      <li MayRequire="vanillaracesexpanded.fungoid">VRE_HairMushroom</li>
+      <li>Hair_SnowWhite</li>
+      <li>Hair_Gray</li>
+      <li>Hair_Blonde</li>
+      <li>Hair_SandyBlonde</li>
+      <li>Hair_LightOrange</li>
+      <li>Hair_ReddishBrown</li>
+      <li>Hair_DarkBrown</li>
+      <li MayRequire="resplice.xotr.core">RS_Hair_OrangeReddish</li>
+      <li>Hair_DarkSaturatedReddish</li>
+      <li>Hair_DarkReddish</li>
+      <li>Hair_MidBlack</li>
+      <li>Hair_DarkBlack</li>
+      <li>Hair_InkBlack</li>
+      <li MayRequire="det.avaloi">Hair_PaleOrange</li>
+      <li>Hair_BrightRed</li>
+      <li MayRequire="sarg.alphagenes">AG_Hair_DeepOrange</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_HairColor_Gauranlen</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_HairColor_Pollux</li>
+      <li MayRequire="sarg.alphagenes">VRE_HairColor_Ocular</li>
+      <li MayRequire="ebsg.aio">EBSG_CaringMinor</li>
+      <li MayRequire="sarg.alphagenes">AG_CragAffinity</li>
+      <li MayRequire="sarg.alphagenes">AG_ForsakenKnowledge</li>
+      <li MayRequire="det.venators">DV_HunterInstincts</li>
+      <li MayRequire="det.avaloi">DV_AvaloiHairColors</li>
+      <li MayRequire="sarg.alphagenes">AG_ForsakenBodyEmblem</li>
+      <li MayRequire="elsov.highborn">HBX_Manipulative</li>
+      <li>ElongatedFingers</li>
+      <li>Furskin</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineNose</li>
+      <li MayRequire="morebiotechstylegenes.mod">MBSG_Unmovable</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteLearning</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREHx_WeaponMaster</li>
+      <li MayRequire="hlx.ultratechalteredcarbon">AC_SleeveQuality_Legendary</li>
+    </genes>
+  </XenotypeDef>
+</Defs>

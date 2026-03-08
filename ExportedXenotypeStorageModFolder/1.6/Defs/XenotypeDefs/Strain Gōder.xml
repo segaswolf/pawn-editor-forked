@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <XenotypeDef>
+    <defName>GegeXT_StrainGōder</defName>
+    <label>Strain Gōder</label>
+    <description>Strain Gōder is a lab-bred predatory xenotype engineered for conquest and long-term colony survival. They mature fast, feel little moral friction, and thrive on violence and hunting as recreation—yet their greatest limitation is appetite. Gōders consume aggressively and demand constant food infrastructure: herds, crops, and relentless raids or hunts. They are resilient and self-sustaining, able to endure injuries that would cripple ordinary pawns, and they remain effective with age through controlled regeneration and non-senescent biology.
+Despite their strength, Strain Gōder is not invincible. Heat, toxins, and pain can break their momentum, and their altered cells carry long-term medical risks. Their black blood marks them as unmistakably unnatural, while their territorial instincts bind them to their den—calm at home, unstable when forced far from it. In time, older Gōders may awaken greater psychic potential, turning veterans into unpredictable apex threats.</description>
+    <descriptionShort>Lab-made blackblood predators that mature fast and hit hard—kept in check by massive hunger and harsh environmental counters.</descriptionShort>
+    <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_6</iconPath>
+    <inheritable>true</inheritable>
+    <genes>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_Bulwark</li>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_PassiveMeditation</li>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_PerfectVision</li>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_SelfRepairingTissue</li>
+      <li MayRequire="vanillaquestsexpanded.ancients">VQEA_PlasteelClaws</li>
+      <li>Ageless</li>
+      <li>Deathless</li>
+      <li MayRequire="ebsg.archite">EBSG_MajorGeneticStreamlining</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_WarHowl</li>
+      <li MayRequire="det.keshig">DV_DodgeChance_Low</li>
+      <li MayRequire="det.brawnum">DV_Melee_Slow</li>
+      <li MayRequire="morebiotechstylegenes.mod">ToxResist_MajorWeakness</li>
+      <li MayRequire="morebiotechstylegenes.mod">MBSG_UVSensitivity_ExtremelyMinor</li>
+      <li>FireWeakness</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_DampAdaptation</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREH_BulletproofSkin</li>
+      <li>Pain_Extra</li>
+      <li MayRequire="sarg.alphagenes">AG_RegenerationMinor</li>
+      <li>DiseaseFree</li>
+      <li>Immunity_Weak</li>
+      <li MayRequire="det.stoneborn">DV_MightyLiver</li>
+      <li MayRequire="vanillaracesexpanded.fungoid">VRE_PartialAntirotLungs</li>
+      <li MayRequire="sarg.alphagenes">AG_HardBones</li>
+      <li MayRequire="sarg.alphagenes">AG_Clean</li>
+      <li MayRequire="sarg.alphagenes">AG_AcidWeakness</li>
+      <li MayRequire="vanillaracesexpanded.phytokin">VRE_ProgressiveAttunement</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_Psyphon</li>
+      <li MayRequire="morebiotechstylegenes.mod">MBSG_MoveSpeed_MarginallySlow</li>
+      <li MayRequire="sarg.alphagenes">AG_ArmouredSpeed</li>
+      <li>Aggression_Aggressive</li>
+      <li MayRequire="sarg.alphagenes">AG_InnerPeace</li>
+      <li MayRequire="sarg.alphagenes">AG_Rowdy</li>
+      <li MayRequire="sarg.alphagenes">AG_Enforcer</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_Territorial</li>
+      <li MayRequire="vanillaracesexpanded.starjack">VREStarjack_Cryostasis</li>
+      <li>MinTemp_SmallDecrease</li>
+      <li>MaxTemp_SmallDecrease</li>
+      <li MayRequire="sarg.alphagenes">AG_HeatSlowness</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_PackBond</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_Domineering</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_Psychopathic</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_PreyDrive</li>
+      <li MayRequire="sarg.alphagenes">AG_EfficientMandibles</li>
+      <li MayRequire="sarg.alphagenes">AG_SurvivalInstinct_High</li>
+      <li MayRequire="ebsg.archite">EBSG_StrongArchiteMetabolism</li>
+      <li MayRequire="morebiotechstylegenes.mod">SlightlyBelowAverageSleep</li>
+      <li MayRequire="sarg.alphagenes">AG_Beauty_Angelic</li>
+      <li MayRequire="sarg.alphagenes">AG_Teratophilia</li>
+      <li MayRequire="morebiotechstylegenes.mod">Libido_VeryHigh</li>
+      <li MayRequire="sarg.alphagenes">AG_SlowGestation</li>
+      <li MayRequire="vanillaracesexpanded.archon">VRE_EarlyMaturity</li>
+      <li MayRequire="redmattis.bettergeneinheritance">BGI_PrimaryGenes</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_Caste_Abundant</li>
+      <li MayRequire="vanillaracesexpanded.pigskin">VRE_RapidAging</li>
+      <li MayRequire="morebiotechstylegenes.mod">Instability_Minor</li>
+      <li MayRequire="v.rooboid.faun">RBSF_NaturalConnection</li>
+      <li MayRequire="v.rooboid.faun">RBSF_GrowingAura</li>
+      <li MayRequire="v.rooboid.faun">RBSF_SporeCloud</li>
+      <li MayRequire="sarg.alphagenes">AG_MechConversion</li>
+      <li MayRequire="sarg.alphagenes">AG_BandwidthIncrease</li>
+      <li MayRequire="sarg.alphagenes">AG_DecreasedMechRepair</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Tail_Wolf</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineEars</li>
+      <li MayRequire="3hstltd.wolf.gene">BDWG_Ears_Wolf</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_CatEarsFluffy</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_CatEarsLarge</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_Blood_Black</li>
+      <li MayRequire="pacca.genevoiceanimalsvanilla">PaccaVoiceVanillaMediumDog</li>
+      <li MayRequire="pacca.genevoiceanimalsvanilla">PaccaVoiceVanillaWarg</li>
+      <li MayRequire="vanillaracesexpanded.highmate">VRE_PerfectBody</li>
+      <li MayRequire="sarg.alphagenes">AG_Digitigrade</li>
+      <li>Body_Standard</li>
+      <li>Body_Hulk</li>
+      <li MayRequire="sarg.alphagenes">AG_RatVomit</li>
+      <li MayRequire="vanillaracesexpanded.pigskin">VRE_Brave</li>
+      <li MayRequire="vanillaracesexpanded.starjack">VREStarjack_GravshipAffinity</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREH_Dutiful</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_WorkSpeed_High</li>
+      <li MayRequire="det.stoneborn">DV_ExtendedMemory</li>
+      <li MayRequire="elsov.highborn">HBX_Manipulative</li>
+      <li>Hair_Grayless</li>
+      <li MayRequire="vanillaracesexpanded.lycanthrope">VRE_CanineNose</li>
+      <li MayRequire="cyanobot.cyanobotsgenes">CYB_BodySize_Large</li>
+      <li MayRequire="sarg.alphagenes">AG_DangerousRaidPresence</li>
+      <li>Furskin</li>
+      <li MayRequire="ebsg.archite">EBSG_MinorArchiteLearning</li>
+      <li MayRequire="sarg.alphagenes">AG_MiningYield_Low</li>
+      <li MayRequire="vanillaracesexpanded.hussar">VREHx_WeaponMaster</li>
+      <li MayRequire="hlx.ultratechalteredcarbon">AC_SleeveQuality_Legendary</li>
+    </genes>
+  </XenotypeDef>
+</Defs>

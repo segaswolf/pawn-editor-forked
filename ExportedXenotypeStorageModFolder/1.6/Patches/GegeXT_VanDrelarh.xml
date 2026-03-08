@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/iconPath</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <iconPath />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/iconPath</xpath>
+    <value>
+      <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_8</iconPath>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/inheritable</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <inheritable />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/inheritable</xpath>
+    <value>
+      <inheritable>true</inheritable>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/label</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <label />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/label</xpath>
+    <value>
+      <label>Van Drelahr</label>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/description</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <description />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/description</xpath>
+    <value>
+      <description>This xenotype was engineered to thrive in hostile worlds where most beings fail.
+Their bodies combine physical resilience, accelerated learning, and remarkable adaptability, the result of advanced archogenetic design focused on long-term survival rather than raw, short-term power.
+
+They possess sharpened senses, improved reflexes, and a mind inclined toward analysis, planning, and constant self-improvement. They are neither simple soldiers nor ordinary colonists; instead, they are meant to be the backbone of a colony, capable of learning quickly, working efficiently, and enduring extreme conditions without breaking easily.
+
+Despite their advantages, they are not emotionless constructs. They retain curiosity, emotional depth, and a strong instinct to protect what they consider their own—be it a community, a project, or an ideal. Their genetics favor intelligent cooperation and sustained growth, making them an ideal choice for ambitious colonies that seek to endure beyond a single generation.
+
+In the wrong hands, they can become an unrelenting force.
+In the right hands, they are the foundation of a civilization that refuses to disappear.</description>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/descriptionShort</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <descriptionShort />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/descriptionShort</xpath>
+    <value>
+      <descriptionShort>Genetically enhanced humans designed for adaptability, rapid learning, and long-term survival in extreme environments.</descriptionShort>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/genes</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]</xpath>
+      <value>
+        <genes />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelarh"]/genes</xpath>
+    <value>
+      <genes>
+        <li>VQEA_SelfRepairingTissue</li>
+        <li>Ageless</li>
+        <li>Deathless</li>
+        <li>EBSG_MajorGeneticStreamlining</li>
+        <li>VRE_WarHowl</li>
+        <li>VRE_SlowShooter</li>
+        <li>DV_Melee_Fast</li>
+        <li>ToxResist_Weakness</li>
+        <li>ToxEnviromentResist_Weakness</li>
+        <li>MBSG_FireWeaknessMinor</li>
+        <li>VREH_BulletproofSkin</li>
+        <li>EBSG_MinorArchiteRobustness</li>
+        <li>TotalHealing</li>
+        <li>Immunity_Weak</li>
+        <li>DV_MightyLiver</li>
+        <li>VRE_PartialAntirotLungs</li>
+        <li>VRE_FastAging</li>
+        <li>AG_GeneInfectionImmunity</li>
+        <li>VRE_ProgressiveAttunement</li>
+        <li>EBSG_MinorArchitePsychicSensitivity</li>
+        <li>VREH_Unconstrained</li>
+        <li>Aggression_Aggressive</li>
+        <li>AG_InnerPeace</li>
+        <li>AG_Enforcer</li>
+        <li>AG_ToughSinews</li>
+        <li>MinTemp_SmallDecrease</li>
+        <li>MaxTemp_SmallDecrease</li>
+        <li>AG_HeatSlowness</li>
+        <li>RobustDigestion</li>
+        <li>AG_EfficientMandibles</li>
+        <li>AG_SurvivalInstinct_High</li>
+        <li>EBSG_StrongArchiteMetabolism</li>
+        <li>Sleepy</li>
+        <li>AG_Beauty_Angelic</li>
+        <li>AG_Teratophilia</li>
+        <li>Libido_SuperHigh</li>
+        <li>AG_ReducedFertile</li>
+        <li>AG_SlowGestation</li>
+        <li>BGI_PrimaryGenes</li>
+        <li>AG_DecreasedMechRepair</li>
+        <li>BDWG_Tail_Wolf</li>
+        <li>VRE_CanineTail</li>
+        <li>VRE_CanineEars</li>
+        <li>BDWG_Ears_Wolf</li>
+        <li>DV_FacePlating</li>
+        <li>Voice_Human</li>
+        <li>VoiceRoar</li>
+        <li>AG_NoAntennae</li>
+        <li>AG_NoLowerAntennae</li>
+        <li>AG_DrakonoriBody</li>
+        <li>AG_Digitigrade</li>
+        <li>Body_Standard</li>
+        <li>Body_Hulk</li>
+        <li>VRE_ExtraMeat</li>
+        <li>AG_RatVomit</li>
+        <li>VRE_Brave</li>
+        <li>VREStarjack_GravshipAffinity</li>
+        <li>VREH_Dutiful</li>
+        <li>DV_StrongBack</li>
+        <li>AG_ChameleonVision</li>
+        <li>AG_ForsakenBodyEmblem</li>
+        <li>HBX_Manipulative</li>
+        <li>Hands_Human</li>
+        <li>ElongatedFingers</li>
+        <li>VRESaurids_SauridClaws</li>
+        <li>Furskin</li>
+        <li>VRE_CanineNose</li>
+        <li>EBSG_ArchiteLearning</li>
+        <li>VRE_SuperiorDodge</li>
+        <li>AptitudePoor_Shooting</li>
+        <li>AptitudePoor_Intellectual</li>
+        <li>VREHx_WeaponMaster</li>
+        <li>AC_SleeveQuality_Legendary</li>
+      </genes>
+    </value>
+  </Operation>
+</Patch>

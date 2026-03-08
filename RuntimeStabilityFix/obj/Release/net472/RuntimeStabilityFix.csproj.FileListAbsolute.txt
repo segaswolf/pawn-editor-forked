@@ -1,0 +1,9 @@
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\bin\Release\net472\RuntimeStabilityFix.dll
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\bin\Release\net472\RuntimeStabilityFix.pdb
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.csproj.AssemblyReference.cache
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.AssemblyInfoInputs.cache
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.AssemblyInfo.cs
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.csproj.CoreCompileInputs.cache
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.dll
+C:\Users\SZWE\AppData\Local\Temp\RuntimeStabilityFixSrc\obj\Release\net472\RuntimeStabilityFix.pdb

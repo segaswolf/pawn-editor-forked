@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>BPC + Progression Education Compat (Local)</name>
+  <author>Segas Wolf</author>
+  <packageId>local.bpc.progression.compat</packageId>
+<supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <loadAfter>
+    <li>VouLT.BetterPawnControl</li>
+    <li>ferny.ProgressionEducation</li>
+  </loadAfter>
+  <description>Prevents Better Pawn Control schedule presets from overwriting Progression: Education class timetable slots (PE_DynamicClass_*).</description>
+</ModMetaData>

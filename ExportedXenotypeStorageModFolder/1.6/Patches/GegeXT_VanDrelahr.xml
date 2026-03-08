@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/iconPath</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]</xpath>
+      <value>
+        <iconPath />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/iconPath</xpath>
+    <value>
+      <iconPath>UI/Icons/Xenotypes/Custom/Yttakin_4</iconPath>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/inheritable</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]</xpath>
+      <value>
+        <inheritable />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/inheritable</xpath>
+    <value>
+      <inheritable>true</inheritable>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/label</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]</xpath>
+      <value>
+        <label />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/label</xpath>
+    <value>
+      <label>snarlox</label>
+    </value>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/genes</xpath>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]</xpath>
+      <value>
+        <genes />
+      </value>
+    </nomatch>
+  </Operation>
+  <Operation Class="PatchOperationReplace">
+    <xpath>Defs/XenotypeDef[defName="GegeXT_VanDrelahr"]/genes</xpath>
+    <value>
+      <genes>
+        <li>VQEA_SelfRepairingTissue</li>
+        <li>Ageless</li>
+        <li>Deathless</li>
+        <li>EBSG_MajorGeneticStreamlining</li>
+        <li>VRE_WarHowl</li>
+        <li>VRE_SlowShooter</li>
+        <li>ToxResist_Weakness</li>
+        <li>ToxEnviromentResist_Weakness</li>
+        <li>MBSG_FireWeaknessMinor</li>
+        <li>VREH_BulletproofSkin</li>
+        <li>EBSG_MinorArchiteRobustness</li>
+        <li>TotalHealing</li>
+        <li>AG_Regeneration</li>
+        <li>Immunity_Weak</li>
+        <li>DV_MightyLiver</li>
+        <li>VRE_PartialAntirotLungs</li>
+        <li>VRE_FastAging</li>
+        <li>AG_GeneInfectionImmunity</li>
+        <li>VRE_ProgressiveAttunement</li>
+        <li>EBSG_MinorArchitePsychicSensitivity</li>
+        <li>VREH_Unconstrained</li>
+        <li>Aggression_HyperAggressive</li>
+        <li>AG_InnerPeace</li>
+        <li>AG_Enforcer</li>
+        <li>AG_ToughSinews</li>
+        <li>MinTemp_SmallDecrease</li>
+        <li>MaxTemp_SmallDecrease</li>
+        <li>AG_HeatSlowness</li>
+        <li>AG_EfficientMandibles</li>
+        <li>AG_SurvivalInstinct_High</li>
+        <li>EBSG_StrongArchiteMetabolism</li>
+        <li>SomewhatSleepy</li>
+        <li>AG_Beauty_Angelic</li>
+        <li>AG_Teratophilia</li>
+        <li>Libido_SuperHigh</li>
+        <li>AG_ReducedFertile</li>
+        <li>AG_SlowGestation</li>
+        <li>BGI_PrimaryGenes</li>
+        <li>AG_DecreasedMechRepair</li>
+        <li>BDWG_Tail_Wolf</li>
+        <li>VRE_CanineTail</li>
+        <li>VRE_CanineEars</li>
+        <li>BDWG_Ears_Wolf</li>
+        <li>DV_FacePlating</li>
+        <li>Voice_Human</li>
+        <li>VoiceRoar</li>
+        <li>AG_NoTusks</li>
+        <li>AG_NoAntennae</li>
+        <li>AG_NoLowerAntennae</li>
+        <li>AG_Digitigrade</li>
+        <li>Body_Standard</li>
+        <li>Body_Hulk</li>
+        <li>AG_RatVomit</li>
+        <li>VRE_Brave</li>
+        <li>AG_ForsakenKnowledge</li>
+        <li>VREStarjack_GravshipAffinity</li>
+        <li>VREH_Dutiful</li>
+        <li>DV_StrongBack</li>
+        <li>AG_ChameleonVision</li>
+        <li>VRE_SuperiorDarkVision</li>
+        <li>AG_ForsakenBodyEmblem</li>
+        <li>HBX_Manipulative</li>
+        <li>Hands_Human</li>
+        <li>ElongatedFingers</li>
+        <li>Furskin</li>
+        <li>VRE_CanineNose</li>
+        <li>AG_DangerousRaidPresence</li>
+        <li>EBSG_ArchiteLearning</li>
+        <li>AptitudePoor_Shooting</li>
+        <li>AptitudePoor_Plants</li>
+        <li>VREHx_WeaponMaster</li>
+        <li>AC_SleeveQuality_Legendary</li>
+      </genes>
+    </value>
+  </Operation>
+</Patch>
