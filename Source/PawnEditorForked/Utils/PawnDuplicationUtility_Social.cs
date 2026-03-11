@@ -26,12 +26,16 @@ public static partial class PawnEditor
     ///
     /// Pass 2 — src's own social memories toward others (ISocialThought).
     ///   These drive the actual opinion numbers in the Social tab.
-    ///   Skips pawns that already have a DirectRelation with dst (Pass 1) to prevent
-    ///   the Social tab showing two separate rows for the same pawn.
+    ///   Copies for ALL pawns, including those with DirectRelations — the Social tab
+    ///   groups entries by pawn (SocialCardUtility.cachedEntries), so memories on top
+    ///   of a DirectRelation don't create duplicate rows; they add to the opinion total.
     ///
-    /// Pass 3 — Hybrid: transfer POSITIVE memories OTHER pawns have about src, to dst.
-    ///   baseMoodEffect > 0  → copy (goodwill the clone inherits from the original).
-    ///   baseMoodEffect &lt;= 0 → skip (fights, betrayals — the clone never did those).
+    /// Pass 3 — Hybrid: transfer POSITIVE opinion memories OTHER pawns have about src, to dst.
+    ///   baseOpinionOffset > 0  → copy (goodwill the clone inherits from the original).
+    ///   baseOpinionOffset &lt;= 0 → skip (fights, insults — the clone never did those).
+    ///   NOTE: We check baseOpinionOffset, NOT baseMoodEffect. Social interaction memories
+    ///   (chatted, joked, played) carry their opinion impact in baseOpinionOffset while
+    ///   baseMoodEffect is typically 0 for social thoughts.
     /// </summary>
     private static void CopyDup_Relations(Pawn src, Pawn dst)
     {
@@ -59,6 +63,12 @@ public static partial class PawnEditor
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations (direct): {ex.Message}"); }
 
         // ── Pass 2: dst's own social memories toward others ──
+        // v3d9 fix: No longer skips pawns with DirectRelations.
+        // The Social tab groups by pawn (SocialCardUtility.cachedEntries) so memories
+        // on top of a DirectRelation (Mother, Sister, etc.) just increase the opinion
+        // total — they don't create duplicate rows. Previously, skipping these pawns
+        // meant the clone had only the raw relation bonus (e.g. Mother +30) without
+        // the accumulated social memories that brought the original to +100.
         try
         {
             var srcMems = src.needs?.mood?.thoughts?.memories;
@@ -73,10 +83,8 @@ public static partial class PawnEditor
                     if (otherPawnRef == null || otherPawnRef == src) continue;
                     if (memBase.def == null) continue;
 
-                    // Skip pawns that already have a DirectRelation with dst.
-                    // Adding memories on top would cause two rows for the same pawn
-                    // in the Social tab (e.g. Friend + Acquaintance).
-                    if (dst.relations?.DirectRelations?.Any(r => r.otherPawn == otherPawnRef) == true) continue;
+                    // OLD (v3d8): skipped pawns with DirectRelation — removed in v3d9
+                    // if (dst.relations?.DirectRelations?.Any(r => r.otherPawn == otherPawnRef) == true) continue;
 
                     try
                     {
@@ -95,6 +103,11 @@ public static partial class PawnEditor
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Relations (own memories): {ex.Message}"); }
 
         // ── Pass 3: Hybrid — positive memories others have about src, copied to dst ──
+        // v3d9 fix: Filter on baseOpinionOffset instead of baseMoodEffect.
+        // Social interaction memories (chatted, joked, played, made giggle, etc.)
+        // carry their opinion impact in baseOpinionOffset. baseMoodEffect is typically 0
+        // for social thoughts, so the old filter was discarding ALL positive social
+        // memories, leaving the clone with 0 opinion from other pawns.
         try
         {
             var allPawns = PawnBlueprintSaveLoad.GetAllReachablePawnsPublic();
@@ -111,9 +124,12 @@ public static partial class PawnEditor
                     if (socialThought.OtherPawn() != src) continue;
                     if (memBase.def == null) continue;
 
-                    // Only positive impressions — the clone inherits goodwill, not grudges
+                    // Only positive opinion — the clone inherits goodwill, not grudges
                     var stage = memBase.CurStage;
-                    if (stage == null || stage.baseMoodEffect <= 0) continue;
+                    if (stage == null) continue;
+
+                    // v3d9 fix: Check opinion offset (social impact), not mood effect
+                    if (stage.baseOpinionOffset <= 0) continue;
 
                     try
                     {
@@ -198,6 +214,8 @@ public static partial class PawnEditor
 
     /// <summary>
     /// Copies all pawn records (time spent on tasks, kills, etc.).
+    /// v3d9 fix: Skips Time-type records — RimWorld doesn't allow AddTo() on those
+    /// (they are tick-tracked internally). Only copies Int and Float records.
     /// Uses AddTo with the delta rather than setting directly, to be safe with
     /// records that enforce minimum values.
     /// </summary>
@@ -208,6 +226,11 @@ public static partial class PawnEditor
         {
             foreach (var rd in DefDatabase<RecordDef>.AllDefsListForReading)
             {
+                // v3d9 fix: Skip Time-type records — RimWorld tracks these internally
+                // via ticks. Calling AddTo() on them logs "Tried to add value to record
+                // whose record type is Time" and does nothing useful.
+                if (rd.type == RecordType.Time) continue;
+
                 var val = src.records.GetValue(rd);
                 if (val != 0f)
                     dst.records.AddTo(rd, val - dst.records.GetValue(rd));

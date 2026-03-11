@@ -92,7 +92,12 @@ public class TabWorker_Social : TabWorker_Table<Pawn>
         using (new TextBlock(TextAnchor.MiddleLeft))
             Widgets.Label(inRect.TakeTopPart(Text.LineHeightOf(GameFont.Small)), "Relations".Translate().Colorize(ColoredText.TipSectionTitleColor));
         inRect.xMin += 4f;
-        var viewRect = new Rect(0, 0, inRect.width - 20, SocialCardUtility.cachedEntries.Count * 30 + Text.LineHeightOf(GameFont.Medium));
+        // v3d9 fix: Increased row height from 30→34 and added 40px bottom padding
+        // to prevent the last entries from being clipped in the scroll view.
+        var rowHeight = 34f;
+        var bottomPadding = 40f;
+        var viewRect = new Rect(0, 0, inRect.width - 20,
+            SocialCardUtility.cachedEntries.Count * rowHeight + Text.LineHeightOf(GameFont.Medium) + bottomPadding);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
         table.OnGUI(viewRect, pawn);
         Widgets.EndScrollView();
@@ -118,8 +123,14 @@ public class TabWorker_Social : TabWorker_Table<Pawn>
         var result = new List<UITable<Pawn>.Row>(SocialCardUtility.cachedEntries.Count);
         for (var i = 0; i < SocialCardUtility.cachedEntries.Count; i++)
         {
-            var items = new List<UITable<Pawn>.Row.Item>(5);
             var entry = SocialCardUtility.cachedEntries[i];
+
+            // v3d9 fix: Skip entries with null/destroyed otherPawn or missing relations tracker.
+            // World pawns, dead pawns, or pawns from removed mods can have null references here.
+            // Without this guard, every frame throws NRE → thousands of exceptions → Unity crash.
+            if (entry.otherPawn?.relations == null) continue;
+
+            var items = new List<UITable<Pawn>.Row.Item>(5);
             items.Add(new(PawnEditor.GetPawnTex(entry.otherPawn, new(25, 25), Rot4.South, cameraZoom: 2f)));
             items.Add(new(SocialCardUtility.GetRelationsString(entry, pawn).Colorize(ColoredText.SubtleGrayColor), textAnchor: TextAnchor.MiddleLeft));
             items.Add(new(SocialCardUtility.GetPawnLabel(entry.otherPawn), i, TextAnchor.MiddleLeft));
@@ -131,6 +142,9 @@ public class TabWorker_Social : TabWorker_Table<Pawn>
 
             items.Add(new(opinionRect =>
             {
+                // v3d9 fix: Re-check null inside lambda — otherPawn can become null between frames
+                if (entry.otherPawn?.relations == null) return;
+
                 opinionRect.xMin += 15;
                 opinionRect.xMax -= 15;
                 var opinionOf = entry.otherPawn.relations.OpinionOf(pawn);
@@ -142,7 +156,7 @@ public class TabWorker_Social : TabWorker_Table<Pawn>
                     Widgets.Label(opinionRect,
                         $"({opinionFrom.ToStringWithSign()})".Colorize((opinionFrom < 0 ? ColorLibrary.RedReadable :
                             opinionFrom > 0 ? ColorLibrary.Green : Color.white).FadedColor(0.8f)));
-            }, entry.otherPawn.relations.OpinionOf(pawn)));
+            }, entry.otherPawn.relations != null ? entry.otherPawn.relations.OpinionOf(pawn) : 0));
             items.Add(new());
             items.Add(new(editRect => EditUtility.EditButton(editRect, entry, pawn, table)));
             items.Add(new(TexPawnEditor.GoToPawn, () => PawnEditor.Select(entry.otherPawn)));
