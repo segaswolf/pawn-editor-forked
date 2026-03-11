@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("A mod for RimWorld that allows you to edit pawns.")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+53850cdad7296566845ad6a2bb03927e3e29df22")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6b2d284a00846a21990d4338a86be2ed283cf009")]
 [assembly: System.Reflection.AssemblyProductAttribute("PawnEditor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PawnEditor")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.2.0")]
