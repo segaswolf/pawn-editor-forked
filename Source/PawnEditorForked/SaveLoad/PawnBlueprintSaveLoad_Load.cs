@@ -597,14 +597,25 @@ public static partial class PawnBlueprintSaveLoad
                         continue;
                     }
 
+                    // v3d9 fix: Use the bidirectional extension method (relDef.AddDirectRelation)
+                    // instead of the native unidirectional method (pawn.relations.AddDirectRelation).
+                    // The extension method sets the relation on BOTH sides so the other pawn
+                    // also shows the loaded pawn as a relation.
+                    // OLD: pawn.relations.AddDirectRelation(relDef, otherPawn);
                     if (!pawn.relations.DirectRelationExists(relDef, otherPawn))
-                        pawn.relations.AddDirectRelation(relDef, otherPawn);
+                    {
+                        try { relDef.AddDirectRelation(pawn, otherPawn); }
+                        catch (Exception ex)
+                        {
+                            Log.Warning($"[Pawn Editor] LoadRelations skip {relDef.defName}→{otherPawn.LabelShort}: {ex.Message}");
+                        }
+                    }
                 }
             }
             catch (Exception ex) { Warn($"Relations: {ex.Message}"); }
         }
 
-        // Social memories (opinion values)
+        // Social memories (opinion values) — the pawn's own memories toward others
         var memNode = root.SelectSingleNode("socialMemories");
         if (memNode == null) return;
         var dstMems = pawn.needs?.mood?.thoughts?.memories;
@@ -642,6 +653,33 @@ public static partial class PawnBlueprintSaveLoad
                     if (newMem == null || !(newMem is ISocialThought)) continue;
                     newMem.age = age;
                     dstMems.TryGainMemory(newMem, otherPawn);
+
+                    // v3d9 fix: Mirror positive opinion memories onto the other pawn.
+                    // The blueprint only saves the pawn's OWN memories, but the Social tab
+                    // shows otherPawn.relations.OpinionOf(pawn) as the main number.
+                    // Without this reverse copy, the other pawn has 0 opinion of the loaded pawn.
+                    // Only mirror positive baseOpinionOffset (same logic as CopyDup Pass 3).
+                    try
+                    {
+                        var otherMems = otherPawn.needs?.mood?.thoughts?.memories;
+                        if (otherMems != null)
+                        {
+                            var stage = newMem.CurStage;
+                            if (stage != null && stage.baseOpinionOffset > 0)
+                            {
+                                var reverseMem = ThoughtMaker.MakeThought(def, stageIndex) as Thought_Memory;
+                                if (reverseMem != null && reverseMem is ISocialThought)
+                                {
+                                    reverseMem.age = age;
+                                    otherMems.TryGainMemory(reverseMem, pawn);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Prefs.DevMode) Log.Warning($"[Pawn Editor] LoadRelations reverse memory skip: {ex.Message}");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -650,9 +688,6 @@ public static partial class PawnBlueprintSaveLoad
             }
         }
         catch (Exception ex) { Warn($"SocialMemories: {ex.Message}"); }
-        // Note: for blueprint load the pawn IS the same object, so third-party
-        // memories already point to it correctly. No hybrid pass needed here —
-        // that is only required in CopyDup where a brand-new pawn object is created.
     }
 
     // ── Load: Work Priorities ──
@@ -781,6 +816,12 @@ public static partial class PawnBlueprintSaveLoad
                 if (defName.NullOrEmpty()) continue;
                 var rd = DefDatabase<RecordDef>.GetNamedSilentFail(defName);
                 if (rd == null) continue;
+
+                // v3d9 fix: Skip Time-type records — RimWorld tracks these internally
+                // via ticks. Calling AddTo() on them logs "Tried to add value to record
+                // whose record type is Time" and does nothing useful.
+                if (rd.type == RecordType.Time) continue;
+
                 pawn.records.AddTo(rd, value - pawn.records.GetValue(rd));
             }
         }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -21,9 +21,23 @@ public class PawnEditorMod : Mod
     {
         Harm = new("segaswolf.pawneditor.fork");
         Instance = this;
+        Settings = GetSettings<PawnEditorSettings>();
 
+        // Aplicar parches básicos
+        ApplyPatches(content);
+
+        LongEventHandler.ExecuteWhenFinished(() =>
+        {
+            ApplySettings();
+            InitializeModCompatibility(content);
+        });
+    }
+
+    private void ApplyPatches(ModContentPack content)
+    {
+        // Parches que siempre están activos
         Harm.Patch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.PreOpen)),
-            new(GetType(), nameof(Notify_ConfigurePawns)));
+            new(GetType(), nameof(PawnEditorPatches.Notify_ConfigurePawns)));
         Harm.Patch(AccessTools.Method(typeof(Page_SelectScenario), nameof(Page_SelectScenario.PreOpen)),
             new(typeof(StartingThingsManager), nameof(StartingThingsManager.RestoreScenario)));
         Harm.Patch(AccessTools.Method(typeof(Game), nameof(Game.InitNewGame)),
@@ -32,31 +46,52 @@ public class PawnEditorMod : Mod
             new(GetType(), nameof(Keybind)));
         Harm.Patch(AccessTools.Method(typeof(Pawn_RelationsTracker), nameof(Pawn_RelationsTracker.CompatibilityWith)),
             transpiler: new(typeof(SaveLoadUtility), nameof(SaveLoadUtility.UseCompatibilitySeedInCompatibilityWith)));
+    }
 
-        LongEventHandler.ExecuteWhenFinished(delegate
+    private void InitializeModCompatibility(ModContentPack content)
+    {
+        foreach (var assembly in content.assemblies.loadedAssemblies)
         {
-            foreach (var assembly in content.assemblies.loadedAssemblies)
             foreach (var type in assembly.GetTypes())
+            {
                 if (type.TryGetAttribute<ModCompatAttribute>(out var modCompat) && modCompat.ShouldActivate())
                 {
-                    var method = AccessTools.Method(type, "Activate", Type.EmptyTypes);
-                    method?.Invoke(null, Array.Empty<object>());
-                    method = AccessTools.Method(type, "Activate", new[] { typeof(Harmony) });
-                    method?.Invoke(null, new object[] { Harm });
-                    var field = AccessTools.Field(type, "Active");
-                    field?.SetValue(null, true);
-                    method = AccessTools.Method(type, "GetName");
-                    var name = (string)method?.Invoke(null, Array.Empty<object>());
-                    method = AccessTools.Method(type, "get_Name");
-                    name ??= (string)method?.Invoke(null, Array.Empty<object>());
-                    field = AccessTools.Field(type, "Name");
-                    name ??= (string)field?.GetValue(null);
-                    if (name != null && Prefs.DevMode) Log.Message($"[Pawn Editor] {name} compatibility active.");
+                    ActivateCompatibilityFeature(type);
                 }
+            }
+        }
+    }
 
-            Settings = GetSettings<PawnEditorSettings>();
-            ApplySettings();
-        });
+    private void ActivateCompatibilityFeature(Type type)
+    {
+        try 
+        {
+            // Intentar invocar Activate(Harmony)
+            var method = AccessTools.Method(type, "Activate", new[] { typeof(Harmony) });
+            method?.Invoke(null, new object[] { Harm });
+
+            // Intentar invocar Activate()
+            method = AccessTools.Method(type, "Activate", Type.EmptyTypes);
+            method?.Invoke(null, Array.Empty<object>());
+
+            // Setear campo Active
+            var field = AccessTools.Field(type, "Active");
+            field?.SetValue(null, true);
+
+            if (Prefs.DevMode)
+            {
+                // Intentar obtener nombre para log
+                var nameMethod = AccessTools.Method(type, "GetName") ?? AccessTools.Method(type, "get_Name");
+                var nameField = AccessTools.Field(type, "Name");
+                string name = (string)nameMethod?.Invoke(null, Array.Empty<object>()) ?? (string)nameField?.GetValue(null);
+                
+                if (name != null) Log.Message($"[Pawn Editor] {name} compatibility active.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[PawnEditor] Failed to activate compatibility for {type.FullName}: {ex}");
+        }
     }
 
     public override string SettingsCategory() => "PawnEditor".Translate();
@@ -66,63 +101,102 @@ public class PawnEditorMod : Mod
         base.DoSettingsWindowContents(inRect);
         var listing = new Listing_Standard();
         listing.Begin(inRect);
+        
+        // General Settings
         listing.CheckboxLabeled("PawnEdtior.OverrideVanilla".Translate(), ref Settings.OverrideVanilla, "PawnEditor.OverrideVanilla.Desc".Translate());
         listing.CheckboxLabeled("PawnEditor.InGameDevButton".Translate(), ref Settings.InGameDevButton, "PawnEditor.InGameDevButton.Desc".Translate());
+        
+        // Points & Economy
         listing.Label("PawnEditor.PointLimit".Translate() + ": " + Settings.PointLimit.ToStringMoney());
         Settings.PointLimit = listing.Slider(Settings.PointLimit, 100, 10000000);
         listing.CheckboxLabeled("PawnEditor.UseSilver".Translate(), ref Settings.UseSilver, "PawnEditor.UseSilver.Desc".Translate());
         listing.CheckboxLabeled("PawnEditor.CountNPCs".Translate(), ref Settings.CountNPCs, "PawnEditor.CountNPCs.Desc".Translate());
+        
+        // UI Options
         listing.CheckboxLabeled("PawnEditor.ShowEditButton".Translate(), ref Settings.ShowOpenButton, "PawnEditor.ShowEditButton.Desc".Translate());
+        DrawHediffLocationSelector(listing);
+        
+        if (listing.ButtonText("PawnEditor.ResetConfirmation".Translate())) 
+            Settings.DontShowAgain.Clear();
+
+        listing.CheckboxLabeled("PawnEditor.EnforceHARRestrictions".Translate(), ref HARCompat.EnforceRestrictions, "PawnEditor.EnforceHARRestrictions.Desc".Translate());
+        listing.CheckboxLabeled("PawnEditor.HideRandomFactions".Translate(), ref Settings.HideFactions, "PawnEditor.HideRandomFactions.Desc".Translate());
+
+        DrawHotkeyPicker(listing);
+        
+        listing.End();
+    }
+
+    private void DrawHediffLocationSelector(Listing_Standard listing)
+    {
         if (listing.ButtonTextLabeled("PawnEditor.HediffLocation".Translate(), $"PawnEditor.HediffLocation.{Settings.HediffLocationLimit}".Translate()))
+        {
             Find.WindowStack.Add(new FloatMenu(Enum.GetValues(typeof(PawnEditorSettings.HediffLocation))
                 .Cast<PawnEditorSettings.HediffLocation>()
                 .Select(loc => new FloatMenuOption($"PawnEditor.HediffLocation.{loc}".Translate(), () => Settings.HediffLocationLimit = loc))
                 .ToList()));
-        if (Settings.DontShowAgain.Count > 0 && listing.ButtonText("PawnEditor.ResetConfirmation".Translate())) Settings.DontShowAgain.Clear();
-        listing.CheckboxLabeled("PawnEditor.EnforceHARRestrictions".Translate(), ref HARCompat.EnforceRestrictions,
-            "PawnEditor.EnforceHARRestrictions.Desc".Translate());
-        listing.CheckboxLabeled("PawnEditor.HideRandomFactions".Translate(), ref Settings.HideFactions, "PawnEditor.HideRandomFactions.Desc".Translate());
+        }
+    }
 
-        // Hotkey picker
+    private void DrawHotkeyPicker(Listing_Standard listing)
+    {
         var hotkeyRect = listing.GetRect(30f);
         Widgets.Label(hotkeyRect.LeftHalf(), "PawnEditor.EditorHotkey".Translate());
         var hotkeyLabel = _waitingForHotkey ? "PawnEditor.PressAnyKey".Translate().ToString() : Settings.EditorHotkey.ToString();
+        
         if (Widgets.ButtonText(hotkeyRect.RightHalf(), hotkeyLabel))
             _waitingForHotkey = true;
+            
         if (_waitingForHotkey && Event.current.type == EventType.KeyDown && Event.current.keyCode != KeyCode.None)
         {
             Settings.EditorHotkey = Event.current.keyCode;
             _waitingForHotkey = false;
             Event.current.Use();
         }
-
-        listing.End();
     }
 
+    // Lógica de Aplicación de Settings
     private void ApplySettings()
     {
-        Harm.Unpatch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DoWindowContents)), HarmonyPatchType.Prefix,
-            Harm.Id);
-        Harm.Unpatch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DrawXenotypeEditorButton)),
-            HarmonyPatchType.Prefix,
-            Harm.Id);
+        // Desaplicar parches existentes primero para evitar duplicados
+        Harm.Unpatch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DoWindowContents)), HarmonyPatchType.Prefix, Harm.Id);
+        Harm.Unpatch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DrawXenotypeEditorButton)), HarmonyPatchType.Prefix, Harm.Id);
         Harm.Unpatch(AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons)), HarmonyPatchType.Transpiler, Harm.Id);
         Harm.Unpatch(AccessTools.Method(typeof(Pawn), nameof(Pawn.GetGizmos)), HarmonyPatchType.Postfix, Harm.Id);
+
         if (Settings.OverrideVanilla)
             Harm.Patch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DoWindowContents)),
-                new(GetType(), nameof(OverrideVanilla)));
+                new(GetType(), nameof(PawnEditorPatches.OverrideVanilla)));
         else
             Harm.Patch(AccessTools.Method(typeof(Page_ConfigureStartingPawns), nameof(Page_ConfigureStartingPawns.DrawXenotypeEditorButton)),
-                new(GetType(), nameof(AddEditorButton)));
+                new(GetType(), nameof(PawnEditorPatches.AddEditorButton)));
 
         if (Settings.ShowOpenButton)
-            Harm.Patch(AccessTools.Method(typeof(Pawn), nameof(Pawn.GetGizmos)), postfix: new(GetType(), nameof(AddEditButton)));
+            Harm.Patch(AccessTools.Method(typeof(Pawn), nameof(Pawn.GetGizmos)), postfix: new(GetType(), nameof(PawnEditorPatches.AddEditButton)));
 
         if (Settings.InGameDevButton)
             Harm.Patch(AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DrawButtons)),
-                transpiler: new(GetType(), nameof(AddDevButton)));
-
-
+                transpiler: new(GetType(), nameof(PawnEditorPatches.AddDevButton)));
+    }
+    
+    public static void Keybind()
+    {
+        bool triggered = false;
+        try { triggered = KeyBindingDefOf.PawnEditor_OpenEditor.KeyDownEvent; } catch { }
+        
+        if (!triggered && Event.current.type == EventType.KeyDown && Event.current.keyCode == Settings.EditorHotkey)
+        {
+            triggered = true;
+            Event.current.Use();
+        }
+        
+        if (triggered && !PawnEditor.Pregame)
+        {
+            if (Find.WindowStack.IsOpen<Dialog_PawnEditor_InGame>()) 
+                Find.WindowStack.TryRemove(typeof(Dialog_PawnEditor_InGame));
+            else 
+                Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
+        }
     }
 
     public override void WriteSettings()
@@ -130,179 +204,16 @@ public class PawnEditorMod : Mod
         base.WriteSettings();
         ApplySettings();
     }
-
-    public static bool OverrideVanilla(Rect rect, Page_ConfigureStartingPawns __instance)
-    {
-        PawnEditor.Pregame = true;
-        PawnEditor.DoUI(rect, __instance.DoBack, __instance.DoNext);
-        return false;
-    }
-
-    public static void Keybind()
-    {
-        // Support both vanilla KeyBinding and custom hotkey
-        bool triggered = false;
-        try { triggered = KeyBindingDefOf.PawnEditor_OpenEditor.KeyDownEvent; } catch { }
-        if (!triggered && Event.current.type == EventType.KeyDown && Event.current.keyCode == Settings.EditorHotkey)
-        {
-            triggered = true;
-            Event.current.Use();
-        }
-        if (triggered)
-        {
-            if (!PawnEditor.Pregame)
-                if (Find.WindowStack.IsOpen<Dialog_PawnEditor_InGame>()) Find.WindowStack.TryRemove(typeof(Dialog_PawnEditor_InGame));
-                else Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
-        }
-    }
-
-    public static bool AddEditorButton(Rect rect, Page_ConfigureStartingPawns __instance)
-    {
-        float x, y;
-        //moves button to left if biotech is active
-        if (ModsConfig.BiotechActive)
-        {
-            Text.Font = GameFont.Small;
-            x = rect.x + rect.width / 2 + 2;
-            y = rect.y + rect.height - 38f;
-            if (Widgets.ButtonText(new(x, y, Page.BottomButSize.x, Page.BottomButSize.y), "XenotypeEditor".Translate()))
-                Find.WindowStack.Add(new Dialog_CreateXenotype(__instance.curPawnIndex, delegate
-                {
-                    CharacterCardUtility.cachedCustomXenotypes = null;
-                    StartingPawnUtility.RandomizePawn(__instance.curPawnIndex);
-                }));
-            x = rect.x + rect.width / 2 - 2 - Page.BottomButSize.x;
-            y = rect.y + rect.height - 38f;
-        }
-        else
-        {
-            x = (rect.width - Page.BottomButSize.x) / 2f;
-            y = rect.y + rect.height - 38f;
-        }
-
-        if (Widgets.ButtonText(new(x, y, Page.BottomButSize.x, Page.BottomButSize.y), "PawnEditor.CharacterEditor".Translate()))
-            Find.WindowStack.Add(new Dialog_PawnEditor_Pregame(__instance.DoNext));
-
-        return false;
-    }
-
-    public static IEnumerable<CodeInstruction> AddDevButton(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
-    {
-        var codes = instructions.ToList();
-        var info = AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.ToggleGodMode));
-        var idx = codes.FindIndex(ins => ins.Calls(info));
-        var idx2 = codes.FindLastIndex(idx, ins => ins.opcode == OpCodes.Brfalse_S);
-        var label2 = (Label)codes[idx2].operand;
-        var label1 = generator.DefineLabel();
-        codes[idx + 1].labels.Remove(label2);
-        codes[idx + 1].labels.Add(label1);
-        codes.InsertRange(idx + 1, new[]
-        {
-            new CodeInstruction(OpCodes.Ldarg_0).WithLabels(label2),
-            CodeInstruction.LoadField(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.widgetRow)),
-            CodeInstruction.LoadField(typeof(TexPawnEditor), nameof(TexPawnEditor.OpenPawnEditor)),
-            new CodeInstruction(OpCodes.Ldstr, "PawnEditor.CharacterEditor"),
-            CodeInstruction.Call(typeof(Translator), nameof(Translator.Translate), new[] { typeof(string) }),
-            CodeInstruction.Call(typeof(TaggedString), "op_Implicit", new[] { typeof(TaggedString) }),
-            new CodeInstruction(OpCodes.Ldloca, 0),
-            new CodeInstruction(OpCodes.Initobj, typeof(Color?)),
-            new CodeInstruction(OpCodes.Ldloc_0),
-            new CodeInstruction(OpCodes.Ldloca, 0),
-            new CodeInstruction(OpCodes.Initobj, typeof(Color?)),
-            new CodeInstruction(OpCodes.Ldloc_0),
-            new CodeInstruction(OpCodes.Ldloca, 0),
-            new CodeInstruction(OpCodes.Initobj, typeof(Color?)),
-            new CodeInstruction(OpCodes.Ldloc_0),
-            new CodeInstruction(OpCodes.Ldc_I4_1),
-            new CodeInstruction(OpCodes.Ldc_R4, -1f),
-            new CodeInstruction(OpCodes.Callvirt, AccessTools.Method(typeof(WidgetRow), nameof(WidgetRow.ButtonIcon))),
-            new CodeInstruction(OpCodes.Brfalse, label1),
-            new CodeInstruction(OpCodes.Call, AccessTools.PropertyGetter(typeof(Find), nameof(Find.WindowStack))),
-            new CodeInstruction(OpCodes.Newobj, AccessTools.Constructor(typeof(Dialog_PawnEditor_InGame))),
-            CodeInstruction.Call(typeof(WindowStack), nameof(WindowStack.Add))
-        });
-        return codes;
-    }
-
-    // FIX #006: Settings.ShowOpenButton controls registration in ApplySettings.
-    // Only show in DevMode + GodMode to avoid exposing editor to normal gameplay.
-    public static IEnumerable<Gizmo> AddEditButton(IEnumerable<Gizmo> gizmos, Pawn __instance)
-    {
-        foreach (var g in gizmos) yield return g;
-
-        if (!Prefs.DevMode || !DebugSettings.godMode) yield break;
-
-        yield return new Command_Action
-        {
-            defaultLabel = "PawnEditor.Edit".Translate(),
-            defaultDesc = "PawnEditor.Edit.Desc".Translate(),
-            action = () =>
-            {
-                Find.WindowStack.Add(new Dialog_PawnEditor_InGame());
-                PawnEditor.Select(__instance);
-            }
-        };
-    }
-
-
-    public static void Notify_ConfigurePawns()
-    {
-        StartingThingsManager.ProcessScenario();
-        PawnEditor.ResetPoints();
-        PawnEditor.CheckChangeTabGroup();
-    }
 }
 
-public class PawnEditorSettings : ModSettings
-{
-    public enum HediffLocation
-    {
-        RecipeDef,
-        All
-    }
-
-    public bool CountNPCs;
-    public HashSet<string> DontShowAgain = new();
-    public HediffLocation HediffLocationLimit = HediffLocation.RecipeDef;
-    public bool InGameDevButton = true;
-    public bool OverrideVanilla;
-    public float PointLimit = 100000;
-    public bool ShowOpenButton = true;
-    public bool UseSilver;
-    public bool HideFactions;
-    public KeyCode EditorHotkey = KeyCode.KeypadMinus;
-
-    public override void ExposeData()
-    {
-        base.ExposeData();
-        Scribe_Collections.Look(ref DontShowAgain, nameof(DontShowAgain));
-        Scribe_Values.Look(ref OverrideVanilla, nameof(OverrideVanilla));
-        Scribe_Values.Look(ref InGameDevButton, nameof(InGameDevButton), true);
-        Scribe_Values.Look(ref ShowOpenButton, nameof(ShowOpenButton), true);
-        Scribe_Values.Look(ref PointLimit, nameof(PointLimit));
-        Scribe_Values.Look(ref UseSilver, nameof(UseSilver));
-        Scribe_Values.Look(ref HideFactions, nameof(HideFactions));
-        Scribe_Values.Look(ref CountNPCs, nameof(CountNPCs));
-        Scribe_Values.Look(ref HediffLocationLimit, nameof(HediffLocationLimit), HediffLocation.RecipeDef);
-        Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
-
-        if (HARCompat.Active) Scribe_Values.Look(ref HARCompat.EnforceRestrictions, "EnforceHARRestrictions", true);
-
-        DontShowAgain ??= new();
-    }
-}
-
+// Attribute definitions (keep in a separate file or at bottom)
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class HotSwappableAttribute : Attribute
-{
-}
+public class HotSwappableAttribute : Attribute { }
 
 [AttributeUsage(AttributeTargets.Class)]
 public class ModCompatAttribute : Attribute
 {
     private readonly List<string> mods;
-
     public ModCompatAttribute(params string[] mods) => this.mods = mods.ToList();
-
     public bool ShouldActivate() => mods.Any(mod => ModLister.GetActiveModWithIdentifier(mod, true) != null);
 }
