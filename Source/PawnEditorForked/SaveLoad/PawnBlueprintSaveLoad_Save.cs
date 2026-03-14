@@ -348,6 +348,56 @@ public static partial class PawnBlueprintSaveLoad
             w.WriteEndElement();
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRelations (memories): {ex.Message}"); }
+
+        // v3d10: Reverse social memories — what OTHER pawns think about THIS pawn.
+        // Without this, blueprint load only has the pawn's own memories and must
+        // guess the reverse via mirroring, which loses asymmetric interactions.
+        try
+        {
+            var allPawns = GetAllReachablePawns();
+            var reverseMems = new System.Collections.Generic.List<(Thought_Memory mem, Pawn source)>();
+            foreach (var other in allPawns)
+            {
+                if (other == pawn || other.needs?.mood?.thoughts?.memories == null) continue;
+                var otherMemories = other.needs.mood.thoughts.memories.Memories;
+                foreach (var mem in otherMemories)
+                {
+                    if (mem == null || mem.def == null) continue;
+                    if (!(mem is ISocialThought st)) continue;
+                    var target = st.OtherPawn();
+                    if (target == null || target != pawn) continue;
+                    reverseMems.Add((mem, other));
+                }
+            }
+
+            if (reverseMems.Count > 0)
+            {
+                w.WriteStartElement("reverseSocialMemories");
+                foreach (var (mem, source) in reverseMems)
+                {
+                    try
+                    {
+                        w.WriteStartElement("li");
+                        WriteDefWithSource(w, "def", mem.def);
+                        w.WriteElementString("stageIndex", mem.CurStageIndex.ToString());
+                        w.WriteElementString("age",        mem.age.ToString());
+                        w.WriteElementString("sourcePawnID", source.ThingID ?? "");
+                        if (source.Name is NameTriple snt)
+                        {
+                            w.WriteElementString("sourcePawnFirst", snt.First ?? "");
+                            w.WriteElementString("sourcePawnLast",  snt.Last  ?? "");
+                        }
+                        w.WriteEndElement();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Prefs.DevMode) Log.Warning($"[Pawn Editor] WriteRelations reverse memory skip: {ex.Message}");
+                    }
+                }
+                w.WriteEndElement();
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteRelations (reverse memories): {ex.Message}"); }
     }
 
     // ── Save: Work Priorities ──

@@ -653,33 +653,6 @@ public static partial class PawnBlueprintSaveLoad
                     if (newMem == null || !(newMem is ISocialThought)) continue;
                     newMem.age = age;
                     dstMems.TryGainMemory(newMem, otherPawn);
-
-                    // v3d9 fix: Mirror positive opinion memories onto the other pawn.
-                    // The blueprint only saves the pawn's OWN memories, but the Social tab
-                    // shows otherPawn.relations.OpinionOf(pawn) as the main number.
-                    // Without this reverse copy, the other pawn has 0 opinion of the loaded pawn.
-                    // Only mirror positive baseOpinionOffset (same logic as CopyDup Pass 3).
-                    try
-                    {
-                        var otherMems = otherPawn.needs?.mood?.thoughts?.memories;
-                        if (otherMems != null)
-                        {
-                            var stage = newMem.CurStage;
-                            if (stage != null && stage.baseOpinionOffset > 0)
-                            {
-                                var reverseMem = ThoughtMaker.MakeThought(def, stageIndex) as Thought_Memory;
-                                if (reverseMem != null && reverseMem is ISocialThought)
-                                {
-                                    reverseMem.age = age;
-                                    otherMems.TryGainMemory(reverseMem, pawn);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        if (Prefs.DevMode) Log.Warning($"[Pawn Editor] LoadRelations reverse memory skip: {ex.Message}");
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -688,6 +661,52 @@ public static partial class PawnBlueprintSaveLoad
             }
         }
         catch (Exception ex) { Warn($"SocialMemories: {ex.Message}"); }
+
+        // v3d10: Load REAL reverse memories — what other pawns actually thought about this pawn.
+        // Saved as <reverseSocialMemories> by WriteRelations. This replaces the old mirror hack
+        // which guessed reverse opinions from the pawn's own memories.
+        var reverseNode = root.SelectSingleNode("reverseSocialMemories");
+        if (reverseNode != null)
+        {
+            try
+            {
+                foreach (XmlNode li in reverseNode.SelectNodes("li"))
+                {
+                    try
+                    {
+                        var def = ResolveDef<ThoughtDef>(li, "def");
+                        if (def == null) continue;
+                        var sourcePawnID = GetText(li, "sourcePawnID");
+                        var sourceFirst  = GetText(li, "sourcePawnFirst");
+                        var sourceLast   = GetText(li, "sourcePawnLast");
+                        int.TryParse(GetText(li, "stageIndex"), out int stageIdx);
+                        int.TryParse(GetText(li, "age"),        out int memAge);
+
+                        Pawn sourcePawn = null;
+                        if (!sourcePawnID.NullOrEmpty())
+                            sourcePawn = allPawns.FirstOrDefault(p => p != pawn && p.ThingID == sourcePawnID);
+                        if (sourcePawn == null && !sourceFirst.NullOrEmpty())
+                            sourcePawn = allPawns.FirstOrDefault(p =>
+                                p != pawn && p.Name is NameTriple nt &&
+                                nt.First == sourceFirst && nt.Last == sourceLast);
+                        if (sourcePawn == null) continue;
+
+                        var sourceMems = sourcePawn.needs?.mood?.thoughts?.memories;
+                        if (sourceMems == null) continue;
+
+                        var reverseMem = ThoughtMaker.MakeThought(def, stageIdx) as Thought_Memory;
+                        if (reverseMem == null || !(reverseMem is ISocialThought)) continue;
+                        reverseMem.age = memAge;
+                        sourceMems.TryGainMemory(reverseMem, pawn);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Prefs.DevMode) Log.Warning($"[Pawn Editor] LoadRelations reverse memory skip: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex) { Warn($"ReverseSocialMemories: {ex.Message}"); }
+        }
     }
 
     // ── Load: Work Priorities ──
