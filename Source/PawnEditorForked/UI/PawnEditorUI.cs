@@ -1,19 +1,25 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using HarmonyLib;
 using LudeonTK;
-using PawnEditor.Utils;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Main UI orchestrator for the Pawn Editor window.
+/// Split into partial classes by responsibility:
+///   PawnEditorUI.cs            — Fields, DoUI layout, DoBottomButtons, CanExit
+///   PawnEditorUI_SaveLoad.cs   — GetSaveLoadItems, GetRandomizationOptions
+///   PawnEditorUI_PawnManagement.cs — RecachePawnList, Select, CheckChangeTabGroup, tabs/widgets
+///   PawnEditorUI_Portrait.cs   — GetPawnTex, SavePawnTex, DrawPawnPortrait, graphics helpers
+/// </summary>
 [HotSwappable]
 public static partial class PawnEditor
 {
+    // ── Shared state (accessible from all partial files) ──
     public static bool RenderClothes = true;
     public static bool RenderHeadgear = true;
     private static bool usePointLimit;
@@ -44,6 +50,8 @@ public static partial class PawnEditor
     public static bool Pregame;
 
     private static TabRecord cachedWidgetTab;
+
+    // ── Main UI layout ──
 
     public static void DoUI(Rect inRect, Action onClose, Action onNext)
     {
@@ -98,10 +106,10 @@ public static partial class PawnEditor
                 curTab.DrawTabContents(inRect, selectedPawn);
         }
 
-        // Since the Close button clears caches, it must be after all the stuff that uses the caches
+        // v3d9 fix: explicit (Action) cast so the ternary can resolve the target type
         DoBottomButtons(bottomButtonsRect, onClose, Pregame
             ? onNext
-            : () =>
+            : (Action)(() =>
             {
                 if (!showFactionInfo && selectedPawn != null)
                     Find.WindowStack.Add(new FloatMenu(Find.Maps.Select(map => PawnList.GetTeleportOption(map, selectedPawn))
@@ -122,8 +130,10 @@ public static partial class PawnEditor
                             });
                         }))
                         .ToList()));
-            });
+            }));
     }
+
+    // ── Bottom buttons (Close/Start, Save, Load, Randomize, Teleport) ──
 
     public static void DoBottomButtons(Rect inRect, Action onLeftButton, Action onRightButton)
     {
@@ -138,10 +148,9 @@ public static partial class PawnEditor
         var buttonRect = new Rect(randomRect);
         var options = GetRandomizationOptions().ToList();
 
-        //Add randomize options for factions
-        if (!showFactionInfo && selectedPawn!=null && curTab == TabGroupDefOf.Humanlike.tabs[0])
+        // Add randomize options for factions
+        if (!showFactionInfo && selectedPawn != null && curTab == TabGroupDefOf.Humanlike.tabs[0])
         {
-            //Add randomize all - including faction option
             var randomizeAllWithFactionOption = curTab.GetRandomizationOptions(selectedPawn).Select(option => new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + "PawnEditor.AllIncludingFaction".Translate(), () =>
             {
                 foreach (var option in options)
@@ -150,7 +159,6 @@ public static partial class PawnEditor
                         continue;
 
                     option.action();
-
                 }
                 lastRandomization = option;
                 Notify_PointsUsed();
@@ -165,7 +173,6 @@ public static partial class PawnEditor
             {
                 options.Add(randomizeAllWithFactionOption[0]);
 
-                //Add randomize faction option
                 options.Add(new FloatMenuOption("PawnEditor.SelectRandomFaction".Translate(), () =>
                 {
                     List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
@@ -189,13 +196,12 @@ public static partial class PawnEditor
             randomRect.TakeRightPart(1);
         }
 
-        //Don't show the randomize button if no randomization options exist or you can't edit the faction overview
-        if (options.Count > 0 && (selectedPawn != null && selectedFaction!=null))
+        if (options.Count > 0 && (selectedPawn != null && selectedFaction != null))
             if (Widgets.ButtonText(randomRect, "Randomize".Translate()))
             {
                 Find.WindowStack.Add(new FloatMenu(options));
             }
-  
+
         buttonRect.x -= 5 + buttonRect.width;
 
         if (Widgets.ButtonText(buttonRect, "Save".Translate()))
@@ -221,387 +227,5 @@ public static partial class PawnEditor
             return false;
         }
         return true;
-    }
-
-    private static IEnumerable<SaveLoadItem> GetSaveLoadItems()
-    {
-        if (showFactionInfo)
-            yield return new SaveLoadItem<Faction>("PawnEditor.Selected".Translate(), selectedFaction, new()
-            {
-                LoadLabel = "PawnEditor.LoadFaction".Translate()
-            });
-        else
-        {
-            IntVec3 pos = default;
-            Map map = null;
-            Rot4 rot = default;
-            ThingOwner parent = null;
-            Faction originalFaction = null;
-
-            // ── Duplicate pawn (in-memory clone) ──
-            yield return new SaveItem("PawnEditor.DuplicatePawn".Translate(), () =>
-            {
-                var stableClone = CreateStableDuplicateOrSelf(selectedPawn);
-                AddPawn(stableClone, selectedCategory).HandleResult();
-                // Aggressive graphics refresh to prevent null texture spam
-                try { EnsurePawnGraphicsInitialized(stableClone); } catch { }
-                try { stableClone.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
-                try { PortraitsCache.SetDirty(stableClone); } catch { }
-                try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(stableClone); } catch { }
-                // v3d7: Re-apply FA data — SetAllGraphicsDirty triggers FA Genetic Heads
-                // which overrides face shape, so we force it back from the source pawn
-                FacialAnimCompat.CopyFacialData(selectedPawn, stableClone);
-                NotifyColonistBarsDirty();
-                try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
-            });
-
-            // ── Save: Blueprint only (no Scribe) ──
-            yield return new SaveItem("Save".Translate() + " " + "PawnEditor.Selected".Translate().ToLower() + " " + "PawnEditor.Pawn".Translate().ToLower(), () =>
-                BlueprintLoadUtility.SavePawnBlueprint(selectedPawn, selectedCategory.ToString()));
-
-            // ── Load: Replace selected pawn ──
-            yield return new LoadItem("PawnEditor.LoadPawnReplace".Translate(), () =>
-            {
-                if (selectedPawn == null) return;
-                originalFaction = selectedPawn.Faction;
-                if (selectedPawn.Spawned)
-                {
-                    pos = selectedPawn.Position;
-                    rot = selectedPawn.Rotation;
-                    map = selectedPawn.Map;
-                }
-                else if (selectedPawn.SpawnedOrAnyParentSpawned)
-                {
-                    parent = selectedPawn.holdingOwner;
-                }
-
-                var oldPawn = selectedPawn; // Capture reference before async callback
-
-                BlueprintLoadUtility.LoadPawnBlueprintReplace(oldPawn, selectedCategory.ToString(), newPawn =>
-                {
-                    LongEventHandler.ExecuteWhenFinished(() =>
-                    {
-                        // Remove old pawn properly (CharEditor-style lifecycle)
-                        if (Pregame)
-                        {
-                            Find.GameInitData.startingPossessions.Remove(oldPawn);
-                            var idx = Find.GameInitData.startingAndOptionalPawns.IndexOf(oldPawn);
-                            if (idx >= 0)
-                                Find.GameInitData.startingAndOptionalPawns[idx] = newPawn;
-                            Find.GameInitData.startingPossessions[newPawn] = new();
-                        }
-
-                        if (oldPawn.Spawned) oldPawn.DeSpawn();
-
-                        // Discard old pawn from world pawns to prevent ghost references
-                        try
-                        {
-                            if (!Pregame && Find.WorldPawns != null)
-                                Find.WorldPawns.RemoveAndDiscardPawnViaGC(oldPawn);
-                        }
-                        catch (Exception ex) { Log.Warning($"[Pawn Editor] RemoveAndDiscardPawnViaGC: {ex.Message}"); }
-
-                        // Place new pawn
-                        if (map != null)
-                        {
-                            GenSpawn.Spawn(newPawn, pos, map, rot, WipeMode.VanishOrMoveAside, true);
-                            try { newPawn.Notify_Teleported(); }
-                            catch (Exception ex) { Log.Warning($"[Pawn Editor] Notify_Teleported: {ex.Message}"); }
-                        }
-                        else if (parent != null)
-                        {
-                            parent.TryAdd(newPawn, false);
-                        }
-
-                        if (!Pregame && originalFaction != null && newPawn.Faction != originalFaction)
-                            newPawn.SetFaction(originalFaction);
-
-                        // Full UI refresh (prevents TacticalGroups and similar mods from crashing)
-                        selectedPawn = newPawn;
-                        try { EnsurePawnGraphicsInitialized(newPawn); } catch { }
-                        try { newPawn.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
-                        try { newPawn.Notify_DisabledWorkTypesChanged(); } catch { }
-                        NotifyColonistBarsDirty();
-                        try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
-
-                        // v3d7: Recache pawn list and tabs so UI shows the new pawn
-                        try { PawnList.UpdateCache(selectedFaction, selectedCategory); } catch { }
-                        try { CheckChangeTabGroup(); } catch { }
-                    });
-                });
-            });
-
-            // ── Load: As new clone ──
-            yield return new LoadItem("PawnEditor.LoadPawnAsClone".Translate(), () =>
-            {
-                BlueprintLoadUtility.LoadPawnBlueprint(selectedCategory.ToString(), newPawn =>
-                {
-                    LongEventHandler.ExecuteWhenFinished(() =>
-                    {
-                        AddPawn(newPawn, selectedCategory).HandleResult();
-                        try { newPawn.Drawer?.renderer?.SetAllGraphicsDirty(); } catch { }
-                        try { newPawn.Notify_DisabledWorkTypesChanged(); } catch { }
-                        NotifyColonistBarsDirty();
-                        try { Find.ColonistBar?.MarkColonistsDirty(); } catch { }
-                    });
-                });
-            });
-        }
-
-        if (Pregame)
-            yield return new SaveLoadItem<StartingThingsManager.StartingPreset>("PawnEditor.StartingPreset".Translate().CapitalizeFirst(), new());
-        else
-            yield return new SaveLoadItem<Map>("PawnEditor.Colony".Translate(), Find.CurrentMap, new()
-            {
-                PrepareLoad = map =>
-                {
-                    MapDeiniter.DoQueuedPowerTasks(map);
-                    map.weatherManager.EndAllSustainers();
-                    Find.SoundRoot.sustainerManager.EndAllInMap(map);
-                    Find.TickManager.RemoveAllFromMap(map);
-                },
-                OnLoad = map => map.FinalizeLoading()
-            });
-
-        if (curTab != null)
-            if (showFactionInfo)
-                foreach (var item in curTab.GetSaveLoadItems(selectedFaction))
-                    yield return item;
-            else
-                foreach (var item in curTab.GetSaveLoadItems(selectedPawn))
-                    yield return item;
-    }
-
-    private static IEnumerable<FloatMenuOption> GetRandomizationOptions()
-    {
-        if (curTab == null) return Enumerable.Empty<FloatMenuOption>();
-        if (showFactionInfo)
-        {
-            return curTab.GetRandomizationOptions(selectedFaction);
-        }
-        else
-        {
-            List<FloatMenuOption> options = curTab.GetRandomizationOptions(selectedPawn).Select(option => new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + option.Label.ToLower(), () =>
-            {
-                lastRandomization = option;
-                option.action();
-                Notify_PointsUsed();
-                
-            })).ToList();
-            return options as IEnumerable<FloatMenuOption>;
-        }
-    }
-
-    //Used for viewing null-faction pawns
-    public static void RecachePawnListWithNoFactionPawns()
-    {
-        PawnEditor.needToRecacheNullFactionPawns = true;
-        List<Pawn> noFPawns = PawnEditor_PawnsFinder.GetHumanPawnsWithoutFaction();
-        CheckChangeTabGroup();
-        TabWorker_FactionOverview.RecachePawnsWithPawnList(noFPawns);
-        TabWorker_AnimalMech.Notify_PawnAdded(selectedCategory);
-        List<Pawn> pawns;
-        PawnList.UpdateCacheWithNullFaction();
-        pawns = noFPawns;
-
-        if (selectedPawn == null || !pawns.Contains(selectedPawn))
-        {
-            selectedPawn = pawns.FirstOrDefault();
-            CheckChangeTabGroup();
-        }
-        PortraitsCache.Clear();
-    }
-
-    public static void RecachePawnList()
-    {
-        if (selectedFaction == null || !Find.FactionManager.allFactions.Contains(selectedFaction))
-        {
-            selectedFaction = Faction.OfPlayer;
-            CheckChangeTabGroup();
-        }
-
-        if (selectedPawn is { Faction: { } pawnFaction } && pawnFaction != selectedFaction && Find.FactionManager.allFactions.Contains(pawnFaction))
-        {
-            selectedFaction = pawnFaction;
-            CheckChangeTabGroup();
-        }
-
-        if (Pregame && selectedFaction != Faction.OfPlayer)
-        {
-            selectedFaction = Faction.OfPlayer;
-            CheckChangeTabGroup();
-        }
-
-        TabWorker_FactionOverview.RecachePawns(selectedFaction);
-        TabWorker_AnimalMech.Notify_PawnAdded(selectedCategory);
-
-        List<Pawn> pawns;
-        if (Pregame)
-            pawns = selectedCategory == PawnCategory.Humans ? Find.GameInitData.startingAndOptionalPawns : StartingThingsManager.GetPawns(selectedCategory);
-        else
-        {
-            PawnList.UpdateCache(selectedFaction, selectedCategory);
-            (pawns, _, _) = PawnList.GetLists();
-        }
-
-        if (selectedPawn == null || !pawns.Contains(selectedPawn))
-        {
-            selectedPawn = pawns.FirstOrDefault();
-            CheckChangeTabGroup();
-        }
-
-        PortraitsCache.Clear();
-    }
-
-    private static void SetTabGroup(TabGroupDef def)
-    {
-        tabGroup = def;
-        curTab = def?.tabs?.FirstOrDefault();
-        tabs = def?.tabs?.Select(static tab => new TabRecord(tab.LabelCap, () => curTab = tab, () => curTab == tab)).ToList() ?? new List<TabRecord>();
-    }
-
-    public static void CheckChangeTabGroup()
-    {
-        TabGroupDef desiredTabGroup;
-
-        if (showFactionInfo && selectedFaction != null)
-            desiredTabGroup = selectedFaction.IsPlayer ? TabGroupDefOf.PlayerFaction : TabGroupDefOf.NPCFaction;
-        else if (showFactionInfo && selectedFaction == null)
-            desiredTabGroup = TabGroupDefOf.NPCFaction;
-        else if (selectedPawn != null)
-            desiredTabGroup = selectedCategory == PawnCategory.Humans ? TabGroupDefOf.Humanlike : TabGroupDefOf.AnimalMech;
-        else desiredTabGroup = null;
-
-        if (desiredTabGroup != tabGroup)
-            SetTabGroup(desiredTabGroup);
-
-        RecacheWidgets();
-    }
-
-    private static void RecacheWidgets()
-    {
-        if (cachedWidgetTab != null) tabs.Remove(cachedWidgetTab);
-
-        Func<WidgetDef, bool> predicate;
-        if (showFactionInfo && selectedFaction != null) predicate = def => def.type == TabDef.TabType.Faction && def.ShowOn(selectedFaction);
-        else if (selectedPawn != null) predicate = def => def.type == TabDef.TabType.Pawn && def.ShowOn(selectedPawn);
-        else predicate = _ => false;
-
-        widgets = DefDatabase<WidgetDef>.AllDefs.Where(predicate).ToList();
-
-        if (widgets.NullOrEmpty())
-            cachedWidgetTab = null;
-        else
-        {
-            cachedWidgetTab = new(widgetTab.LabelCap, static () => curTab = widgetTab, static () => curTab == widgetTab);
-            tabs.Add(cachedWidgetTab);
-        }
-    }
-
-    public static void Select(Pawn pawn)
-    {
-        selectedPawn = pawn;
-        var recache = false;
-        if (pawn.Faction != selectedFaction)
-        {
-            selectedFaction = pawn.Faction;
-            recache = true;
-        }
-
-        showFactionInfo = false;
-        if (!selectedCategory.Includes(pawn))
-        {
-            selectedCategory = pawn.RaceProps.Humanlike ? PawnCategory.Humans : pawn.RaceProps.IsMechanoid ? PawnCategory.Mechs : PawnCategory.Animals;
-            recache = true;
-        }
-
-        if (recache || tabGroup == TabGroupDefOf.PlayerFaction || tabGroup == TabGroupDefOf.NPCFaction )
-        {
-            CheckChangeTabGroup();
-            DoRecache();
-        }
-    }
-
-    public static void Select(Faction faction)
-    {
-        selectedFaction = faction;
-        selectedPawn = null;
-        showFactionInfo = true;
-        CheckChangeTabGroup();
-    }
-
-    public static void GotoTab(TabDef tab)
-    {
-        curTab = tab;
-    }
-
-    public static RenderTexture GetPawnTex(Pawn pawn, Vector2 portraitSize, Rot4 dir, Vector3 cameraOffset = default, float cameraZoom = 1f) =>
-        PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
-            renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true);
-
-    public static void SavePawnTex(Pawn pawn, string path, Rot4 dir)
-    {
-        var tex = GetPawnTex(pawn, new(128, 128), dir);
-        RenderTexture.active = tex;
-        var tex2D = new Texture2D(tex.width, tex.width);
-        tex2D.ReadPixels(new(0, 0, tex.width, tex.height), 0, 0);
-        RenderTexture.active = null;
-        tex2D.Apply(true, false);
-        var bytes = tex2D.EncodeToPNG();
-        File.WriteAllBytes(path, bytes);
-    }
-
-    public static void DrawPawnPortrait(Rect rect)
-    {
-        var image = GetPawnTex(selectedPawn, rect.size, curRot);
-        GUI.color = Command.LowLightBgColor;
-        Widgets.DrawBox(rect);
-        GUI.color = Color.white;
-        GUI.DrawTexture(rect, Command.BGTex);
-        if (image != null)
-            GUI.DrawTexture(rect, image);
-        if (Widgets.ButtonImage(rect.ContractedBy(8).RightPartPixels(16).TopPartPixels(16), TexUI.RotRightTex))
-            curRot.Rotate(RotationDirection.Counterclockwise);
-
-        if (Widgets.InfoCardButtonWorker(rect.ContractedBy(8).LeftPartPixels(16).TopPartPixels(16))) Find.WindowStack.Add(new Dialog_InfoCard(selectedPawn));
-    }
-
-    private static void EnsurePawnGraphicsInitialized(Pawn pawn)
-    {
-        if (pawn == null) return;
-
-        try
-        {
-            var renderer = pawn.drawer?.renderer;
-            if (renderer == null) return;
-            var ensure = AccessTools.Method(renderer.GetType(), "EnsureGraphicsInitialized", Type.EmptyTypes);
-            ensure?.Invoke(renderer, null);
-            renderer.SetAllGraphicsDirty();
-        }
-        catch
-        {
-        }
-    }
-
-    private static void NotifyColonistBarsDirty()
-    {
-        try
-        {
-            Find.ColonistBar.MarkColonistsDirty();
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            var tgType = AccessTools.TypeByName("TacticalGroups.TacticalColonistBar");
-            var markDirty = tgType == null ? null : AccessTools.Method(tgType, "MarkColonistsDirty", Type.EmptyTypes);
-            if (markDirty != null && markDirty.IsStatic)
-                markDirty.Invoke(null, null);
-        }
-        catch
-        {
-        }
     }
 }

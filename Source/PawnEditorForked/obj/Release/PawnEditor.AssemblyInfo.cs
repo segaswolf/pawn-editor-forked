@@ -11,13 +11,13 @@ using System;
 using System.Reflection;
 
 [assembly: System.Runtime.CompilerServices.IgnoresAccessChecksToAttribute("Assembly-CSharp")]
-[assembly: System.Reflection.AssemblyCompanyAttribute("isorex")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("SegasWolf")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("A mod for RimWorld that allows you to edit pawns.")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.2.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aa87245db2b4c2f03fedd98bd7d20aa94db37819")]
-[assembly: System.Reflection.AssemblyProductAttribute("PawnEditor")]
-[assembly: System.Reflection.AssemblyTitleAttribute("PawnEditor")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3ae6f07ae63a9380594c42ab95e5281751457749")]
+[assembly: System.Reflection.AssemblyProductAttribute("PawnEditorForked")]
+[assembly: System.Reflection.AssemblyTitleAttribute("PawnEditorForked")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.2.0")]
 
 // Generado por la clase WriteCodeFragment de MSBuild.

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Verse;
 
-namespace PawnEditor.Utils
+namespace PawnEditor
 {
     internal static class PawnEditor_PawnsFinder
     {

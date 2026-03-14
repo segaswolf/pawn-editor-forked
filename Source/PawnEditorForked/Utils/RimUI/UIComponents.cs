@@ -86,28 +86,30 @@ namespace PawnEditor
 
             int.TryParse(output, out var result);
 
-            if (Mouse.IsOver(inRect))
-            {
-                TooltipHandler.TipRegion(inRect, "Scroll to change value.");
-                // Increment/ decrement value with mouse scroll.
-                var scroll = Input.mouseScrollDelta.y;
-                if (Mathf.Approximately(scroll, 1) && !UIUtility.HasDoneOnce)
-                {
-                    result++;
-                    UIUtility.HasDoneOnce = true;
-                }
-                else if (Mathf.Approximately(scroll, -1) && !UIUtility.HasDoneOnce)
-                {
-                    result--;
-                    UIUtility.HasDoneOnce = true;
-                }
-                else if (scroll == 0)
-                {
-                    UIUtility.HasDoneOnce = false;
-                }
-            }
-
-            return result;
+						if (Mouse.IsOver(inRect))
+			{
+				TooltipHandler.TipRegion(inRect, "Scroll to change value.");
+				// Increment/ decrement value with mouse scroll.
+			
+				var scroll = UnityEngine.Input.mouseScrollDelta.y;
+			
+				if (Mathf.Approximately(scroll, 1) && !UIUtility.HasDoneOnce)
+				{
+					result++;
+					UIUtility.HasDoneOnce = true;
+				}
+				else if (Mathf.Approximately(scroll, -1) && !UIUtility.HasDoneOnce)
+				{
+					result--;
+					UIUtility.HasDoneOnce = true;
+				}
+				else if (scroll == 0)
+				{
+					UIUtility.HasDoneOnce = false;
+				}
+			}
+			
+			return result;
         }
 
         /// <summary>
@@ -219,7 +221,7 @@ namespace PawnEditor
             var range = (inRect.xMax - inRect.xMin);
             var xPosition = inRect.xMin + range * color.GetComponent(colorComponent);
 
-            if (Event.current.button == 0 && Input.GetKey(KeyCode.Mouse0))
+            if (Event.current.button == 0 && UnityEngine.Input.GetKey(KeyCode.Mouse0))
             {
                 if (Widgets.ClickedInsideRect(originalRect) || (MouseDrag() && lastFocusedSlider == hashCode))
                 {
