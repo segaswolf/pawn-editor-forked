@@ -52,15 +52,26 @@ public static partial class PawnEditor
             catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipping hediff {hediff.def?.defName}: {ex.Message}"); }
         }
 
-        // Restore body parts that had non-organic implants (bionics, prosthetics)
+        // Add non-organic implants and prosthetics to the clone.
+        // Step 1: RestorePart clears any damage/missing state on the target part.
+        // Step 2: Add the actual implant hediff so the clone has the bionic.
         foreach (var hediff in src.health.hediffSet.hediffs)
         {
-            if (hediff is Hediff_AddedPart && !hediff.def.organicAddedBodypart && hediff.Part != null)
+            if ((hediff is Hediff_AddedPart || hediff is Hediff_Implant) && !hediff.def.organicAddedBodypart && hediff.Part != null)
             {
-                try { dst.health.RestorePart(hediff.Part, null, checkStateChange: false); }
+                try
+                {
+                    // Step 1: Restore natural part first (clears damage, missing, etc.)
+                    dst.health.RestorePart(hediff.Part, null, checkStateChange: false);
+
+                    // Step 2: Add the implant/prosthetic hediff
+                    var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
+                    copy.Severity = hediff.Severity;
+                    dst.health.hediffSet.AddDirect(copy);
+                }
                 catch (Exception ex)
                 {
-                    if (Prefs.DevMode) Log.Warning($"[Pawn Editor] RestorePart mismatch (safe): {ex.Message}");
+                    Log.Warning($"[Pawn Editor] Failed to copy implant {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
                 }
             }
         }

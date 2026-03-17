@@ -20,6 +20,22 @@ public partial class PawnEditor
             startingSilver = ColonyInventory.AllItemsInInventory().Sum(static t => t.def == ThingDefOf.Silver ? t.stackCount : 0);
             remainingPoints = startingSilver;
         }
+        else if (!Pregame)
+        {
+            // In-game without silver: pre-calculate the current colony value as baseline
+            // so that remainingPoints reflects only CHANGES made in the editor,
+            // not the entire existing colony value subtracted from the budget.
+            try
+            {
+                AllPawns.UpdateCache(PawnEditorMod.Settings.CountNPCs ? null : Faction.OfPlayer, PawnCategory.All);
+                cachedValue = ValueOfPawns(AllPawns.GetList()) + ValueOfThings(ColonyInventory.AllItemsInInventory());
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[Pawn Editor] ResetPoints: failed to pre-calculate colony value: {ex.Message}");
+                cachedValue = 0;
+            }
+        }
 
         Notify_PointsUsed();
     }

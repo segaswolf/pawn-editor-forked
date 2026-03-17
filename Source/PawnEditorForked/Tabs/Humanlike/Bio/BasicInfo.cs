@@ -1,4 +1,5 @@
-﻿using RimWorld;
+﻿using System.Linq;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -9,6 +10,7 @@ public partial class TabWorker_Bio_Humanlike
     private string ageBiologicalBuffer;
     private string ageChronologicalBuffer;
     private Pawn bufferForPawn;
+    internal static bool resetAgeBuffers; // Set by SetDevStage to force buffer refresh
 
     private void DoBasics(Rect inRect, Pawn pawn)
     {
@@ -66,22 +68,57 @@ public partial class TabWorker_Bio_Humanlike
         using (new TextBlock(GameFont.Tiny, TextAnchor.MiddleCenter))
             Widgets.Label(bio.TakeTopPart(Text.LineHeight), "PawnEditor.Biological".Translate());
         var ageBio = pawn.ageTracker.AgeBiologicalYears;
-        if (bufferForPawn == null || bufferForPawn != pawn)
+        if (bufferForPawn == null || bufferForPawn != pawn || resetAgeBuffers)
         {
             ageBiologicalBuffer = null;
             ageChronologicalBuffer = null;
             bufferForPawn = pawn;
+            resetAgeBuffers = false;
         }
 
 
-        var minAge = 0;
-        if (pawn.ageTracker.Adult)
-            minAge = (int)pawn.ageTracker.CurLifeStageRace.minAge;
-        UIUtility.IntField(bio, ref ageBio, minAge, int.MaxValue, ref ageBiologicalBuffer);
+        // v3d10: Age limits — clamped to current DEVELOPMENTAL stage boundaries.
+        // RimWorld has 5 life stages (Baby, Toddler, Child, Teenager, Adult) but only
+        // 3 developmental stages (Baby, Child, Adult). Teenager shares Adult.
+        // We group by DevelopmentalStage to get the correct min/max range.
+        const int maxBioAge = 9999;
+        int minBioAge = 0;
+        int currentStageMaxAge = maxBioAge;
+
+        var curDevStage = pawn.DevelopmentalStage;
+        var stages = pawn.RaceProps.lifeStageAges;
+
+        // Find the first life stage with this developmental stage → min age
+        var firstMatch = stages.FirstOrDefault(ls => ls.def.developmentalStage == curDevStage);
+        if (firstMatch != null)
+            minBioAge = (int)firstMatch.minAge;
+
+        // Find the first life stage with a DIFFERENT developmental stage AFTER ours → max age
+        bool foundCurrent = false;
+        foreach (var ls in stages)
+        {
+            if (ls.def.developmentalStage == curDevStage)
+                foundCurrent = true;
+            else if (foundCurrent)
+            {
+                currentStageMaxAge = (int)ls.minAge - 1;
+                break;
+            }
+        }
+
+        UIUtility.IntField(bio, ref ageBio, minBioAge, currentStageMaxAge, ref ageBiologicalBuffer);
 
         if (ageBio != pawn.ageTracker.AgeBiologicalYears)
         {
             pawn.ageTracker.AgeBiologicalTicks = ageBio * 3600000L;
+
+            // If bio age increased past chrono age, bump chrono to match
+            if (ageBio > pawn.ageTracker.AgeChronologicalYears)
+            {
+                pawn.ageTracker.AgeChronologicalTicks = ageBio * 3600000L;
+                ageChronologicalBuffer = null; // force chrono field to re-read
+            }
+
             PawnEditor.Notify_PointsUsed();
         }
 
@@ -89,8 +126,10 @@ public partial class TabWorker_Bio_Humanlike
         using (new TextBlock(GameFont.Tiny, TextAnchor.MiddleCenter))
             Widgets.Label(chrono.TakeTopPart(Text.LineHeight), "PawnEditor.Chronological".Translate());
         var ageChrono = pawn.ageTracker.AgeChronologicalYears;
+        var minChrono = pawn.ageTracker.AgeBiologicalYears;
+        const int maxChronoAge = 99999;
 
-        UIUtility.IntField(chrono, ref ageChrono, 0, int.MaxValue, ref ageChronologicalBuffer);
+        UIUtility.IntField(chrono, ref ageChrono, minChrono, maxChronoAge, ref ageChronologicalBuffer);
 
         if (ageChrono != pawn.ageTracker.AgeChronologicalYears)
         {

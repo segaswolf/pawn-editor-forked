@@ -35,15 +35,22 @@ public partial class TabWorker_Bio_Humanlike
             // if (Widgets.ButtonImageWithBG(devStageRect.TakeTopPart(UIUtility.RegularButtonHeight), pawn.DevelopmentalStage.Icon().Texture, new Vector2(22f, 22f)))
             if (listing.ButtonImageLabeledVStack(text, pawn.DevelopmentalStage.Icon().Texture, 6, text.Colorize(ColoredText.TipSectionTitleColor) + "\n\n" + "DevelopmentalAgeSelectionDesc".Translate()))
             {
-                var options = new List<FloatMenuOption>
-                {
-                    new("Adult".Translate().CapitalizeFirst(), () => SetDevStage(pawn, DevelopmentalStage.Adult),
-                        DevelopmentalStageExtensions.AdultTex.Texture, Color.white),
-                    new("Child".Translate().CapitalizeFirst(), () => SetDevStage(pawn, DevelopmentalStage.Child),
-                        DevelopmentalStageExtensions.ChildTex.Texture, Color.white),
-                    new("Baby".Translate().CapitalizeFirst(), () => SetDevStage(pawn, DevelopmentalStage.Baby),
-                        DevelopmentalStageExtensions.BabyTex.Texture, Color.white)
-                };
+                // v3d10: Show developmental stages this race supports.
+                var options = new List<FloatMenuOption>();
+                var raceStages = pawn.RaceProps.lifeStageAges;
+
+                if (raceStages.Any(ls => ls.def.developmentalStage == DevelopmentalStage.Adult))
+                    options.Add(new("Adult".Translate().CapitalizeFirst(),
+                        () => ConfirmAndSetDevStage(pawn, DevelopmentalStage.Adult),
+                        DevelopmentalStageExtensions.AdultTex.Texture, Color.white));
+                if (raceStages.Any(ls => ls.def.developmentalStage == DevelopmentalStage.Child))
+                    options.Add(new("Child".Translate().CapitalizeFirst(),
+                        () => ConfirmAndSetDevStage(pawn, DevelopmentalStage.Child),
+                        DevelopmentalStageExtensions.ChildTex.Texture, Color.white));
+                if (raceStages.Any(ls => ls.def.developmentalStage == DevelopmentalStage.Baby))
+                    options.Add(new("Baby".Translate().CapitalizeFirst(),
+                        () => ConfirmAndSetDevStage(pawn, DevelopmentalStage.Baby),
+                        DevelopmentalStageExtensions.BabyTex.Texture, Color.white));
                 Find.WindowStack.Add(new FloatMenu(options));
             }
         }
@@ -149,10 +156,87 @@ public partial class TabWorker_Bio_Humanlike
         height = listing.curHeight;
     }
 
+    private static void ConfirmAndSetDevStage(Pawn pawn, DevelopmentalStage stage)
+    {
+        // Same stage = no transition, just refresh
+        if (pawn.DevelopmentalStage == stage)
+        {
+            SetDevStage(pawn, stage);
+            return;
+        }
+
+        // Check if there's anything to warn about
+        var warnings = new List<string>();
+
+        if (stage != DevelopmentalStage.Adult)
+        {
+            // Going TO child/baby — check what will be lost
+            if (pawn.story?.Adulthood != null)
+                warnings.Add("- Remove adulthood backstory (" + pawn.story.Adulthood.TitleCapFor(pawn.gender) + ")");
+
+            var romanticDefs = new[] { PawnRelationDefOf.Lover, PawnRelationDefOf.Fiance, PawnRelationDefOf.Spouse,
+                                       PawnRelationDefOf.ExLover, PawnRelationDefOf.ExSpouse };
+            if (pawn.relations != null)
+            {
+                bool hasRomantic = pawn.relations.DirectRelations.Any(r => romanticDefs.Contains(r.def));
+                // Also check reverse (others pointing to this pawn)
+                if (!hasRomantic)
+                    hasRomantic = pawn.relations.PotentiallyRelatedPawns?.Any(other =>
+                        other?.relations?.DirectRelations?.Any(r => romanticDefs.Contains(r.def) && r.otherPawn == pawn) == true) == true;
+                if (hasRomantic)
+                    warnings.Add("- Remove romantic relations (Spouse, Lover, Fianc\u00e9e, Ex)");
+
+                bool hasParent = pawn.relations.DirectRelations.Any(r => r.def == PawnRelationDefOf.Parent);
+                if (hasParent)
+                    warnings.Add("- Remove parent relations");
+            }
+
+            if (pawn.health?.hediffSet != null)
+            {
+                bool hasPregnancy = pawn.health.hediffSet.hediffs.Any(h =>
+                    h.def == HediffDefOf.Pregnant || h.def == HediffDefOf.PregnantHuman ||
+                    h.def.defName.Contains("Pregnant") || h.def.defName.Contains("Gestation") ||
+                    h.def.defName.Contains("Parasites") || h.def.defName.Contains("Infestation"));
+                if (hasPregnancy)
+                    warnings.Add("- Remove pregnancy / parasitic infestation");
+            }
+
+            if (pawn.equipment?.AllEquipmentListForReading?.Any() == true)
+                warnings.Add("- Move weapons to inventory");
+        }
+        else
+        {
+            // Going TO adult
+            if (pawn.story?.Adulthood == null)
+                warnings.Add("- Generate a random adulthood backstory");
+            warnings.Add("- Change body type to adult");
+        }
+
+        // No warnings = nothing to lose, just do it
+        if (warnings.Count == 0)
+        {
+            SetDevStage(pawn, stage);
+            return;
+        }
+
+        // Build warning message
+        string warning = "Changing to " + stage.ToString() + " will:\n\n"
+            + string.Join("\n", warnings)
+            + "\n\nThis cannot be undone. Continue?";
+
+        Find.WindowStack.Add(new Dialog_Confirm(
+            warning,
+            "DevStageChangeWarning",
+            () => SetDevStage(pawn, stage),
+            destructive: stage != DevelopmentalStage.Adult
+        ));
+    }
+
     public static void SetDevStage(Pawn pawn, DevelopmentalStage stage)
     {
         var lifeStage = pawn.RaceProps.lifeStageAges.FirstOrDefault(lifeStage => lifeStage.def.developmentalStage == stage);
-        var oldStage = pawn.DevelopmentalStage; // ageTracker changes this so we store the old stage before it is changed.
+        var oldStage = pawn.DevelopmentalStage;
+        Log.Message($"[Pawn Editor] SetDevStage: {pawn.Name} {oldStage}->{stage}");
 
         if (lifeStage != null)
         {
@@ -162,21 +246,148 @@ public partial class TabWorker_Bio_Humanlike
 
         if (oldStage != stage)
         {
+            // ── Apparel: drop incompatible clothing to inventory ──
             pawn.apparel?.DropAllOrMoveAllToInventory(apparel => !apparel.def.apparel.developmentalStageFilter.Has(stage));
-            var bodyTypeFor = PawnGenerator.GetBodyTypeFor(pawn);
-            pawn.story.bodyType = bodyTypeFor;
 
-            // FIX #007: Generate adulthood backstory when transitioning child→adult.
+            // ── Equipment: children/babies can't hold weapons ──
+            if (stage != DevelopmentalStage.Adult && pawn.equipment != null)
+            {
+                foreach (var eq in pawn.equipment.AllEquipmentListForReading.ToList())
+                {
+                    pawn.equipment.Remove(eq);
+                    pawn.inventory?.innerContainer?.TryAdd(eq);
+                }
+            }
+
+            // ── Body type ──
+            pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
+
+            // ── Backstory transitions ──
             if (stage == DevelopmentalStage.Adult && pawn.story.Adulthood == null)
             {
-                var valid = DefDatabase<BackstoryDef>.AllDefsListForReading
-                    .Where(bs => bs.slot == BackstorySlot.Adulthood).ToList();
-                if (valid.Any()) pawn.story.Adulthood = valid.RandomElement();
+                // Going TO adult: generate a contextual adulthood backstory.
+                var allAdult = DefDatabase<BackstoryDef>.AllDefsListForReading
+                    .Where(bs => bs.slot == BackstorySlot.Adulthood && bs.shuffleable).ToList();
+
+                var childCategories = pawn.story.Childhood?.spawnCategories;
+                Log.Message($"[Pawn Editor] Backstory: childhood={pawn.story.Childhood?.defName}, categories={string.Join(",", childCategories ?? new List<string>())}, allAdult count={allAdult.Count}");
+
+                if (childCategories != null && childCategories.Any())
+                {
+                    var matched = allAdult
+                        .Where(bs => bs.spawnCategories.Any(sc => childCategories.Contains(sc)))
+                        .ToList();
+                    Log.Message($"[Pawn Editor] Backstory: matched {matched.Count} adult backstories for categories [{string.Join(",", childCategories)}]");
+                    if (matched.Any())
+                        pawn.story.Adulthood = matched.RandomElement();
+                    else if (allAdult.Any())
+                        pawn.story.Adulthood = allAdult.RandomElement();
+                }
+                else if (allAdult.Any())
+                {
+                    pawn.story.Adulthood = allAdult.RandomElement();
+                }
+                Log.Message($"[Pawn Editor] Backstory: assigned={pawn.story.Adulthood?.defName} title={pawn.story.Adulthood?.TitleCapFor(pawn.gender)}");
             }
-            else if (stage == DevelopmentalStage.Child)
+            else if (stage == DevelopmentalStage.Child || stage == DevelopmentalStage.Baby || stage == DevelopmentalStage.Newborn)
+            {
                 pawn.story.Adulthood = null;
+            }
+
+            // ── Hediffs: remove pregnancy for non-adults ──
+            if (stage != DevelopmentalStage.Adult && pawn.health?.hediffSet != null)
+            {
+                try
+                {
+                    var hediffsToRemove = pawn.health.hediffSet.hediffs
+                        .Where(h =>
+                            h.def == HediffDefOf.Pregnant ||
+                            h.def == HediffDefOf.PregnantHuman ||
+                            h.def.defName.Contains("Pregnant") ||
+                            h.def.defName.Contains("Gestation") ||
+                            h.def.defName.Contains("Parasites") ||
+                            h.def.defName.Contains("Infestation"))
+                        .ToList();
+                    Log.Message($"[Pawn Editor] Hediffs to remove: {hediffsToRemove.Count} ({string.Join(", ", hediffsToRemove.Select(h => h.def.defName))})");
+                    foreach (var h in hediffsToRemove)
+                        pawn.health.RemoveHediff(h);
+                    Log.Message($"[Pawn Editor] Hediffs after removal: pregnancy count={pawn.health.hediffSet.hediffs.Count(h => h.def.defName.Contains("Pregnant"))}");
+                }
+                catch (System.Exception ex)
+                {
+                    Log.Error($"[Pawn Editor] SetDevStage hediff cleanup failed: {ex}");
+                }
+            }
+
+            // ── Relations: remove inappropriate relations for non-adults ──
+            if (stage != DevelopmentalStage.Adult && pawn.relations != null)
+            {
+                try
+                {
+                    var defsToRemove = new[]
+                    {
+                        PawnRelationDefOf.Lover, PawnRelationDefOf.Fiance, PawnRelationDefOf.Spouse,
+                        PawnRelationDefOf.ExLover, PawnRelationDefOf.ExSpouse
+                    };
+
+                    // Remove relations owned BY this pawn
+                    var ownedRels = pawn.relations.DirectRelations
+                        .Where(r => defsToRemove.Contains(r.def)).ToList();
+                    Log.Message($"[Pawn Editor] Own romantic rels: {ownedRels.Count} ({string.Join(", ", ownedRels.Select(r => r.def.defName + "->" + r.otherPawn?.Name))})");
+                    foreach (var rel in ownedRels)
+                        pawn.relations.RemoveDirectRelation(rel);
+
+                    // Remove relations owned by OTHER pawns pointing TO this pawn
+                    var otherPawns = pawn.relations.PotentiallyRelatedPawns?.ToList();
+                    if (otherPawns != null)
+                    {
+                        foreach (var other in otherPawns)
+                        {
+                            if (other?.relations == null) continue;
+                            var reverseRels = other.relations.DirectRelations
+                                .Where(r => defsToRemove.Contains(r.def) && r.otherPawn == pawn).ToList();
+                            if (reverseRels.Any())
+                            {
+                                Log.Message($"[Pawn Editor] Reverse rels from {other.Name}: {string.Join(", ", reverseRels.Select(r => r.def.defName))}");
+                                foreach (var rel in reverseRels)
+                                    other.relations.RemoveDirectRelation(rel);
+                            }
+                        }
+                    }
+
+                    // Verify
+                    var remaining = pawn.relations.DirectRelations
+                        .Where(r => defsToRemove.Contains(r.def)).ToList();
+                    Log.Message($"[Pawn Editor] Romantic rels remaining after cleanup: {remaining.Count}");
+                }
+                catch (System.Exception ex)
+                {
+                    Log.Error($"[Pawn Editor] SetDevStage relation cleanup failed: {ex}");
+                }
+            }
+
+            // ── Notify editor UI to refresh cached data ──
+            try
+            {
+                TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Health>();
+            }
+            catch { /* Tab not yet initialized */ }
+            try
+            {
+                TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Social>();
+            }
+            catch { /* Tab not yet initialized */ }
+            try
+            {
+                TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Needs>();
+            }
+            catch { /* Tab not yet initialized */ }
+
+            pawn.needs?.mood?.thoughts?.situational?.Notify_SituationalThoughtsDirty();
+            PawnEditor.Notify_PointsUsed();
 
             RecacheGraphics(pawn);
+            resetAgeBuffers = true;
         }
     }
 

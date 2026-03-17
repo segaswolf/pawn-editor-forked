@@ -76,7 +76,7 @@ public static partial class PawnEditor
 
                         try
                         {
-                            if (!Pregame && Find.WorldPawns != null)
+                            if (!Pregame && Find.WorldPawns?.Contains(oldPawn) == true)
                                 Find.WorldPawns.RemoveAndDiscardPawnViaGC(oldPawn);
                         }
                         catch (System.Exception ex) { Log.Warning($"[Pawn Editor] RemoveAndDiscardPawnViaGC: {ex.Message}"); }

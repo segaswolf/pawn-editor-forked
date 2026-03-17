@@ -75,7 +75,7 @@ public static partial class PawnEditor
 
         string text3 = "PawnEditor.UsePointLimit".Translate();
         string text4 = "PawnEditor.PointsRemaining".Translate();
-        var text5 = ((float)Mathf.RoundToInt(remainingPoints)).ToStringMoney();
+        var text5 = "$" + Mathf.RoundToInt(remainingPoints).ToString();
         var num = Text.CalcSize(text4).x;
         var width2 = Mathf.Max(Text.CalcSize(text3).x, num) + 4f + Mathf.Max(Text.CalcSize(text3).x, 24f);
         var rect3 = headerRect.TakeRightPart(width2).TopPartPixels(Text.LineHeight * 2f);

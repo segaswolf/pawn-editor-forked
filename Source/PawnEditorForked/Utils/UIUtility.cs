@@ -213,19 +213,14 @@ public static class UIUtility
             return;
         }
 
-                Rect fieldRect = inRect.ContractedBy(0f, 4f);
+        Rect fieldRect = inRect.ContractedBy(0f, 4f);
 
-        // Fork fix (1.6): Widgets.TextFieldNumeric's internal control name changed.
-        // We set our own control name so focus detection remains stable.
-        string controlName = $"PawnEditor_IntField_{fieldRect.x:F0}_{fieldRect.y:F0}_{fieldRect.width:F0}_{fieldRect.height:F0}";
-        GUI.SetNextControlName(controlName);
-        Widgets.TextFieldNumeric(fieldRect, ref intBuff, ref buffer);
-
-        if (GUI.GetNameOfFocusedControl() != controlName)
-        {
-            value = Mathf.Clamp(intBuff, min, max);
-            buffer = null;
-        }
+        // v3d10 fix: The old focus-detection hack used GUI.SetNextControlName but
+        // Widgets.TextFieldNumeric internally overwrites it, so our name never matched
+        // and buffer was nulled every frame — making typing impossible (age reset to 18).
+        // Fix: let TextFieldNumeric handle the buffer naturally, just clamp the result.
+        Widgets.TextFieldNumeric(fieldRect, ref intBuff, ref buffer, min, max);
+        value = intBuff;
     }
 
     public static Rect CellRect(int cell, Rect inRect)

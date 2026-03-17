@@ -198,25 +198,27 @@ public static partial class PawnEditor
 
         try
         {
-            dst.needs.AllNeeds.Clear();
+            // Strategy: DON'T clear and rebuild needs — PawnGenerator already created
+            // the correct need instances (including mod-added ones like VRE Android energy).
+            // Instead, match by def and copy CurLevel from source to destination.
             foreach (var srcNeed in src.needs.AllNeeds)
             {
-                if (srcNeed?.def?.needClass == null) continue;
-                try
+                if (srcNeed?.def == null) continue;
+                var dstNeed = dst.needs.AllNeeds.FirstOrDefault(n => n.def == srcNeed.def);
+                if (dstNeed != null)
                 {
-                    var need = (Need)Activator.CreateInstance(srcNeed.def.needClass, dst);
-                    need.def = srcNeed.def;
-                    dst.needs.AllNeeds.Add(need);
-                    need.SetInitialLevel();
-                    need.CurLevel = srcNeed.CurLevel;
-                    dst.needs.BindDirectNeedFields();
-                }
-                catch
-                {
-                    // Some needs cannot be constructed outside their expected context — skip
+                    try { dstNeed.CurLevel = srcNeed.CurLevel; }
+                    catch (Exception ex)
+                    {
+                        if (Prefs.DevMode) Log.Warning($"[Pawn Editor] CopyDup need '{srcNeed.def.defName}': {ex.Message}");
+                    }
                 }
             }
 
+            // Rebind direct fields (food, rest, etc.) in case the copy changed ordering
+            try { dst.needs.BindDirectNeedFields(); } catch { }
+
+            // Copy non-social thought memories
             if (src.needs.mood?.thoughts?.memories != null && dst.needs.mood?.thoughts?.memories != null)
             {
                 var dstMemories = dst.needs.mood.thoughts.memories.Memories;

@@ -16,6 +16,9 @@ Source/PawnEditorForked/bin/
 *.nupkg
 **/packages/
 
+# ─── Local scripts (not for repo) ───
+deploy-to-workshop.ps1
+
 # ─── OS junk ───
 Thumbs.db
 .DS_Store
