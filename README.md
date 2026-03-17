@@ -1,6 +1,6 @@
 # 🐾 Pawn Editor Forked
 
-An unofficial community fork of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2521046270) for RimWorld 1.6, maintained by [Segas Wolf](https://github.com/segaswolf).
+An unofficial community fork of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790) for RimWorld 1.6, maintained by [Segas Wolf](https://github.com/segaswolf).
 
 > ⚠️ **Use either this fork or the original — not both at the same time.**
 
@@ -134,7 +134,7 @@ There is an open review branch `review/pr1-gear-transfer` for evaluating gear tr
 
 ## ❤️ Credits & Attribution
 
-All original credit belongs to the authors of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2521046270):
+All original credit belongs to the authors of [Pawn Editor]:
 
 | Name | Role |
 |------|------|
