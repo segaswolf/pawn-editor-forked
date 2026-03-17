@@ -158,7 +158,7 @@ This fork does not claim ownership of the original concept or implementation. If
 - 🐛 [Bug Reports](https://github.com/segaswolf/pawn-editor-forked/issues)
 - 💬 [Steam Discussions](https://steamcommunity.com/sharedfiles/filedetails/discussions/3667931113)
 - ☕ [Support on Ko-fi](https://ko-fi.com/segaswolf)
-- 📦 [Original Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2521046270)
+- 📦 [Original Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790 )
 
 ---
 
