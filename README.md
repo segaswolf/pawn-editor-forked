@@ -36,9 +36,10 @@ This fork is actively being developed. Many critical bugs have been fixed, but s
 
 | Area | Status |
 |------|--------|
-| Blueprint save/load (individual pawns) | 🚧 Stable for vanilla + FA pawns; HAR race visuals (tails, custom bodies) may not fully restore |
+| Blueprint save/load (individual pawns) | ✅ v2.3.0: New Tracker Transplant system preserves all mod data automatically |
+| Pawn duplication | ✅ v2.3.0: Uses same system as blueprints — full mod data preservation |
 | Starting Preset save/load | 🚧 Still uses old system — may fail with complex modlists |
-| Pawn duplication on HAR races | 🚧 Works for vanilla/human pawns and FA; custom HAR features may not copy perfectly |
+| HAR race visuals (tails, custom bodies) | 🚧 May not fully restore |
 
 ---
 
@@ -54,19 +55,26 @@ This fork is actively being developed. Many critical bugs have been fixed, but s
 - Starting Preset load no longer crashes the game on failure
 - All silent `catch {}` blocks now log warnings — no more invisible failures
 
-### 🧬 Pawn Duplication (Clone)
+### 🧬 Pawn Duplication (v2.3.0 — Tracker Transplant)
+- **v2.3.0**: Duplication now uses the same Tracker Transplant system as blueprints — all mod data preserved automatically
+- VPE Psycasts, Mechlink, Cyberlink, and all mod hediffs duplicated correctly
 - Clones keep the same name as the original (vanilla Obelisk behavior)
 - Clones correctly copy gender, appearance, hair, skin color, and melanin
 - Clones copy clothing, armor, and weapons with quality, color, and HP
 - Ideology certainty is now preserved accurately
 - Biological and chronological age no longer get swapped
 - Social memories and opinion relations copy correctly (uses RimWorld 1.6 `ISocialThought` API)
+- Legacy field-by-field copy retained as automatic fallback
 
-### 💾 Blueprint Save/Load
-- Brand new XML-based blueprint format (replaced crash-prone Scribe system)
-- Saves everything: bio, traits, skills, genes, hediffs, abilities, apparel, equipment, relations, work priorities, inventory, royal titles, records, and active mod list
+### 💾 Blueprint Save/Load (v2.3.0 — Tracker Transplant)
+- **Complete rewrite**: Blueprints now automatically preserve ALL mod data without per-mod patches
+- Uses RimWorld's own save system (Scribe) to capture 100% of pawn state, then transplants data objects directly into a fresh pawn
+- VPE Psycasts: paths, unlocked nodes, XP, and psycaster level fully preserved
+- Mechlink, Cyberlink, and all Hediff_Level types correctly duplicated
+- Saves everything: bio, traits, skills, genes, hediffs, abilities, apparel, equipment, relations, work priorities, inventory, royal titles, records
 - Missing mods/DLCs are gracefully skipped when loading — no more crashes
 - Blueprints can be shared between different modlists
+- 35+ mod components automatically preserved via reflection
 
 ### 🎨 Appearance
 - Hair, head type, body type, skin color, and fur properly saved and restored
@@ -78,10 +86,14 @@ This fork is actively being developed. Many critical bugs have been fixed, but s
 
 | Mod | Status |
 |-----|--------|
+| Vanilla Psycasts Expanded | ✅ Paths, nodes, XP, level — fully preserved in blueprints and duplicates |
 | Facial Animations | ✅ Face type, eye color, brow, lid, mouth, skin, head controllers all copy correctly |
 | TacticalGroups | ✅ Harmony finalizers prevent colonist bar crashes |
 | Vanilla Skills Expanded | ✅ Passion system compatible |
-| VE Hussar / Giant gene | ✅ Visual body offset applies correctly after blueprint load — no reload needed |
+| VE Hussar / Giant gene | ✅ Visual body offset applies correctly after blueprint load |
+| VRE Android | ✅ Energy need preserved during duplication |
+| Alpha Skills | ✅ Custom passion levels (3+) no longer reset to None |
+| Vanilla Aspirations Expanded | ⚠️ Need_Fulfillment may crash during load — investigating |
 
 Tested with 1000+ mods loaded.
 
@@ -100,16 +112,18 @@ Tested with 1000+ mods loaded.
 
 | Status | Feature |
 |--------|---------|
-| ✅ | Stable blueprint save/load system |
-| ✅ | Pawn duplication with full appearance/gear copy |
+| ✅ | Blueprint save/load with automatic mod data preservation |
+| ✅ | Pawn duplication with full mod data preservation |
+| ✅ | VPE Psycasts fully preserved (paths, nodes, XP, level) |
 | ✅ | Facial Animations compatibility |
 | ✅ | Social relations copy (opinions, family ties) |
+| ✅ | 35+ mod components automatically handled |
+| 🚧 | VE Aspirations compatibility |
+| 🚧 | Smart spawn positioning for duplicates |
 | 🚧 | Modded race visuals (tails, ears, custom body parts) |
 | 🚧 | Migrate Starting Preset to Blueprint format |
-| ⬜ | Individual pawn gene editor |
-| ⬜ | GradientHair support (dual color) |
-| ⬜ | VE Aspirations integration |
-| ⬜ | Clone suspicion debuff (optional, for lore) |
+| ⬜ | Passion dropdown with Alpha Skills support |
+| ⬜ | NL Facial Editor button |
 
 ---
 
