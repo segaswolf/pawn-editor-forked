@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.3.1] - 2026-03-28
+
+### Fixed
+- Starting items no longer disappear after editing pawns in pregame (idempotency guard + GoToMainMenu hook)
+- Passions and skill levels preserved when changing backstory (save/restore around GenerateSkills)
+- Hotkey can be fully disabled via right-click (sets to None); Escape cancels picker
+
+## [v2.3.0] - 2026-03-28
+
+### Major: Blueprint & Duplication Overhaul (Tracker Transplant)
+- Complete rewrite of blueprint save/load and pawn duplication
+- New system automatically preserves all mod data without per-mod patches
+- VPE Psycasts: paths, unlocked nodes, XP, and level fully preserved
+- Mechlink, Cyberlink, and all Hediff_Level types correctly duplicated
+- 35+ mod components automatically preserved via reflection
+- Duplication now uses the same system as blueprints
+
+### Fixed
+- Passion sanitizer: mods like Alpha Skills with passion values 3+ no longer reset to None
+- Ideo fallback: fixed crash when loading blueprints for pawns whose faction ideo couldn't resolve
+- Action bars: fixed missing gizmo bar on loaded/duplicated pawns
+- Discard crash: fixed NullReferenceException when replacing a pawn via blueprint
+- VRE Android: energy need correctly preserved during duplication
+- TacticalGroups: compatibility patches applied via finalizer
+
+### Known Issues
+- VAspirE: Need_Fulfillment may crash during load — investigating
+- Blueprint overwrite: rewriting an existing file may cause issues — save as new file recommended
+
 ## [v3d10] - 2026-03-14
 
 ### Added

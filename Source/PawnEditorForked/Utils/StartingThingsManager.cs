@@ -15,12 +15,21 @@ public static class StartingThingsManager
     private static readonly List<Thing> startingThingsFar = new();
     private static readonly List<ScenPart> removedParts = new();
     private static Scenario cachedScenario;
+    private static bool scenarioIsProcessed;
 
     /// <summary>
     /// Load all items from the cached scenario into the static starting things lists, Starting, Near, and Far items, animals, and mechs.
     /// </summary>
     public static void ProcessScenario()
     {
+        // Idempotency guard: don't re-process if already active.
+        // Without this, going back and forth between pages corrupts scenario parts.
+        if (scenarioIsProcessed)
+        {
+            Log.Warning("[Pawn Editor] ProcessScenario skipped — already processed. Call RestoreScenario first.");
+            return;
+        }
+
         startingAnimals.Clear();
         startingMechs.Clear();
         startingThings.Clear();
@@ -89,6 +98,7 @@ public static class StartingThingsManager
             }
         });
         cachedScenario = Find.Scenario;
+        scenarioIsProcessed = true;
     }
 
     public static void RestoreScenario()
@@ -108,6 +118,7 @@ public static class StartingThingsManager
             removedParts.Clear();
             cachedScenario = null;
         }
+        scenarioIsProcessed = false;
     }
 
     public static List<Pawn> GetPawns(PawnCategory category) =>

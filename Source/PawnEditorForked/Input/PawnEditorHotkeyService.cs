@@ -13,21 +13,44 @@ public sealed class PawnEditorHotkeyService
         var hotkeyRect = listing.GetRect(30f);
         Widgets.Label(hotkeyRect.LeftHalf(), "PawnEditor.EditorHotkey".Translate());
 
-        var hotkeyLabel = _waitingForHotkey
-            ? "PawnEditor.PressAnyKey".Translate().ToString()
-            : settings.EditorHotkey.ToString();
+        string hotkeyLabel;
+        if (_waitingForHotkey)
+            hotkeyLabel = "PawnEditor.PressAnyKey".Translate().ToString();
+        else if (settings.EditorHotkey == KeyCode.None)
+            hotkeyLabel = "None";
+        else
+            hotkeyLabel = settings.EditorHotkey.ToString();
 
-        if (Widgets.ButtonText(hotkeyRect.RightHalf(), hotkeyLabel))
+        // Left click: set new hotkey. Right click: clear hotkey.
+        var buttonRect = hotkeyRect.RightHalf();
+        if (Widgets.ButtonText(buttonRect, hotkeyLabel))
         {
             _waitingForHotkey = true;
         }
-
-        if (_waitingForHotkey && Event.current.type == EventType.KeyDown && Event.current.keyCode != KeyCode.None)
+        if (Mouse.IsOver(buttonRect) && Event.current.type == EventType.MouseDown && Event.current.button == 1)
         {
-            settings.EditorHotkey = Event.current.keyCode;
+            settings.EditorHotkey = KeyCode.None;
             _waitingForHotkey = false;
             Event.current.Use();
         }
+
+        if (_waitingForHotkey && Event.current.type == EventType.KeyDown)
+        {
+            if (Event.current.keyCode == KeyCode.Escape)
+            {
+                // Cancel without changing
+                _waitingForHotkey = false;
+            }
+            else if (Event.current.keyCode != KeyCode.None)
+            {
+                settings.EditorHotkey = Event.current.keyCode;
+                _waitingForHotkey = false;
+            }
+            Event.current.Use();
+        }
+
+        // Tooltip
+        TooltipHandler.TipRegion(buttonRect, "Right-click to disable hotkey. Escape to cancel.");
     }
 
     public void HandleOpenEditorHotkey(PawnEditorSettings settings)
@@ -43,6 +66,7 @@ public sealed class PawnEditorHotkeyService
         }
 
         if (!triggered &&
+            settings.EditorHotkey != KeyCode.None &&
             Event.current != null &&
             Event.current.type == EventType.KeyDown &&
             Event.current.keyCode == settings.EditorHotkey)

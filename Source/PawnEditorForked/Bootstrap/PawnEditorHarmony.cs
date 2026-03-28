@@ -27,6 +27,13 @@ public sealed class PawnEditorHarmony
             AccessTools.Method(typeof(Game), nameof(Game.InitNewGame)),
             postfix: new HarmonyMethod(typeof(StartingThingsManager), nameof(StartingThingsManager.RestoreScenario)));
 
+        // FIX: Starting items disappear — restore scenario when going to main menu.
+        // Without this, if the user opens the editor and then goes to main menu
+        // (skipping Page_SelectScenario), the scenario parts stay removed.
+        _harmony.Patch(
+            AccessTools.Method(typeof(GenScene), nameof(GenScene.GoToMainMenu)),
+            prefix: new HarmonyMethod(typeof(StartingThingsManager), nameof(StartingThingsManager.RestoreScenario)));
+
         _harmony.Patch(
             AccessTools.Method(typeof(DebugWindowsOpener), nameof(DebugWindowsOpener.DevToolStarterOnGUI)),
             prefix: new HarmonyMethod(typeof(PawnEditorMod), nameof(PawnEditorMod.Keybind)));

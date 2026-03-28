@@ -7,7 +7,7 @@
     <li>1.6</li>
   </supportedVersions>
   <packageId>segaswolf.pawneditor.fork</packageId>
-  <modVersion>2.1.0</modVersion>
+  <modVersion>2.3.1</modVersion>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>
@@ -28,6 +28,8 @@ Pawn Editor - Community Fork maintained by Segas Wolf.
 
 Stability and compatibility fixes for RimWorld 1.6.
 Original mod created by ISOR3X / legodude17.
+
+v2.3.0: Blueprint & Duplication overhaul. All mod data (VPE psycasts, Mechlink, Cyberlink, genes, 35+ mod components) now automatically preserved in blueprints and duplicates.
 
 v2.1.0 update:
 - Applied stability patch set (#001, #002, #004, #007, #008, #009, #010, #012, #018, #019).

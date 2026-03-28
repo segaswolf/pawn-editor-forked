@@ -119,7 +119,6 @@ Tested with 1000+ mods loaded.
 | ✅ | Social relations copy (opinions, family ties) |
 | ✅ | 35+ mod components automatically handled |
 | 🚧 | VE Aspirations compatibility |
-| 🚧 | Smart spawn positioning for duplicates |
 | 🚧 | Modded race visuals (tails, ears, custom body parts) |
 | 🚧 | Migrate Starting Preset to Blueprint format |
 | ⬜ | Passion dropdown with Alpha Skills support |
