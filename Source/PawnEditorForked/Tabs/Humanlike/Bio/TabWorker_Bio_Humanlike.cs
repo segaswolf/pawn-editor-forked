@@ -1,8 +1,9 @@
-﻿using System;
+﻿using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using RimWorld;
+using System.Security.Cryptography;
 using UnityEngine;
 using Verse;
 
@@ -61,21 +62,28 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
     private void DoSkills(Rect inRect, Pawn pawn)
     {
         var headerRect = inRect.TakeTopPart(Text.LineHeight);
+        // Add "Skills" header
         Widgets.Label(headerRect, "Skills".Translate().Colorize(ColoredText.TipSectionTitleColor));
         GUI.color = Color.white;
+        // Construct Preset button
+        // Note: This builds a float menu. Use the same logic for a passions dropdown
         if (Widgets.ButtonText(headerRect.TakeRightPart(60), "PawnEditor.Preset".Translate()))
             if (VSECompat.Active)
             {
                 var floatMenuList = new List<FloatMenuOption>
                 {
+                    // Set all to 0
                     new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), 0), GetSetDelegate(pawn, false, 0)),
+                    // Set all to Max
                     new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), "PawnEditor.Max".Translate()), GetSetDelegate(pawn, false, 20)),
                 };
+                // Dynamically build the list of passions to set to based on VSE's passion list.
                 VSECompat.AddPassionPresets(floatMenuList, pawn);
                 Find.WindowStack.Add(new FloatMenu(floatMenuList));
             }
             else
             {
+                // Vanilla skills / passions preset logic
                 Find.WindowStack.Add(new FloatMenu(new()
                 {
                     new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), 0), GetSetDelegate(pawn, false, 0)),
@@ -85,7 +93,7 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                     new("PawnEditor.SetAllTo".Translate("PawnEditor.Passions".Translate(), Passion.Major.GetLabel()), GetSetDelegate(pawn, true, 2))
                 }));
             }
-
+        // Do the actual list of skills
         inRect.xMin += 4;
         inRect.yMin += 4f;
         var leftWidth = SkillUI.skillDefsInListOrderCached.Select(def => Text.CalcSize(def.LabelCap.Resolve()).x).Max() + 16f;
@@ -97,12 +105,14 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                 Widgets.DrawHighlightIfMouseover(rect);
                 TooltipHandler.TipRegion(rect, () => SkillUI.GetSkillDescription(skill), def.GetHashCode() * 397945);
                 Widgets.Label(rect.TakeLeftPart(leftWidth), def.LabelCap);
+                // Actually add the passion button.
                 if (VSECompat.Active) {
                     if (Widgets.ButtonImage(rect.TakeLeftPart(30), VSECompat.GetPassionIcon(skill.passion)))
                     {
-                        var newPassion = VSECompat.ChangePassion(skill.passion);
-                        VSECompat.ClearCacheFor(skill, newPassion);
-                        skill.passion = newPassion;
+                        // Build a dropdown when the passion is clicked
+                        var floatMenuList = new List<FloatMenuOption>();
+                        VSECompat.AddPassionButtonFloatMenu(floatMenuList, def, pawn);
+                        Find.WindowStack.Add(new FloatMenu(floatMenuList));
                     }
                 } else {
                     if (Widgets.ButtonImage(rect.TakeLeftPart(30), skill.passion switch
@@ -162,6 +172,20 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                     skillRecord.Level = value;
 
             PawnEditor.Notify_PointsUsed();
+        };
+    }
+
+    public static Action SetPassionDelegate(Pawn pawn, SkillDef skillDef, int passionIndex)
+    {
+        return () =>
+        {
+            var skill = pawn.skills.GetSkill(skillDef);
+            skill.passion = (Passion)passionIndex;
+
+            VSECompat.ClearCacheFor(skill, skill.passion);
+
+            PawnEditor.Notify_PointsUsed();
+
         };
     }
 
