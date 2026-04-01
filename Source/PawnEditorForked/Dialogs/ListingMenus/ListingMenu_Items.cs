@@ -45,11 +45,11 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 // Skip entries with null ThingDef or StyleDef — can happen with broken/partial mod defs
                 if (thingDefStyle == null || thingDefStyle.ThingDef == null || thingDefStyle.StyleDef == null) continue;
 
-                if (ThingStyles.Select(ts => ts.ThingDef).Contains(thingDefStyle.ThingDef))
+                var existing = ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.ThingDef);
+                if (existing.ThingDef != null && existing.StyleDefs != null)
                 {
-                    // If the def already exists in the list, add the style to the existing list.
-                    ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.thingDef)
-                               .StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
+                    // ThingDef already in the set — add the style to its dictionary
+                    existing.StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
                     continue;
                 }
 
@@ -58,7 +58,7 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                     ThingDef = thingDefStyle.ThingDef,
                     StyleDefs = new()
                     {
-                        { thingDefStyle.styleDef, styleCategoryDef }
+                        { thingDefStyle.StyleDef, styleCategoryDef }
                     }
                 });
             }

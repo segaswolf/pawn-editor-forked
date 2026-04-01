@@ -38,6 +38,10 @@ public static partial class PawnBlueprintSaveLoad
 
     public static void SaveBlueprint(Pawn pawn, string filePath)
     {
+        // Atomic write: write to temp file first, then replace target.
+        // If anything fails mid-write, the original file stays intact.
+        var tempPath = filePath + ".tmp";
+
         var settings = new XmlWriterSettings
         {
             Indent      = true,
@@ -46,10 +50,12 @@ public static partial class PawnBlueprintSaveLoad
             Encoding    = System.Text.Encoding.UTF8
         };
 
-        using var writer = XmlWriter.Create(filePath, settings);
-        writer.WriteStartDocument();
-        writer.WriteStartElement("PawnBlueprint");
-        writer.WriteAttributeString("version", "1");
+        // Use explicit block so file handle is released before File.Move
+        using (var writer = XmlWriter.Create(tempPath, settings))
+        {
+            writer.WriteStartDocument();
+            writer.WriteStartElement("PawnBlueprint");
+            writer.WriteAttributeString("version", "1");
 
         // Meta block — the vanilla file picker reads gameVersion for display
         writer.WriteStartElement("meta");
@@ -74,8 +80,25 @@ public static partial class PawnBlueprintSaveLoad
         FacialAnimCompat.WriteFacialData(writer, pawn);
         WriteModList(writer);
 
-        writer.WriteEndElement(); // PawnBlueprint
-        writer.WriteEndDocument();
+            writer.WriteEndElement(); // PawnBlueprint
+            writer.WriteEndDocument();
+        } // using closes and flushes the writer, releasing the file handle
+
+        // Atomic replace: temp file is complete, now swap it in.
+        // If the target exists, delete it first (File.Move doesn't overwrite on all platforms).
+        try
+        {
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+            File.Move(tempPath, filePath);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Pawn Editor] Failed to finalize blueprint save: {ex.Message}");
+            // Clean up temp file on failure
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            throw;
+        }
 
         // Portrait PNG alongside the XML
         try { PawnEditor.SavePawnTex(pawn, Path.ChangeExtension(filePath, ".png"), Rot4.South); }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
@@ -53,28 +54,51 @@ public static partial class PawnEditor
         }
 
         // Add non-organic implants and prosthetics to the clone.
-        // Step 1: RestorePart clears any damage/missing state on the target part.
-        // Step 2: Add the actual implant hediff so the clone has the bionic.
-        foreach (var hediff in src.health.hediffSet.hediffs)
+        // CRITICAL: Sort by body part depth (deepest/leaf parts FIRST).
+        // RestorePart on a parent part removes hediffs on child parts.
+        // Without sorting, adding a skull implant would wipe already-added eye implants.
+        var implants = src.health.hediffSet.hediffs
+            .Where(h => (h is Hediff_AddedPart || h is Hediff_Implant) && !h.def.organicAddedBodypart && h.Part != null)
+            .OrderByDescending(h => GetBodyPartDepth(h.Part))
+            .ToList();
+
+        foreach (var hediff in implants)
         {
-            if ((hediff is Hediff_AddedPart || hediff is Hediff_Implant) && !hediff.def.organicAddedBodypart && hediff.Part != null)
+            try
             {
-                try
-                {
-                    // Step 1: Restore natural part first (clears damage, missing, etc.)
+                // Only RestorePart if no implant was already added to this exact part
+                bool alreadyHasImplant = dst.health.hediffSet.hediffs.Any(h =>
+                    h.Part == hediff.Part && (h is Hediff_AddedPart || h is Hediff_Implant));
+                if (!alreadyHasImplant)
                     dst.health.RestorePart(hediff.Part, null, checkStateChange: false);
 
-                    // Step 2: Add the implant/prosthetic hediff
-                    var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
-                    copy.Severity = hediff.Severity;
-                    dst.health.hediffSet.AddDirect(copy);
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"[Pawn Editor] Failed to copy implant {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
-                }
+                var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
+                copy.Severity = hediff.Severity;
+                dst.health.hediffSet.AddDirect(copy);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[Pawn Editor] Failed to copy implant {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// Returns the depth of a body part in the body tree.
+    /// Root = 0, torso = 1, arm = 2, hand = 3, finger = 4, etc.
+    /// Used to sort implants leaf-first so RestorePart on parents
+    /// doesn't wipe already-added child implants.
+    /// </summary>
+    private static int GetBodyPartDepth(BodyPartRecord part)
+    {
+        int depth = 0;
+        var current = part;
+        while (current?.parent != null)
+        {
+            depth++;
+            current = current.parent;
+        }
+        return depth;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

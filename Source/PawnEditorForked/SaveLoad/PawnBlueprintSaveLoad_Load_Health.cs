@@ -21,6 +21,12 @@ public static partial class PawnBlueprintSaveLoad
         if (hediffsNode == null) return;
         try
         {
+            // Two-pass approach: non-implants first, then implants sorted by depth.
+            // RestorePart on a parent body part removes hediffs on child parts,
+            // so implants must be added deepest-first (leaves before roots).
+            var normalNodes = new System.Collections.Generic.List<XmlNode>();
+            var implantNodes = new System.Collections.Generic.List<(XmlNode node, BodyPartRecord part, int depth)>();
+
             foreach (XmlNode li in hediffsNode.SelectNodes("li"))
             {
                 if (!IsAvailable(li)) continue;
@@ -29,7 +35,6 @@ public static partial class PawnBlueprintSaveLoad
                 var def = DefDatabase<HediffDef>.GetNamedSilentFail(defName);
                 if (def == null) { Warn($"Hediff '{defName}' not found, skipping"); continue; }
 
-                // Resolve body part, using label for left/right disambiguation
                 BodyPartRecord part = null;
                 var bodyPartDefName = li.Attributes?["bodyPart"]?.Value;
                 var bodyPartLabel   = li.Attributes?["bodyPartLabel"]?.Value;
@@ -46,42 +51,95 @@ public static partial class PawnBlueprintSaveLoad
                             part = candidates.FirstOrDefault();
                     }
                 }
-                if (bodyPartDefName != null && part == null) continue; // Body part gone — skip
+                if (bodyPartDefName != null && part == null) continue;
 
-                try
-                {
-                    // Implants/prosthetics need RestorePart first to clear any damage/missing state
-                    bool isImplant = li.Attributes?["isImplant"]?.Value == "true";
-                    if (isImplant && part != null)
-                    {
-                        try { pawn.health.RestorePart(part, null, checkStateChange: false); }
-                        catch { /* Part may already be healthy */ }
-                    }
-
-                    var hediff = HediffMaker.MakeHediff(def, pawn, part);
-                    var severityStr = li.Attributes?["severity"]?.Value;
-                    if (!severityStr.NullOrEmpty() && float.TryParse(severityStr,
-                        System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out var sev))
-                        hediff.Severity = sev;
-
-                    // Preserve permanent scar state
-                    if (li.Attributes?["isPermanent"]?.Value == "true" && hediff is HediffWithComps hwc)
-                    {
-                        var permComp = hwc.TryGetComp<HediffComp_GetsPermanent>();
-                        if (permComp != null) permComp.IsPermanent = true;
-                    }
-
-                    var ageTicksStr = li.Attributes?["ageTicks"]?.Value;
-                    if (!ageTicksStr.NullOrEmpty() && int.TryParse(ageTicksStr, out var ageTicks))
-                        hediff.ageTicks = ageTicks;
-
-                    pawn.health.hediffSet.AddDirect(hediff);
-                }
-                catch (Exception ex) { Warn($"Hediff '{defName}': {ex.Message}"); }
+                bool isImplant = li.Attributes?["isImplant"]?.Value == "true";
+                if (isImplant)
+                    implantNodes.Add((li, part, GetBodyPartDepthForLoad(part)));
+                else
+                    normalNodes.Add(li);
             }
+
+            // Pass 1: Add non-implant hediffs
+            foreach (var li in normalNodes)
+                LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: null);
+
+            // Pass 2: Add implants, deepest body parts first
+            implantNodes.Sort((a, b) => b.depth.CompareTo(a.depth));
+            foreach (var (li, part, _) in implantNodes)
+                LoadSingleHediff(pawn, li, isImplant: true, resolvedPart: part);
         }
-        catch (Exception ex) { Warn($"Hediffs: {ex.Message}"); }
+        catch (Exception ex) { Log.Error($"[Pawn Editor] LoadHediffs: {ex}"); }
+    }
+
+    private static int GetBodyPartDepthForLoad(BodyPartRecord part)
+    {
+        int depth = 0;
+        var current = part;
+        while (current?.parent != null) { depth++; current = current.parent; }
+        return depth;
+    }
+
+    private static void LoadSingleHediff(Pawn pawn, XmlNode li, bool isImplant, BodyPartRecord resolvedPart)
+    {
+        var defName = li.Attributes?["defName"]?.Value;
+        if (defName.NullOrEmpty()) return;
+        var def = DefDatabase<HediffDef>.GetNamedSilentFail(defName);
+        if (def == null) return;
+
+        // Re-resolve part if not pre-resolved (normal hediffs)
+        BodyPartRecord part = resolvedPart;
+        if (part == null)
+        {
+            var bodyPartDefName = li.Attributes?["bodyPart"]?.Value;
+            var bodyPartLabel   = li.Attributes?["bodyPartLabel"]?.Value;
+            if (!bodyPartDefName.NullOrEmpty())
+            {
+                var bpDef = DefDatabase<BodyPartDef>.GetNamedSilentFail(bodyPartDefName);
+                if (bpDef != null)
+                {
+                    var candidates = pawn.health.hediffSet.GetNotMissingParts()
+                        .Where(p => p.def == bpDef).ToList();
+                    if (!bodyPartLabel.NullOrEmpty())
+                        part = candidates.FirstOrDefault(p => p.Label == bodyPartLabel) ?? candidates.FirstOrDefault();
+                    else
+                        part = candidates.FirstOrDefault();
+                }
+            }
+            if (bodyPartDefName != null && part == null) return;
+        }
+
+        try
+        {
+            if (isImplant && part != null)
+            {
+                // Only RestorePart if no implant already on this exact part
+                bool alreadyHas = pawn.health.hediffSet.hediffs.Any(h =>
+                    h.Part == part && (h is Hediff_AddedPart || h is Hediff_Implant));
+                if (!alreadyHas)
+                    try { pawn.health.RestorePart(part, null, checkStateChange: false); } catch { }
+            }
+
+            var hediff = HediffMaker.MakeHediff(def, pawn, part);
+            var severityStr = li.Attributes?["severity"]?.Value;
+            if (!severityStr.NullOrEmpty() && float.TryParse(severityStr,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var sev))
+                hediff.Severity = sev;
+
+            if (li.Attributes?["isPermanent"]?.Value == "true" && hediff is HediffWithComps hwc)
+            {
+                var permComp = hwc.TryGetComp<HediffComp_GetsPermanent>();
+                if (permComp != null) permComp.IsPermanent = true;
+            }
+
+            var ageTicksStr = li.Attributes?["ageTicks"]?.Value;
+            if (!ageTicksStr.NullOrEmpty() && int.TryParse(ageTicksStr, out var ageTicks))
+                hediff.ageTicks = ageTicks;
+
+            pawn.health.hediffSet.AddDirect(hediff);
+        }
+        catch (Exception ex) { Warn($"Hediff '{defName}': {ex.Message}"); }
     }
 
     // ── Load: Abilities ──

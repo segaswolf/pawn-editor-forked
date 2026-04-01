@@ -203,6 +203,14 @@ public partial class TabWorker_Bio_Humanlike
 
             if (pawn.equipment?.AllEquipmentListForReading?.Any() == true)
                 warnings.Add("- Move weapons to inventory");
+
+            // VAspirE: warn about losing aspirations
+            if (VAspirECompat.Active)
+            {
+                var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+                if (fulfillment != null && VAspirECompat.GetAspirations(fulfillment).Count > 0)
+                    warnings.Add("- Remove all aspirations (children cannot have them)");
+            }
         }
         else
         {
@@ -363,6 +371,35 @@ public partial class TabWorker_Bio_Humanlike
                 catch (System.Exception ex)
                 {
                     Log.Error($"[Pawn Editor] SetDevStage relation cleanup failed: {ex}");
+                }
+            }
+
+            // ── VAspirE: handle aspirations on life stage change ──
+            if (VAspirECompat.Active)
+            {
+                var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+                if (stage != DevelopmentalStage.Adult)
+                {
+                    // Going TO child/baby — clear all aspirations (children don't have them)
+                    if (fulfillment != null)
+                    {
+                        VAspirECompat.UncompleteAll(fulfillment);
+                        var aspirations = VAspirECompat.GetAspirations(fulfillment);
+                        foreach (var asp in aspirations.ToList())
+                            VAspirECompat.RemoveAspiration(fulfillment, asp);
+                    }
+                }
+                else if (oldStage != DevelopmentalStage.Adult)
+                {
+                    // Going FROM child/baby TO adult — let VAspirE initialize fresh aspirations
+                    // The Need will call SetInitialLevel on next tick if Aspirations list is empty,
+                    // but we can also force it to ensure they appear immediately
+                    if (fulfillment != null)
+                    {
+                        var aspirations = VAspirECompat.GetAspirations(fulfillment);
+                        if (aspirations.Count == 0)
+                            VAspirECompat.CheckCompletion(fulfillment);
+                    }
                 }
             }
 

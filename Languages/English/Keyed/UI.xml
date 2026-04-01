@@ -263,4 +263,18 @@
 
     <!-- Blueprint system -->
     <PawnEditor.SaveBlueprint>Save as Blueprint (portable)</PawnEditor.SaveBlueprint>
+
+    <!-- VAspirE Aspirations -->
+    <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>
+    <PawnEditor.ClickToUncomplete>Click to mark as incomplete</PawnEditor.ClickToUncomplete>
+    <PawnEditor.EditAspirations>Edit Aspirations</PawnEditor.EditAspirations>
+    <PawnEditor.Aspirations>Aspirations</PawnEditor.Aspirations>
+    <PawnEditor.AddAspiration>Add aspiration</PawnEditor.AddAspiration>
+    <PawnEditor.RemoveAspiration>Remove</PawnEditor.RemoveAspiration>
+    <PawnEditor.CompleteAllAspirations>Complete all</PawnEditor.CompleteAllAspirations>
+    <PawnEditor.UncompleteAllAspirations>Reset all</PawnEditor.UncompleteAllAspirations>
+    <PawnEditor.AspirationCompleted>Completed</PawnEditor.AspirationCompleted>
+    <PawnEditor.AspirationPending>Pending</PawnEditor.AspirationPending>
+    <PawnEditor.AspirationNotValid>Not valid for this pawn</PawnEditor.AspirationNotValid>
+    <PawnEditor.AspirationAlreadyAssigned>{0} is already assigned to this pawn</PawnEditor.AspirationAlreadyAssigned>
 </LanguageData>

@@ -35,9 +35,13 @@ public class ListingMenu_PawnKindDef : ListingMenu<PawnKindDef>
         var color = Color.white;
         if (pawnKindDef != null && type != PawnCategory.Humans)
         {
-            var bodyGraphicData = pawnKindDef.lifeStages.LastOrDefault()!.bodyGraphicData;
-            color = bodyGraphicData.color;
-            texture = ContentFinder<Texture2D>.Get(bodyGraphicData.texPath + "_east");
+            var bodyGraphicData = pawnKindDef.lifeStages?.LastOrDefault()?.bodyGraphicData;
+            if (bodyGraphicData != null)
+            {
+                color = bodyGraphicData.color;
+                var tex = ContentFinder<Texture2D>.Get(bodyGraphicData.texPath + "_east", false);
+                if (tex != null) texture = tex;
+            }
         }
 
         GUI.color = color;
@@ -67,14 +71,17 @@ public class ListingMenu_PawnKindDef : ListingMenu<PawnKindDef>
 
     private static void MakePawnLists()
     {
-        all = DefDatabase<PawnKindDef>.AllDefs.GroupBy(p => p.LabelCap).Select(p => p.First()).ToList();
-        animals = all.Where(pkd => pkd.race.race.Animal && !pkd.race.race.Dryad)
+        all = DefDatabase<PawnKindDef>.AllDefs
+            .Where(p => p != null)
+            .GroupBy(p => p.LabelCap).Select(p => p.First()).ToList();
+        animals = all.Where(pkd => pkd?.race?.race != null && pkd.race.race.Animal && !pkd.race.race.Dryad)
             .ToList();
-        mechs = all.Where(pkd => // Right now mechanoids are found based on their maskPath but this seems a bit weird.
+        mechs = all.Where(pkd =>
+                pkd?.race?.race != null &&
                 pkd.race.race.IsMechanoid &&
-                pkd.lifeStages.LastOrDefault()!.bodyGraphicData.maskPath != null)
+                pkd.lifeStages?.LastOrDefault()?.bodyGraphicData?.maskPath != null)
             .ToList();
-        humans = all.Where(pk => pk.RaceProps.Humanlike && pk.GetType() == typeof(PawnKindDef))
+        humans = all.Where(pk => pk?.RaceProps != null && pk.RaceProps.Humanlike && pk.GetType() == typeof(PawnKindDef))
             .ToList();
     }
 

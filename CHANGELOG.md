@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [v2.4.1] - 2026-04-01
+
+### Changed — VAspirE (Vanilla Aspirations Expanded) Compatibility
+- Reworked the "Edit Aspirations" menu into a proper multi-selection editor
+- Aspirations are now displayed in a searchable alphabetical list
+- Current aspirations are preselected automatically when opening the menu
+- Added 4-5 aspiration selection rules to match VAspirE's intended design
+- Added live selected counter in the aspiration editor
+- Added OK/Cancel confirmation flow with rollback-safe editing
+
+### Notes
+- This update improves the pre-colony aspiration editing workflow introduced in v2.4.0
+- Future improvements may include filtering by content source (Core, DLCs, Mods)
+
+## [v2.4.0] - 2026-03-30
+
+### Added — VAspirE (Vanilla Aspirations Expanded) Compatibility
+- Aspiration icons in the Needs tab are now clickable: click to mark as completed, click again to revert
+- Fulfillment need bar no longer shows +/- buttons (they had no effect since the system recalculates based on completed aspirations)
+- New "Edit Aspirations" button in the Needs tab bottom panel — opens a listing to add aspirations from the full pool of valid aspirations for the pawn
+- Quick Actions menu now includes "Complete all aspirations" and "Reset all aspirations" options
+- Full reflection-based compatibility layer — no hard dependency on VAspirE
+
+### Fixed
+- Fixed static constructor crash in ListingMenu_Items when a ThingStyle had null StyleDef (ThingStyles dictionary null key error)
+- Fixed static constructor crash in ListingMenu_PawnKindDef when a modded PawnKindDef had empty lifeStages or null bodyGraphicData
+- Fixed inconsistent property/field access (thingDefStyle.styleDef vs .StyleDef) causing silent mismatches in style lookups
+
+### Notes
+- VAspirE integration is Phase 1 (pre-colony editor). In-game editing will come in a future update
+
 ## [v2.3.1] - 2026-03-28
 
 ### Fixed
