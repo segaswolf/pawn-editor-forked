@@ -68,4 +68,17 @@ public static class VSECompat
                 TabWorker_Bio_Humanlike.GetSetDelegate(pawn, true, index)));
         }
     }
+
+    public static void AddPassionButtonFloatMenu(List<FloatMenuOption> floatMenuOptions, SkillDef skill, Pawn pawn)
+    {
+        var passionDefs = passionDefArray.GetValue(null) as Array;
+        foreach (var passionDef in passionDefs)
+        {
+            var label = (string)labelField.GetValue(passionDef);
+            var index = (ushort)indexField.GetValue(passionDef);
+            var icon = (Texture2D)iconProperty.GetValue(passionDef);
+            FloatMenuOption passionFMO = new FloatMenuOption(label, TabWorker_Bio_Humanlike.SetPassionDelegate(pawn, skill, index), icon, Color.white);
+            floatMenuOptions.Add(passionFMO);
+        }
+    }
 }
