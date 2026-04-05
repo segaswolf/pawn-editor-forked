@@ -38,7 +38,14 @@ public static class VAspirECompat
 
     // AspirationWorker.ValidOn
     private static MethodInfo validOnMethod;
+    public sealed class FulfillmentSnapshot
+    {
+        public int AspirationCount = 4;
+        public List<string> AspirationDefNames { get; } = new();
+        public HashSet<string> CompletedDefNames { get; } = new();
 
+        public bool HasData => AspirationDefNames.Count > 0;
+    }
     public static void Activate()
     {
         needFulfillmentType = AccessTools.TypeByName("VAspirE.Need_Fulfillment");
@@ -160,6 +167,8 @@ public static class VAspirECompat
         fulfillmentNeed.CurLevel += 1f;
     }
 
+    
+
     /// <summary>
     /// Uncompletes an aspiration by resetting its completedTick to -1 and adjusting CurLevel.
     /// VAspirE has no public API for this, so we do it via reflection.
@@ -242,13 +251,13 @@ public static class VAspirECompat
     /// <summary>
     /// Gets AspirationDefs valid for a pawn that are not already assigned.
     /// </summary>
-public static List<Def> GetAvailableAspirations(Pawn pawn, Need fulfillmentNeed)
-{
-    return GetAllAspirationDefs()
-        .Where(d => d != null)
-        .OrderBy(d => d.LabelCap.RawText)
-        .ToList();
-}
+    public static List<Def> GetAvailableAspirations(Pawn pawn, Need fulfillmentNeed)
+    {
+        return GetAllAspirationDefs()
+            .Where(d => d != null)
+            .OrderBy(d => d.LabelCap.RawText)
+            .ToList();
+    }
 
     /// <summary>
     /// Sets aspirationsForThisPawn count.
@@ -280,6 +289,66 @@ public static List<Def> GetAvailableAspirations(Pawn pawn, Need fulfillmentNeed)
         foreach (var asp in aspirations)
         {
             Uncomplete(fulfillmentNeed, asp);
+        }
+    }
+    public static Def GetAspirationDefByName(string defName)
+    {
+        if (defName.NullOrEmpty()) return null;
+
+        return GetAllAspirationDefs().FirstOrDefault(d => d.defName == defName);
+    }
+
+    public static bool TryRestoreSnapshot(Pawn pawn, FulfillmentSnapshot snapshot)
+    {
+        if (!Active || pawn == null || snapshot == null || !snapshot.HasData)
+            return false;
+
+        Need fulfillmentNeed = null;
+
+        try
+        {
+            fulfillmentNeed = GetFulfillmentNeed(pawn);
+
+            // If the pawn should have the need but it is missing, try to let RimWorld rebuild needs.
+            if (fulfillmentNeed == null)
+            {
+                pawn.needs?.AddOrRemoveNeedsAsAppropriate();
+                fulfillmentNeed = GetFulfillmentNeed(pawn);
+            }
+
+            if (fulfillmentNeed == null)
+                return false;
+
+            // Clear existing aspirations first to avoid RNG leftovers / duplicates
+            foreach (var existing in GetAspirations(fulfillmentNeed).ToList())
+                RemoveAspiration(fulfillmentNeed, existing);
+
+            SetAspirationCount(fulfillmentNeed, snapshot.AspirationCount);
+
+            foreach (var defName in snapshot.AspirationDefNames)
+            {
+                var def = GetAspirationDefByName(defName);
+                if (def == null) continue;
+
+                AddAspiration(fulfillmentNeed, def);
+            }
+
+            foreach (var defName in snapshot.CompletedDefNames)
+            {
+                var def = GetAspirationDefByName(defName);
+                if (def == null) continue;
+
+                if (GetAspirations(fulfillmentNeed).Contains(def))
+                    Complete(fulfillmentNeed, def);
+            }
+
+            CheckCompletion(fulfillmentNeed);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to restore VAspirE aspirations for {pawn.LabelCap}: {ex.Message}");
+            return false;
         }
     }
 }

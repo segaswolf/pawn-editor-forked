@@ -217,7 +217,7 @@ public class PawnLister : PawnListerBase
     {
         pawn.teleporting = true;
         FullyRemove(pawn);
-        if (to is Map map) GenSpawn.Spawn(pawn, CellFinder.RandomCell(map), map);
+        if (to is Map map) GenSpawn.Spawn(pawn, PawnEditor.FindSafeSpawnCell(map), map);
         else if (to is Caravan caravan) caravan.AddPawn(pawn, true);
         else if (to is World) Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever);
         pawn.teleporting = false;

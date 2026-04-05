@@ -60,63 +60,11 @@ public partial class TabWorker_Bio_Humanlike
             text = pawn.genes.XenotypeLabelCap;
             if (listing.ButtonImageLabeledVStack(text, pawn.genes.XenotypeIcon, 6, text.Colorize(ColoredText.TipSectionTitleColor) + "\n\n" + "XenotypeSelectionDesc".Translate()))
             {
-                var list = new List<FloatMenuOption>();
-                foreach (var item in DefDatabase<XenotypeDef>.AllDefs.OrderBy(x => 0f - x.displayPriority))
+                Find.WindowStack.Add(new ListingMenu_Xenotypes(pawn, xenotype =>
                 {
-                    if (HARCompat.Active && HARCompat.EnforceRestrictions && !HARCompat.CanUseXenotype(item, pawn))
-                        continue;
-                    var xenotype = item;
-                    list.Add(new(xenotype.LabelCap,
-                        () =>
-                        {
-                            SetXenotype(pawn, xenotype);
-                            PawnEditor.Notify_PointsUsed();
-                        }, xenotype.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default,
-                        r => TooltipHandler.TipRegion(r, xenotype.descriptionShort ?? xenotype.description), null, 24f,
-                        r => Widgets.InfoCardButton(r.x, r.y + 3f, xenotype), extraPartRightJustified: true));
-                }
-
-                foreach (var customXenotype in CharacterCardUtility.CustomXenotypes)
-                {
-                    var customInner = customXenotype;
-                    list.Add(new(customInner.name.CapitalizeFirst() + " (" + "Custom".Translate() + ")",
-                        delegate
-                        {
-                            SetXenotype(pawn, customInner);
-                            PawnEditor.Notify_PointsUsed();
-                        }, customInner.IconDef.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default, null, null, 24f, delegate(Rect r)
-                        {
-                            if (Widgets.ButtonImage(new(r.x, r.y + (r.height - r.width) / 2f, r.width, r.width), TexButton.Delete, GUI.color))
-                            {
-                                Find.WindowStack.Add(new Dialog_Confirm("ConfirmDelete".Translate(customInner.name.CapitalizeFirst()), "ConfirmDeleteXenotype",
-                                    delegate
-                                    {
-                                        var path = GenFilePaths.AbsFilePathForXenotype(customInner.name);
-                                        if (File.Exists(path))
-                                        {
-                                            File.Delete(path);
-                                            CharacterCardUtility.cachedCustomXenotypes = null;
-                                        }
-                                    }, true));
-                                return true;
-                            }
-
-                            return false;
-                        }, extraPartRightJustified: true));
-                }
-
-                list.Add(new("XenotypeEditor".Translate() + "...",
-                    delegate
-                    {
-                        var index = PawnEditor.Pregame ? StartingPawnUtility.PawnIndex(pawn) : CharacterCardUtility.CustomXenotypes.Count;
-                        Find.WindowStack.Add(new Dialog_CreateXenotype(index, delegate
-                        {
-                            CharacterCardUtility.cachedCustomXenotypes = null;
-                            SetXenotype(pawn, StartingPawnUtility.GetGenerationRequest(index).ForcedCustomXenotype);
-                        }));
-                    }));
-
-                Find.WindowStack.Add(new FloatMenu(list));
+                    SetXenotype(pawn, xenotype);
+                    RecacheGraphics(pawn);
+                }));
             }
         }
 

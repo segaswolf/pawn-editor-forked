@@ -323,7 +323,8 @@ public static partial class PawnEditor
                 {
                     try
                     {
-                        GenSpawn.Spawn(addedPawn, CellFinder.RandomCell(Find.CurrentMap), Find.CurrentMap);
+                        var spawnCell = FindSafeSpawnCell(Find.CurrentMap);
+                        GenSpawn.Spawn(addedPawn, spawnCell, Find.CurrentMap);
                         try
                         {
                             addedPawn.Notify_Teleported();
@@ -357,5 +358,32 @@ public static partial class PawnEditor
             Notify_PointsUsed();
             Select(addedPawn);
         }));
+    }
+
+    /// <summary>
+    /// Finds a safe, standable cell on the map for spawning a pawn.
+    /// Priority: near existing friendly colonists > near colony center > any walkable cell > random fallback.
+    /// </summary>
+    public static IntVec3 FindSafeSpawnCell(Map map)
+    {
+        // Try near a random friendly colonist
+        var colonists = map.mapPawns?.FreeColonistsSpawned;
+        if (colonists != null && colonists.Count > 0)
+        {
+            var anchor = colonists.RandomElement().Position;
+            if (CellFinder.TryRandomClosewalkCellNear(anchor, map, 10, out var cell))
+                return cell;
+        }
+
+        // Try near the map center
+        if (CellFinder.TryRandomClosewalkCellNear(map.Center, map, 30, out var centerCell))
+            return centerCell;
+
+        // Try any standable, non-fogged cell
+        if (CellFinder.TryFindRandomCellNear(map.Center, map, 999, c => c.Standable(map) && !c.Fogged(map), out var safeCell))
+            return safeCell;
+
+        // Last resort
+        return CellFinder.RandomCell(map);
     }
 }

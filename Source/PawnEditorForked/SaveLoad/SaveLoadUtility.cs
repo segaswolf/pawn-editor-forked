@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -41,6 +41,126 @@ public static partial class SaveLoadUtility
         return dir;
     }
 
+    private sealed class PawnLoadPreprocessResult
+    {
+        public string LoadPath;
+        public string TempFilePath;
+        public VAspirECompat.FulfillmentSnapshot FulfillmentSnapshot;
+    }
+
+    private static PawnLoadPreprocessResult PreprocessPawnLoadFile(string originalPath)
+    {
+        var result = new PawnLoadPreprocessResult
+        {
+            LoadPath = originalPath
+        };
+
+        if (!VAspirECompat.Active)
+            return result;
+
+        try
+        {
+            var doc = new XmlDocument();
+            doc.Load(originalPath);
+
+            var snapshot = ExtractAndStripVAspirEFulfillment(doc);
+            if (snapshot == null || !snapshot.HasData)
+                return result;
+
+            var tempPath = Path.GetTempFileName();
+            doc.Save(tempPath);
+
+            result.LoadPath = tempPath;
+            result.TempFilePath = tempPath;
+            result.FulfillmentSnapshot = snapshot;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to preprocess pawn load file for VAspirE safety: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    private static VAspirECompat.FulfillmentSnapshot ExtractAndStripVAspirEFulfillment(XmlDocument doc)
+    {
+        if (doc?.DocumentElement == null)
+            return null;
+
+        XmlNode fulfillmentNode = FindFulfillmentNeedNode(doc.DocumentElement);
+        if (fulfillmentNode == null)
+            return null;
+
+        var snapshot = new VAspirECompat.FulfillmentSnapshot();
+
+        try
+        {
+            var aspirationNodes = fulfillmentNode.SelectNodes("Aspirations/li");
+            if (aspirationNodes != null)
+            {
+                foreach (XmlNode li in aspirationNodes)
+                {
+                    var defName = li?.InnerText?.Trim();
+                    if (!defName.NullOrEmpty())
+                        snapshot.AspirationDefNames.Add(defName);
+                }
+            }
+
+            var tickNodes = fulfillmentNode.SelectNodes("completedTicks/li");
+            if (tickNodes != null)
+            {
+                for (int i = 0; i < tickNodes.Count && i < snapshot.AspirationDefNames.Count; i++)
+                {
+                    if (int.TryParse(tickNodes[i]?.InnerText?.Trim(), out var tick) && tick != -1)
+                        snapshot.CompletedDefNames.Add(snapshot.AspirationDefNames[i]);
+                }
+            }
+
+            var countNode = fulfillmentNode.SelectSingleNode("aspirationsForThisPawn");
+            if (countNode != null && int.TryParse(countNode.InnerText?.Trim(), out var count))
+                snapshot.AspirationCount = count;
+            else
+                snapshot.AspirationCount = Math.Max(4, snapshot.AspirationDefNames.Count);
+
+            fulfillmentNode.ParentNode?.RemoveChild(fulfillmentNode);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to extract VAspirE fulfillment snapshot: {ex.Message}");
+            return null;
+        }
+
+        return snapshot;
+    }
+
+    private static XmlNode FindFulfillmentNeedNode(XmlNode root)
+    {
+        if (root == null) return null;
+
+        foreach (XmlNode node in root.ChildNodes)
+        {
+            if (node == null) continue;
+
+            var classAttr = node.Attributes?["Class"]?.Value;
+            var defNode = node.SelectSingleNode("def");
+
+            bool classMatch = !classAttr.NullOrEmpty() &&
+                              classAttr.IndexOf("Need_Fulfillment", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            bool defMatch = defNode != null &&
+                            string.Equals(defNode.InnerText?.Trim(), "VAspirE_Fulfillment", StringComparison.OrdinalIgnoreCase);
+
+            if (classMatch || defMatch)
+                return node;
+
+            var nested = FindFulfillmentNeedNode(node);
+            if (nested != null)
+                return nested;
+        }
+
+        return null;
+    }
+
     public static string FilePathFor(string type, string name) => Path.Combine(BaseSaveFolder, type.CapitalizeFirst(), name + ".xml");
 
     public static int CountWithName(string type, string name) =>
@@ -78,7 +198,6 @@ public static partial class SaveLoadUtility
 
             if (item is Pawn pawn) PawnEditor.SavePawnTex(pawn, Path.ChangeExtension(path, ".png"), Rot4.South);
 
-            //Overwrite saved faction with "Random" if setting is active
             if (item is Pawn)
             {
                 if (UseRandomFactionOnSave)
@@ -89,7 +208,6 @@ public static partial class SaveLoadUtility
                     factionNode.InnerText = "Random";
                     doc.Save(path);
                 }
-               
             }
 
             callback?.Invoke(item);
@@ -116,87 +234,142 @@ public static partial class SaveLoadUtility
         var type = typeof(T).Name;
         Find.WindowStack.Add(new Dialog_PawnEditorFiles_Load(typePostfix.NullOrEmpty() ? type : Path.Combine(type, typePostfix!), path =>
         {
-            //Setup loading with random faction
-            string beforeSave = "";
-            if (item is Pawn)
-            {
-                if (UseRandomFactionOnSave)
-                {
-
-                    XmlDocument doc = new XmlDocument();
-                    doc.Load(path);
-                    XmlNode factionNode = doc.DocumentElement["faction"];
-                    beforeSave = factionNode.InnerText;
-                    factionNode.InnerText = "Random";
-                    doc.Save(path);
-                }
-               
-            }
-
-
-            currentlyWorking = true;
-            currentItem = item as ILoadReferenceable;
-            currentPawn = parentPawn;
-            savedItems.Clear();
-            loadInfo.Clear();
-            fallbackWarningsLogged.Clear();
-            var playing = false;
-            if (Current.ProgramState == ProgramState.Playing)
-            {
-                Current.ProgramState = ProgramState.MapInitializing;
-                playing = true;
-            }
-
-            prepare?.Invoke(item);
-            ApplyPatches();
-            Scribe.loader.InitLoading(path);
-            ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.None, true);
-            Scribe.loader.curParent = item;
-            item.ExposeData();
-            if (item is IExposable exposable)
-            {
-                Scribe.loader.crossRefs.crossReferencingExposables.Add(exposable);
-                Scribe.loader.initer.saveablesToPostLoad.Add(exposable);
-            }
-
-            Scribe.loader.FinalizeLoading();
-
-            if (item is Pawn loadedPawn)
-                SanitizeLoadedPawn(loadedPawn);
-
-            savedItems.Clear();
-            loadInfo.Clear();
-            currentlyWorking = false;
-            currentItem = null;
-            currentPawn = null;
-            UnApplyPatches();
-            callback?.Invoke(item);
-            if (playing)
-                Current.ProgramState = ProgramState.Playing;
+            string beforeSave = string.Empty;
+            PawnLoadPreprocessResult pawnLoadPreprocess = null;
+            bool patchesApplied = false;
+            bool playing = false;
 
             try
             {
-                PawnEditor.Notify_PointsUsed();
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[Pawn Editor] Failed to refresh points after loading item '{type}'. {ex}");
-            }
-
-            //cleanup loading with random faction
-            if (item is Pawn)
-            {
-
-                if (UseRandomFactionOnSave)
+                if (item is Pawn && UseRandomFactionOnSave)
                 {
-
                     XmlDocument doc = new XmlDocument();
                     doc.Load(path);
-                    XmlNode factionNode = doc.DocumentElement["faction"];
-                    factionNode.InnerText = beforeSave;
-                    doc.Save(path);
+                    XmlNode factionNode = doc.DocumentElement?["faction"];
+                    if (factionNode != null)
+                    {
+                        beforeSave = factionNode.InnerText;
+                        factionNode.InnerText = "Random";
+                        doc.Save(path);
+                    }
                 }
 
+                currentlyWorking = true;
+                currentItem = item as ILoadReferenceable;
+                currentPawn = parentPawn;
+                savedItems.Clear();
+                loadInfo.Clear();
+                fallbackWarningsLogged.Clear();
+
+                if (Current.ProgramState == ProgramState.Playing)
+                {
+                    Current.ProgramState = ProgramState.MapInitializing;
+                    playing = true;
+                }
+
+                prepare?.Invoke(item);
+                ApplyPatches();
+                patchesApplied = true;
+
+                string loadPath = path;
+                if (item is Pawn)
+                {
+                    pawnLoadPreprocess = PreprocessPawnLoadFile(path);
+                    loadPath = pawnLoadPreprocess?.LoadPath ?? path;
+                }
+
+                Scribe.loader.InitLoading(loadPath);
+                ScribeMetaHeaderUtility.LoadGameDataHeader(ScribeMetaHeaderUtility.ScribeHeaderMode.None, true);
+                Scribe.loader.curParent = item;
+                item.ExposeData();
+                if (item is IExposable exposable)
+                {
+                    Scribe.loader.crossRefs.crossReferencingExposables.Add(exposable);
+                    Scribe.loader.initer.saveablesToPostLoad.Add(exposable);
+                }
+
+                Scribe.loader.FinalizeLoading();
+
+                if (item is Pawn loadedPawn)
+                {
+                    SanitizeLoadedPawn(loadedPawn);
+                }
+
+                if (playing)
+                {
+                    Current.ProgramState = ProgramState.Playing;
+                    playing = false;
+                }
+
+                if (item is Pawn restoredPawn && pawnLoadPreprocess?.FulfillmentSnapshot?.HasData == true)
+                {
+                    VAspirECompat.TryRestoreSnapshot(restoredPawn, pawnLoadPreprocess.FulfillmentSnapshot);
+                }
+
+                try
+                {
+                    PawnEditor.Notify_PointsUsed();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[Pawn Editor] Failed to refresh points after loading item '{type}'. {ex}");
+                }
+
+                callback?.Invoke(item);
+            }
+            finally
+            {
+                if (playing)
+                {
+                    Current.ProgramState = ProgramState.Playing;
+                }
+
+                if (!pawnLoadPreprocess?.TempFilePath.NullOrEmpty() ?? false)
+                {
+                    try
+                    {
+                        if (File.Exists(pawnLoadPreprocess.TempFilePath))
+                            File.Delete(pawnLoadPreprocess.TempFilePath);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                if (item is Pawn && UseRandomFactionOnSave)
+                {
+                    try
+                    {
+                        XmlDocument doc = new XmlDocument();
+                        doc.Load(path);
+                        XmlNode factionNode = doc.DocumentElement?["faction"];
+                        if (factionNode != null)
+                        {
+                            factionNode.InnerText = beforeSave;
+                            doc.Save(path);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                savedItems.Clear();
+                loadInfo.Clear();
+                currentlyWorking = false;
+                currentItem = null;
+                currentPawn = null;
+
+                if (patchesApplied)
+                {
+                    try
+                    {
+                        UnApplyPatches();
+                    }
+                    catch
+                    {
+                    }
+                }
             }
         }));
     }
