@@ -30,27 +30,31 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
     {
         _pawn = pawn;
         _onSelected = onSelected;
+        // Force cache load so custom xenotypes always appear
+        _ = CharacterCardUtility.CustomXenotypes;
     }
 
     protected override void DrawFooter(ref Rect inRect)
     {
-        // Custom xenotypes section
+        // Custom xenotypes section — shown below the main listing
         var customXenotypes = CharacterCardUtility.CustomXenotypes;
         if (customXenotypes != null && customXenotypes.Count > 0)
         {
-            var headerRect = inRect.TakeBottomPart(Text.LineHeightOf(GameFont.Small) + 4f);
-            var customListHeight = Mathf.Min(customXenotypes.Count * 30f, 90f);
-            var customRect = inRect.TakeBottomPart(customListHeight + 4f);
+            // Allocate space: up to 150px for the scrollable list + header
+            var customListHeight = Mathf.Min(customXenotypes.Count * 30f, 150f);
+            var totalHeight = customListHeight + Text.LineHeightOf(GameFont.Small) + 8f;
+            var sectionRect = inRect.TakeBottomPart(totalHeight);
 
             using (new TextBlock(TextAnchor.MiddleLeft))
-                Widgets.Label(headerRect, ("Custom".Translate() + " " + "Xenotype".Translate().ToLower() + ":").Colorize(ColoredText.TipSectionTitleColor));
+                Widgets.Label(sectionRect.TakeTopPart(Text.LineHeightOf(GameFont.Small) + 4f),
+                    ("Custom".Translate() + " " + "Xenotype".Translate().ToLower() + ":").Colorize(ColoredText.TipSectionTitleColor));
 
-            var viewRect = new Rect(0, 0, customRect.width - 16f, customXenotypes.Count * 30f);
-            Widgets.BeginScrollView(customRect, ref _customScrollPos, viewRect);
+            var viewRect = new Rect(0, 0, sectionRect.width - 16f, customXenotypes.Count * 30f);
+            Widgets.BeginScrollView(sectionRect, ref _customScrollPos, viewRect);
             for (var i = 0; i < customXenotypes.Count; i++)
             {
                 var custom = customXenotypes[i];
-                var rowRect = viewRect.TakeTopPart(28f);
+                var rowRect = new Rect(0, i * 30f, viewRect.width, 28f);
                 rowRect.yMin += 2f;
 
                 // Icon
@@ -64,16 +68,7 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
 
                 rowRect.xMin += 4f;
 
-                // Label button
-                var label = custom.name.CapitalizeFirst() + " (" + "Custom".Translate() + ")";
-                if (Widgets.ButtonText(rowRect, label, drawBackground: false, overrideTextAnchor: TextAnchor.MiddleLeft))
-                {
-                    TabWorker_Bio_Humanlike.SetXenotype(_pawn, custom);
-                    TabWorker_Bio_Humanlike.RecacheGraphics(_pawn);
-                    PawnEditor.Notify_PointsUsed();
-                    Close();
-                }
-
+                // Highlight + tooltip
                 if (Mouse.IsOver(rowRect))
                 {
                     Widgets.DrawHighlight(rowRect);
@@ -83,7 +78,15 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
                     TooltipHandler.TipRegion(rowRect, tip);
                 }
 
-                viewRect.yMin += 2f;
+                // Label button
+                var label = custom.name.CapitalizeFirst() + " (" + "Custom".Translate() + ")";
+                if (Widgets.ButtonText(rowRect, label, drawBackground: false, overrideTextAnchor: TextAnchor.MiddleLeft))
+                {
+                    TabWorker_Bio_Humanlike.SetXenotype(_pawn, custom);
+                    TabWorker_Bio_Humanlike.RecacheGraphics(_pawn);
+                    PawnEditor.Notify_PointsUsed();
+                    Close();
+                }
             }
             Widgets.EndScrollView();
         }
