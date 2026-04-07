@@ -62,8 +62,27 @@ public partial class TabWorker_Bio_Humanlike
             {
                 Find.WindowStack.Add(new ListingMenu_Xenotypes(pawn, xenotype =>
                 {
-                    SetXenotype(pawn, xenotype);
-                    RecacheGraphics(pawn);
+                    // If pawn already has genes, ask whether to reset
+                    var hasExistingGenes = pawn.genes.GenesListForReading.Count > 0;
+                    if (hasExistingGenes && xenotype != pawn.genes.Xenotype)
+                    {
+                        Find.WindowStack.Add(new Dialog_Confirm(
+                            "PawnEditor.XenotypeChangeWarning".Translate(pawn.genes.XenotypeLabelCap, xenotype.LabelCap)
+                            + "\n\n" + "PawnEditor.ResetGenesToBase".Translate(),
+                            "XenotypeChangeConfirm",
+                            () =>
+                            {
+                                // Full reset: clear ALL genes, then apply new xenotype's genes
+                                ResetAndSetXenotype(pawn, xenotype);
+                                RecacheGraphics(pawn);
+                            },
+                            destructive: true));
+                    }
+                    else
+                    {
+                        SetXenotype(pawn, xenotype);
+                        RecacheGraphics(pawn);
+                    }
                 }));
             }
         }
@@ -198,8 +217,15 @@ public partial class TabWorker_Bio_Humanlike
         {
             var num = lifeStage.minAge;
             pawn.ageTracker.AgeBiologicalTicks = (long)(num * 3600000L);
+            Log.Message($"[Pawn Editor] SetDevStage: Set age to {num} (minAge of {lifeStage.def.defName})");
         }
 
+        // After setting age, verify the stage actually changed
+        var actualStage = pawn.DevelopmentalStage;
+        Log.Message($"[Pawn Editor] SetDevStage: After age change, actual DevelopmentalStage = {actualStage} (wanted {stage})");
+
+        // If stage didn't change (can happen with modded races where life stage ages overlap),
+        // compare against the REQUESTED stage, not what pawn.DevelopmentalStage reports
         if (oldStage != stage)
         {
             // ── Apparel: drop incompatible clothing to inventory ──
@@ -339,14 +365,10 @@ public partial class TabWorker_Bio_Humanlike
                 }
                 else if (oldStage != DevelopmentalStage.Adult)
                 {
-                    // Going FROM child/baby TO adult — let VAspirE initialize fresh aspirations
-                    // The Need will call SetInitialLevel on next tick if Aspirations list is empty,
-                    // but we can also force it to ensure they appear immediately
+                    // Going FROM child/baby TO adult — generate fresh aspirations
                     if (fulfillment != null)
                     {
-                        var aspirations = VAspirECompat.GetAspirations(fulfillment);
-                        if (aspirations.Count == 0)
-                            VAspirECompat.CheckCompletion(fulfillment);
+                        VAspirECompat.ReinitializeAspirations(fulfillment);
                     }
                 }
             }
@@ -427,6 +449,37 @@ public partial class TabWorker_Bio_Humanlike
             pawn.genes.AddGene(gene, !xenotype.inheritable);
 
         pawn.genes.SetXenotypeDirect(xenotype);
+    }
+
+    /// <summary>
+    /// Full xenotype reset: removes ALL genes (endogenes + xenogenes), then applies
+    /// only the new xenotype's genes. Use when switching between fundamentally different
+    /// xenotypes (e.g. human → android) to avoid leftover genes from the previous type.
+    /// </summary>
+    public static void ResetAndSetXenotype(Pawn pawn, XenotypeDef xenotype)
+    {
+        if (pawn.genes == null) return;
+
+        // Remove all endogenes
+        foreach (var gene in pawn.genes.Endogenes.ToList())
+        {
+            try { pawn.genes.RemoveGene(gene); }
+            catch (System.Exception ex) { Log.Warning($"[Pawn Editor] Failed to remove endogene {gene.def.defName}: {ex.Message}"); }
+        }
+
+        // Remove all xenogenes
+        foreach (var gene in pawn.genes.Xenogenes.ToList())
+        {
+            try { pawn.genes.RemoveGene(gene); }
+            catch (System.Exception ex) { Log.Warning($"[Pawn Editor] Failed to remove xenogene {gene.def.defName}: {ex.Message}"); }
+        }
+
+        // Apply new xenotype genes
+        foreach (var gene in xenotype.genes)
+            pawn.genes.AddGene(gene, !xenotype.inheritable);
+
+        pawn.genes.SetXenotypeDirect(xenotype);
+        PawnEditor.Notify_PointsUsed();
     }
 
     public static void SetXenotype(Pawn pawn, CustomXenotype xenotype)

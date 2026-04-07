@@ -3,25 +3,32 @@
 All notable changes to this project will be documented in this file.
 
 
-## [v2.4.2] - 2026-04-06
+## [v2.4.2] - 2026-04-07
 
 ### Changed — Xenotype Selection UI
 - Replaced the massive FloatMenu xenotype dropdown with a searchable listing window
 - Xenotype listing now shows icons, tooltips with description, gene count, and inheritable status
-- Custom (user-created) xenotypes appear in a dedicated section below the listing
+- Custom (user-created) xenotypes appear in a dedicated section below the listing with forced cache load
 - Added "Xenotype editor..." button inside the listing for quick access
+- Added confirmation dialog when changing xenotype: warns about gene reset, user decides
 - HAR race restrictions are applied automatically to filter incompatible xenotypes
 
-### Fixed
-- Fixed pawns spawning inside walls when duplicating or loading blueprints in-game
-  - Both AddPawn and Teleport now use FindSafeSpawnCell: near colonists → near map center → any standable cell
-- Fixed ListingMenu_PawnKindDef crash when modded PawnKindDefs have empty lifeStages or null bodyGraphicData
+### Added — VRE Android Compatibility
+- Restored "Android editor..." button that was lost when FloatMenu was replaced
+- VREAndroidCompat.cs detects VRE Androids and opens Window_CreateAndroidXenotype via reflection
 
 ### Added — VAspirE Life Stage Safeguards
 - Changing a pawn from adult to child/baby now clears all aspirations (children cannot have them)
-- Changing a pawn from child/baby to adult triggers aspiration reinitialization
+- Changing a pawn from child/baby to adult generates fresh random aspirations via SetInitialLevel
 - Warning dialog now lists aspiration removal when changing to a non-adult stage
 - CompleteSilent mode: completing aspirations in pre-colony no longer triggers growth moment letters
+
+### Fixed
+- Fixed pawns spawning inside walls when duplicating or loading blueprints in-game
+- Fixed ListingMenu_PawnKindDef crash when modded PawnKindDefs have empty lifeStages or null bodyGraphicData
+- Fixed custom xenotype tooltip showing garbled text ("Nòt ìnhêrìtàblê") due to missing translation key
+- Fixed Xenotype Editor crashing in-game with NullRef (now uses index -1 for post-colony)
+- Fixed aspirations not regenerating when changing pawn from child to adult (was calling CheckCompletion instead of SetInitialLevel)
 
 ## [v2.4.1] - 2026-04-01
 

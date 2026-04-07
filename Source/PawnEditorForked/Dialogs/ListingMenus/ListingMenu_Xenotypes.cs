@@ -72,8 +72,9 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
                 if (Mouse.IsOver(rowRect))
                 {
                     Widgets.DrawHighlight(rowRect);
+                    var inheritableText = custom.inheritable ? "Inheritable".Translate() : "PawnEditor.NotInheritable".Translate();
                     var tip = custom.name.CapitalizeFirst() + "\n\n"
-                        + (custom.inheritable ? "Inheritable".Translate() : "Not inheritable".Translate()).Colorize(ColoredText.SubtleGrayColor)
+                        + inheritableText.Colorize(ColoredText.SubtleGrayColor)
                         + "\n" + ("Genes".Translate() + ": " + custom.genes.Count).Colorize(ColoredText.SubtleGrayColor);
                     TooltipHandler.TipRegion(rowRect, tip);
                 }
@@ -96,13 +97,35 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
         buttonRect = buttonRect.ContractedBy(4f);
         if (Widgets.ButtonText(buttonRect, "XenotypeEditor".Translate() + "..."))
         {
-            var index = PawnEditor.Pregame
-                ? StartingPawnUtility.PawnIndex(_pawn)
-                : CharacterCardUtility.CustomXenotypes.Count;
-            Find.WindowStack.Add(new Dialog_CreateXenotype(index, delegate
+            try
             {
-                CharacterCardUtility.cachedCustomXenotypes = null;
-            }));
+                // In-game: pass -1 to avoid StartingPawnUtility.GetGenerationRequest NullRef
+                // Pre-colony: pass pawn index for proper xenotype assignment
+                var index = PawnEditor.Pregame
+                    ? StartingPawnUtility.PawnIndex(_pawn)
+                    : -1;
+                Find.WindowStack.Add(new Dialog_CreateXenotype(index, delegate
+                {
+                    CharacterCardUtility.cachedCustomXenotypes = null;
+                }));
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[Pawn Editor] Failed to open Xenotype Editor: {ex.Message}");
+                Messages.Message("Pawn Editor: Xenotype editor failed to open. This may be a vanilla limitation in-game.",
+                    MessageTypeDefOf.RejectInput, false);
+            }
+        }
+
+        // VRE Android Editor button — only shown when VRE Androids is active
+        if (VREAndroidCompat.Active)
+        {
+            var androidRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 4f);
+            androidRect = androidRect.ContractedBy(4f);
+            if (Widgets.ButtonText(androidRect, "VREA.AndroidEditor".Translate() + "..."))
+            {
+                VREAndroidCompat.OpenAndroidEditor(_pawn);
+            }
         }
     }
 

@@ -31,6 +31,7 @@ public static class VAspirECompat
     private static MethodInfo debugAddMethod;
     private static MethodInfo debugRemoveMethod;
     private static MethodInfo checkCompletionMethod;
+    private static MethodInfo setInitialLevelMethod;
 
     // AspirationDef fields/properties
     private static PropertyInfo iconProperty;
@@ -68,6 +69,7 @@ public static class VAspirECompat
         debugAddMethod = AccessTools.Method(needFulfillmentType, "DebugAddAspiration");
         debugRemoveMethod = AccessTools.Method(needFulfillmentType, "DebugRemoveAspiration");
         checkCompletionMethod = AccessTools.Method(needFulfillmentType, "CheckCompletion");
+        setInitialLevelMethod = AccessTools.Method(needFulfillmentType, "SetInitialLevel");
 
         // AspirationDef
         iconProperty = AccessTools.Property(aspirationDefType, "Icon");
@@ -209,6 +211,24 @@ public static class VAspirECompat
     public static void CheckCompletion(Need fulfillmentNeed)
     {
         checkCompletionMethod?.Invoke(fulfillmentNeed, new object[] { true });
+    }
+
+    /// <summary>
+    /// Calls SetInitialLevel() on the fulfillment need, which generates a fresh set of
+    /// 4-5 random aspirations valid for the pawn. Use when transitioning a pawn TO adult
+    /// stage and aspirations are empty.
+    /// </summary>
+    public static void ReinitializeAspirations(Need fulfillmentNeed)
+    {
+        if (setInitialLevelMethod == null) return;
+        try
+        {
+            setInitialLevelMethod.Invoke(fulfillmentNeed, Array.Empty<object>());
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] VAspirE ReinitializeAspirations failed: {ex.Message}");
+        }
     }
 
     /// <summary>
