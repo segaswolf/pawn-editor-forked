@@ -16,7 +16,6 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
 {
     private readonly Pawn _pawn;
     private readonly Action<XenotypeDef> _onSelected;
-    private Vector2 _customScrollPos;
 
     public ListingMenu_Xenotypes(Pawn pawn, Action<XenotypeDef> onSelected) : base(
         GetXenotypeList(pawn),
@@ -36,71 +35,25 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
 
     protected override void DrawFooter(ref Rect inRect)
     {
-        // Custom xenotypes section — shown below the main listing
+        // Custom xenotypes button — opens a dedicated listing
         var customXenotypes = CharacterCardUtility.CustomXenotypes;
         if (customXenotypes != null && customXenotypes.Count > 0)
         {
-            // Allocate space: up to 150px for the scrollable list + header
-            var customListHeight = Mathf.Min(customXenotypes.Count * 30f, 150f);
-            var totalHeight = customListHeight + Text.LineHeightOf(GameFont.Small) + 8f;
-            var sectionRect = inRect.TakeBottomPart(totalHeight);
-
-            using (new TextBlock(TextAnchor.MiddleLeft))
-                Widgets.Label(sectionRect.TakeTopPart(Text.LineHeightOf(GameFont.Small) + 4f),
-                    ("Custom".Translate() + " " + "Xenotype".Translate().ToLower() + ":").Colorize(ColoredText.TipSectionTitleColor));
-
-            var viewRect = new Rect(0, 0, sectionRect.width - 16f, customXenotypes.Count * 30f);
-            Widgets.BeginScrollView(sectionRect, ref _customScrollPos, viewRect);
-            for (var i = 0; i < customXenotypes.Count; i++)
+            var customBtnRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 4f);
+            customBtnRect = customBtnRect.ContractedBy(4f);
+            if (Widgets.ButtonText(customBtnRect, "PawnEditor.CustomXenotypes".Translate() + " (" + customXenotypes.Count + ")..."))
             {
-                var custom = customXenotypes[i];
-                var rowRect = new Rect(0, i * 30f, viewRect.width, 28f);
-                rowRect.yMin += 2f;
-
-                // Icon
-                var iconRect = rowRect.TakeLeftPart(24f);
-                if (custom.IconDef?.Icon != null)
-                {
-                    GUI.color = XenotypeDef.IconColor;
-                    GUI.DrawTexture(iconRect.ContractedBy(2f), custom.IconDef.Icon);
-                    GUI.color = Color.white;
-                }
-
-                rowRect.xMin += 4f;
-
-                // Highlight + tooltip
-                if (Mouse.IsOver(rowRect))
-                {
-                    Widgets.DrawHighlight(rowRect);
-                    var inheritableText = custom.inheritable ? "Inheritable".Translate() : "PawnEditor.NotInheritable".Translate();
-                    var tip = custom.name.CapitalizeFirst() + "\n\n"
-                        + inheritableText.Colorize(ColoredText.SubtleGrayColor)
-                        + "\n" + ("Genes".Translate() + ": " + custom.genes.Count).Colorize(ColoredText.SubtleGrayColor);
-                    TooltipHandler.TipRegion(rowRect, tip);
-                }
-
-                // Label button
-                var label = custom.name.CapitalizeFirst() + " (" + "Custom".Translate() + ")";
-                if (Widgets.ButtonText(rowRect, label, drawBackground: false, overrideTextAnchor: TextAnchor.MiddleLeft))
-                {
-                    TabWorker_Bio_Humanlike.SetXenotype(_pawn, custom);
-                    TabWorker_Bio_Humanlike.RecacheGraphics(_pawn);
-                    PawnEditor.Notify_PointsUsed();
-                    Close();
-                }
+                Find.WindowStack.Add(new ListingMenu_CustomXenotypes(_pawn));
             }
-            Widgets.EndScrollView();
         }
 
         // Xenotype Editor button
-        var buttonRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 8f);
+        var buttonRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 4f);
         buttonRect = buttonRect.ContractedBy(4f);
         if (Widgets.ButtonText(buttonRect, "XenotypeEditor".Translate() + "..."))
         {
             try
             {
-                // In-game: pass -1 to avoid StartingPawnUtility.GetGenerationRequest NullRef
-                // Pre-colony: pass pawn index for proper xenotype assignment
                 var index = PawnEditor.Pregame
                     ? StartingPawnUtility.PawnIndex(_pawn)
                     : -1;

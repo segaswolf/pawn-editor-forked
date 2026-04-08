@@ -282,4 +282,7 @@
     <PawnEditor.XenotypeChangeWarning>Changing xenotype from {0} to {1} will reset all current genes.</PawnEditor.XenotypeChangeWarning>
     <PawnEditor.ResetGenesToBase>All existing endogenes and xenogenes will be removed and replaced with the new xenotype's genes. This cannot be undone.</PawnEditor.ResetGenesToBase>
     <PawnEditor.NotInheritable>Not inheritable</PawnEditor.NotInheritable>
+    <PawnEditor.CustomXenotypes>Custom xenotypes</PawnEditor.CustomXenotypes>
+    <PawnEditor.NoCustomXenotypes>No custom xenotypes found. Use the Xenotype editor to create one.</PawnEditor.NoCustomXenotypes>
+    <PawnEditor.NoSearchResults>No results found.</PawnEditor.NoSearchResults>
 </LanguageData>

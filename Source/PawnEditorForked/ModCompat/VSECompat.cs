@@ -68,4 +68,35 @@ public static class VSECompat
                 TabWorker_Bio_Humanlike.GetSetDelegate(pawn, true, index)));
         }
     }
+
+    /// <summary>
+    /// Creates a FloatMenu with all available VSE passions for a specific skill.
+    /// Each option shows the passion icon and label. Selecting one applies it immediately.
+    /// Much better UX than cycling through 30+ passions one click at a time.
+    /// </summary>
+    public static List<FloatMenuOption> GetPassionFloatMenuOptions(SkillRecord skill)
+    {
+        var options = new List<FloatMenuOption>();
+        var passionDefs = passionDefArray.GetValue(null) as Array;
+        if (passionDefs == null) return options;
+
+        foreach (var passionDef in passionDefs)
+        {
+            var label = (string)labelField.GetValue(passionDef);
+            var index = (ushort)indexField.GetValue(passionDef);
+            var icon = (Texture2D)iconProperty.GetValue(passionDef);
+            var passion = (Passion)index;
+
+            options.Add(new FloatMenuOption(
+                label.CapitalizeFirst(),
+                () =>
+                {
+                    ClearCacheFor(skill, passion);
+                    skill.passion = passion;
+                },
+                icon, Color.white));
+        }
+
+        return options;
+    }
 }
