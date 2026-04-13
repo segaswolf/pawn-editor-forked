@@ -285,4 +285,5 @@
     <PawnEditor.CustomXenotypes>Custom xenotypes</PawnEditor.CustomXenotypes>
     <PawnEditor.NoCustomXenotypes>No custom xenotypes found. Use the Xenotype editor to create one.</PawnEditor.NoCustomXenotypes>
     <PawnEditor.NoSearchResults>No results found.</PawnEditor.NoSearchResults>
+    <PawnEditor.OtherCosmetic>Other cosmetic</PawnEditor.OtherCosmetic>
 </LanguageData>

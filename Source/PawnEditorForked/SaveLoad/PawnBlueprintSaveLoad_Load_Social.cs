@@ -300,4 +300,78 @@ public static partial class PawnBlueprintSaveLoad
         }
         catch (Exception ex) { Warn($"Records: {ex.Message}"); }
     }
+
+    // ── Load: VAspirE Aspirations ──
+
+    private static void LoadAspirations(Pawn pawn, XmlNode root)
+    {
+        if (!VAspirECompat.Active) return;
+
+        var aspirationsNode = root.SelectSingleNode("aspirations");
+        if (aspirationsNode == null) return;
+
+        try
+        {
+            var count = ParseInt(GetText(aspirationsNode, "count"), 4);
+            var listNode = aspirationsNode.SelectSingleNode("list");
+            if (listNode == null) return;
+
+            var snapshot = new VAspirECompat.FulfillmentSnapshot();
+            snapshot.AspirationCount = count;
+
+            foreach (XmlNode li in listNode.SelectNodes("li"))
+            {
+                var defName = GetText(li, "defName");
+                if (defName.NullOrEmpty()) continue;
+
+                snapshot.AspirationDefNames.Add(defName);
+
+                var completed = ParseBool(GetText(li, "completed"), false);
+                if (completed)
+                    snapshot.CompletedDefNames.Add(defName);
+            }
+
+            if (snapshot.HasData)
+            {
+                if (!VAspirECompat.TryRestoreSnapshot(pawn, snapshot))
+                    Warn("VAspirE aspirations: failed to restore from blueprint");
+            }
+        }
+        catch (Exception ex) { Warn($"Aspirations: {ex.Message}"); }
+    }
+
+    // ── Load: VSE Expertise ──
+
+    private static void LoadExpertise(Pawn pawn, XmlNode root)
+    {
+        if (!VSECompat.Active || !VSECompat.HasExpertiseSupport) return;
+
+        var expertiseNode = root.SelectSingleNode("expertise");
+        if (expertiseNode == null) return;
+
+        try
+        {
+            var snapshots = new List<VSECompat.ExpertiseSnapshot>();
+
+            foreach (XmlNode li in expertiseNode.SelectNodes("li"))
+            {
+                var defName = GetText(li, "defName");
+                if (defName.NullOrEmpty()) continue;
+
+                snapshots.Add(new VSECompat.ExpertiseSnapshot
+                {
+                    DefName = defName,
+                    Level = ParseInt(GetText(li, "level"), 0),
+                    XpSinceLastLevel = ParseFloat(GetText(li, "xp"), 0f)
+                });
+            }
+
+            if (snapshots.Count > 0)
+            {
+                if (!VSECompat.RestoreExpertise(pawn, snapshots))
+                    Warn("VSE expertise: failed to restore from blueprint");
+            }
+        }
+        catch (Exception ex) { Warn($"Expertise: {ex.Message}"); }
+    }
 }

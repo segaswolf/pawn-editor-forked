@@ -35,16 +35,17 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
 
     protected override void DrawFooter(ref Rect inRect)
     {
-        // Custom xenotypes button — opens a dedicated listing
+        // Custom xenotypes button — always visible, opens a dedicated listing
+        var customBtnRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 4f);
+        customBtnRect = customBtnRect.ContractedBy(4f);
         var customXenotypes = CharacterCardUtility.CustomXenotypes;
-        if (customXenotypes != null && customXenotypes.Count > 0)
+        var customCount = customXenotypes?.Count ?? 0;
+        var customLabel = customCount > 0
+            ? (string)("PawnEditor.CustomXenotypes".Translate() + " (" + customCount + ")...")
+            : (string)("PawnEditor.CustomXenotypes".Translate() + "...");
+        if (Widgets.ButtonText(customBtnRect, customLabel))
         {
-            var customBtnRect = inRect.TakeBottomPart(UIUtility.RegularButtonHeight + 4f);
-            customBtnRect = customBtnRect.ContractedBy(4f);
-            if (Widgets.ButtonText(customBtnRect, "PawnEditor.CustomXenotypes".Translate() + " (" + customXenotypes.Count + ")..."))
-            {
-                Find.WindowStack.Add(new ListingMenu_CustomXenotypes(_pawn));
-            }
+            Find.WindowStack.Add(new ListingMenu_CustomXenotypes(_pawn));
         }
 
         // Xenotype Editor button

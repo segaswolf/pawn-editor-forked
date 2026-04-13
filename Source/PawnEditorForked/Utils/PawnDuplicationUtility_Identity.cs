@@ -181,6 +181,80 @@ public static partial class PawnEditor
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  VSE Expertise
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Copies VSE Expertise data from source to destination pawn.
+    /// Expertise lives outside the pawn (in a static Dictionary keyed by Pawn_SkillTracker),
+    /// so it must be explicitly copied.
+    /// </summary>
+    private static void CopyDup_Expertise(Pawn src, Pawn dst)
+    {
+        if (!VSECompat.Active || !VSECompat.HasExpertiseSupport) return;
+
+        try
+        {
+            var data = VSECompat.GetExpertiseData(src);
+            if (data.Count > 0)
+                VSECompat.RestoreExpertise(dst, data);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Expertise: {ex.Message}"); }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  VAspirE Aspirations
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Copies VAspirE aspiration data from source to destination pawn.
+    /// Creates a snapshot of the source's aspirations and restores them on the destination.
+    /// </summary>
+    private static void CopyDup_Aspirations(Pawn src, Pawn dst)
+    {
+        if (!VAspirECompat.Active) return;
+
+        try
+        {
+            var srcFulfillment = VAspirECompat.GetFulfillmentNeed(src);
+            if (srcFulfillment == null) return;
+
+            var aspirations = VAspirECompat.GetAspirations(srcFulfillment);
+            if (aspirations.Count == 0) return;
+
+            var snapshot = new VAspirECompat.FulfillmentSnapshot();
+            snapshot.AspirationCount = VAspirECompat.GetAspirationCount(srcFulfillment);
+
+            foreach (var asp in aspirations)
+            {
+                if (asp == null) continue;
+                snapshot.AspirationDefNames.Add(asp.defName);
+                if (VAspirECompat.IsComplete(srcFulfillment, asp))
+                    snapshot.CompletedDefNames.Add(asp.defName);
+            }
+
+            Log.Message($"[Pawn Editor] CopyDup_Aspirations: src has {aspirations.Count} aspirations, snapshot has {snapshot.AspirationDefNames.Count} defNames, {snapshot.CompletedDefNames.Count} completed");
+
+            if (snapshot.HasData)
+            {
+                // Ensure dst has the fulfillment need before restoring
+                dst.needs?.AddOrRemoveNeedsAsAppropriate();
+                var result = VAspirECompat.TryRestoreSnapshot(dst, snapshot);
+                Log.Message($"[Pawn Editor] CopyDup_Aspirations: TryRestoreSnapshot returned {result}");
+
+                // Verify
+                var dstFulfillment = VAspirECompat.GetFulfillmentNeed(dst);
+                if (dstFulfillment != null)
+                {
+                    var dstAsps = VAspirECompat.GetAspirations(dstFulfillment);
+                    Log.Message($"[Pawn Editor] CopyDup_Aspirations: dst now has {dstAsps.Count} aspirations");
+                }
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Aspirations: {ex.Message}"); }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Needs and Thought Memories
     // ─────────────────────────────────────────────────────────────────────────

@@ -33,8 +33,37 @@ public class ListingMenu_CustomXenotypes : Window
     private void RefreshList()
     {
         CharacterCardUtility.cachedCustomXenotypes = null; // Force reload from disk
-        var all = CharacterCardUtility.CustomXenotypes;
-        _cachedList = all != null ? all.ToList() : new List<CustomXenotype>();
+        _cachedList = new List<CustomXenotype>();
+
+        try
+        {
+            // Try vanilla cache first
+            var cached = CharacterCardUtility.CustomXenotypes;
+            if (cached != null && cached.Count > 0)
+            {
+                _cachedList = cached.ToList();
+                return;
+            }
+
+            // Fallback: load directly from disk
+            foreach (var filePath in GenFilePaths.AllCustomXenotypeFiles)
+            {
+                try
+                {
+                    var xenotype = new CustomXenotype();
+                    if (GameDataSaveLoader.TryLoadXenotype(filePath.FullName, out xenotype))
+                        _cachedList.Add(xenotype);
+                }
+                catch (System.Exception ex)
+                {
+                    Log.Warning($"[Pawn Editor] Failed to load custom xenotype from {filePath.Name}: {ex.Message}");
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] RefreshList custom xenotypes: {ex.Message}");
+        }
     }
 
     public override void DoWindowContents(Rect inRect)

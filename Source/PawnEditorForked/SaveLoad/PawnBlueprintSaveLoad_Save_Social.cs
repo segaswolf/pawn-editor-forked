@@ -275,4 +275,61 @@ public static partial class PawnBlueprintSaveLoad
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteModList: {ex.Message}"); }
     }
+
+    // ── Save: VAspirE Aspirations ──
+
+    private static void WriteAspirations(XmlWriter w, Pawn pawn)
+    {
+        if (!VAspirECompat.Active) return;
+        var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+        if (fulfillment == null) return;
+
+        var aspirations = VAspirECompat.GetAspirations(fulfillment);
+        if (aspirations.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("aspirations");
+            w.WriteElementString("count", VAspirECompat.GetAspirationCount(fulfillment).ToString());
+
+            w.WriteStartElement("list");
+            foreach (var asp in aspirations)
+            {
+                if (asp == null) continue;
+                w.WriteStartElement("li");
+                w.WriteElementString("defName", asp.defName);
+                w.WriteElementString("completed", VAspirECompat.IsComplete(fulfillment, asp) ? "true" : "false");
+                w.WriteEndElement();
+            }
+            w.WriteEndElement(); // list
+
+            w.WriteEndElement(); // aspirations
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteAspirations: {ex.Message}"); }
+    }
+
+    // ── Save: VSE Expertise ──
+
+    private static void WriteExpertise(XmlWriter w, Pawn pawn)
+    {
+        if (!VSECompat.Active || !VSECompat.HasExpertiseSupport) return;
+
+        var data = VSECompat.GetExpertiseData(pawn);
+        if (data.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("expertise");
+            foreach (var exp in data)
+            {
+                w.WriteStartElement("li");
+                w.WriteElementString("defName", exp.DefName);
+                w.WriteElementString("level", exp.Level.ToString());
+                w.WriteElementString("xp", exp.XpSinceLastLevel.ToString("F0"));
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteExpertise: {ex.Message}"); }
+    }
 }

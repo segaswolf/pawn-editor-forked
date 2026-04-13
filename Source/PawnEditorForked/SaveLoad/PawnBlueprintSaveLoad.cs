@@ -78,6 +78,8 @@ public static partial class PawnBlueprintSaveLoad
         WriteRoyalTitles(writer, pawn);
         WriteRecords(writer, pawn);
         FacialAnimCompat.WriteFacialData(writer, pawn);
+        WriteAspirations(writer, pawn);
+        WriteExpertise(writer, pawn);
         WriteModList(writer);
 
             writer.WriteEndElement(); // PawnBlueprint

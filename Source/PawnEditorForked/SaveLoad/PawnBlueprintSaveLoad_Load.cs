@@ -140,6 +140,12 @@ public static partial class PawnBlueprintSaveLoad
         // v3d7: Re-apply FA data AFTER finalize.
         FacialAnimCompat.LoadFacialData(pawn, root);
 
+        // VAspirE: Restore aspirations from blueprint
+        LoadAspirations(pawn, root);
+
+        // VSE: Restore expertise from blueprint
+        LoadExpertise(pawn, root);
+
         // Ideo certainty LAST — other steps trigger ideo recalculation
         if (ModsConfig.IdeologyActive && pawn.ideo != null)
         {

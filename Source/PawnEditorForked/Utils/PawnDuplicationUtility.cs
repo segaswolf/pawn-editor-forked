@@ -181,6 +181,8 @@ public static partial class PawnEditor
         CopyDup_Records(source, newPawn);          // Social
         CopyDup_Inventory(source, newPawn);        // Social
         FacialAnimCompat.CopyFacialData(source, newPawn);
+        CopyDup_Expertise(source, newPawn);            // VSE Expertise
+        CopyDup_Aspirations(source, newPawn);          // VAspirE Aspirations
 
         // Miscellaneous fields too small for their own CopyDup_ method
         if (source.guest != null && newPawn.guest != null)
