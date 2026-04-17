@@ -19,9 +19,29 @@ public class TabWorker_Gear : TabWorker<Pawn>
     public override void Initialize()
     {
         base.Initialize();
-        apparelTable = new(GetHeadings(), p => GetRows(p, apparelTable, pawn => pawn.apparel.WornApparel.Cast<Thing>().ToList()));
-        equipmentTable = new(GetHeadings(), p => GetRows(p, equipmentTable, pawn => pawn.equipment.equipment.Cast<Thing>().ToList()));
-        possessionsTable = new(GetHeadings(), p => GetRows(p, possessionsTable, pawn => pawn.inventory.innerContainer.ToList()));
+        apparelTable = new(GetHeadings(), p => GetRows(p, apparelTable, pawn => pawn.apparel.WornApparel.Cast<Thing>().ToList(), (pawn, thing) =>
+        {
+            if (pawn.apparel.TryMoveToInventory((Apparel)thing))
+                ClearCaches();
+        }));
+        equipmentTable = new(GetHeadings(), p => GetRows(p, equipmentTable, pawn => pawn.equipment.equipment.Cast<Thing>().ToList(), (pawn, thing) =>
+        {
+            if (pawn.equipment.TryTransferEquipmentToContainer((ThingWithComps)thing, pawn.inventory.innerContainer))
+                ClearCaches();
+        }));
+        possessionsTable = new(GetHeadings(), p => GetRows(p, possessionsTable, pawn => pawn.inventory.innerContainer.ToList(), (pawn, thing) =>
+        {
+            if (thing.TryGetComp<CompEquippable>() is { } compEquippable)
+                pawn.equipment.equipment.TryAddOrTransfer(thing);
+            else
+            {
+                var success = pawn.inventory.innerContainer.Remove(thing);
+                if(success)
+                    pawn.apparel.Wear((Apparel)thing);
+            }
+
+            ClearCaches();
+        }));
     }
 
     private List<UITable<Pawn>.Heading> GetHeadings() =>
@@ -33,11 +53,12 @@ public class TabWorker_Gear : TabWorker<Pawn>
             new("PawnEditor.Hitpoints".Translate(), 120),
             new("MarketValueTip".Translate(), 120),
             new(16),
-            new(100), // Edit
+            new(76), // Edit
+            new(24), // Add
             new(24) // Delete
         };
 
-    private IEnumerable<UITable<Pawn>.Row> GetRows(Pawn pawn, UITable<Pawn> table, Func<Pawn, List<Thing>> thingsGetter)
+    private IEnumerable<UITable<Pawn>.Row> GetRows(Pawn pawn, UITable<Pawn> table, Func<Pawn, List<Thing>> thingsGetter, Action<Pawn, Thing> listAdder)
     {
         var things = thingsGetter(pawn);
         for (var i = 0; i < things.Count; i++)
@@ -64,6 +85,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                 new(thing.MarketValue.ToStringMoney().Colorize(ColoredText.SubtleGrayColor), (int)thing.MarketValue),
                 new(),
                 new(editRect => EditUtility.EditButton(editRect, thing, pawn, table)),
+                new(TexButton.Add, () => listAdder(pawn, thing)),
                 new(TexButton.Delete, () =>
                 {
                     thing.Destroy();
