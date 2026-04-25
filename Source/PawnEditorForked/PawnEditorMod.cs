@@ -115,7 +115,7 @@ public class PawnEditorMod : Mod
 
         if (toggleGodModeIndex < 0 || branchIndex < 0)
         {
-            Log.Warning("[Pawn Editor] Could not inject dev button transpiler safely.");
+            Log.Warning($"[Pawn Editor] Could not inject dev button transpiler safely. ToggleGodMode={toggleGodModeIndex}, Branch={branchIndex}. Dev toolbar button will not appear.");
             return codes;
         }
 
@@ -161,7 +161,7 @@ public class PawnEditorMod : Mod
             yield return gizmo;
         }
 
-        if (!Prefs.DevMode || !DebugSettings.godMode)
+        if (!Prefs.DevMode)
         {
             yield break;
         }

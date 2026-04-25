@@ -116,6 +116,21 @@ public static partial class PawnBlueprintSaveLoad
         // ── 4. Finalize ──
         try { pawn.Notify_DisabledWorkTypesChanged(); } catch { }
 
+        // Recalculate gene-driven body size and draw size.
+        // Genes like VE Hussar's Giant modify visual offset/draw size,
+        // but the cache isn't rebuilt after LoadGenes. Without this,
+        // loaded pawns appear at normal size until xenotype is re-applied.
+        try
+        {
+            if (ModsConfig.BiotechActive && pawn.genes != null)
+            {
+                // Force gene cache rebuild — recalculates body size, draw size,
+                // and all gene-driven stat offsets (fixes Hussar Giant visual offset)
+                pawn.genes.Notify_GenesChanged(null);
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] BuildPawnFromBlueprint gene recalc: {ex.Message}"); }
+
         try
         {
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();

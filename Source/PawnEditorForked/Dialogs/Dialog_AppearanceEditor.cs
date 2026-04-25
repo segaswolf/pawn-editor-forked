@@ -12,147 +12,92 @@ namespace PawnEditor;
 [HotSwappable]
 public class Dialog_AppearanceEditor : Window
 {
-    // Dynamic cosmetic gene categories — built at startup from all loaded GeneDefs
+    // Dynamic cosmetic gene groups — built at startup from all loaded GeneDefs
+    // Uses displayCategory (GeneCategoryDef) to identify cosmetic genes, then groups by exclusionTag
     private static readonly List<string> cosmeticGroupLabels = new();
     private static readonly List<List<GeneDef>> cosmeticGroupGenes = new();
 
-    // Known endogeneCategory labels
-    private static readonly Dictionary<EndogeneCategory, string> knownCategoryLabels = new();
-
     static Dialog_AppearanceEditor()
     {
-        // Build label lookup for known vanilla categories
-        // We do this safely since some may not exist in all game versions
-        try { knownCategoryLabels[EndogeneCategory.BodyType] = "PawnEditor.BodyType".Translate(); } catch { knownCategoryLabels[EndogeneCategory.BodyType] = "Body type"; }
-        try { knownCategoryLabels[EndogeneCategory.Melanin] = PawnSkinColors.SkinColorGenesInOrder[0].LabelCap; } catch { knownCategoryLabels[EndogeneCategory.Melanin] = "Skin color"; }
-        try { knownCategoryLabels[EndogeneCategory.HairColor] = "HairColor".Translate().CapitalizeFirst(); } catch { knownCategoryLabels[EndogeneCategory.HairColor] = "Hair color"; }
-        try { knownCategoryLabels[EndogeneCategory.Ears] = "PawnEditor.Ears".Translate(); } catch { knownCategoryLabels[EndogeneCategory.Ears] = "Ears"; }
-        try { knownCategoryLabels[EndogeneCategory.Nose] = PawnEditorDefOf.Nose.LabelCap; } catch { knownCategoryLabels[EndogeneCategory.Nose] = "Nose"; }
-        try { knownCategoryLabels[EndogeneCategory.Jaw] = PawnEditorDefOf.Jaw.LabelCap; } catch { knownCategoryLabels[EndogeneCategory.Jaw] = "Jaw"; }
-        try { knownCategoryLabels[EndogeneCategory.Hands] = PawnEditorDefOf.Hands.LabelCap; } catch { knownCategoryLabels[EndogeneCategory.Hands] = "Hands"; }
-        try { knownCategoryLabels[EndogeneCategory.Headbone] = "PawnEditor.Headbone".Translate(); } catch { knownCategoryLabels[EndogeneCategory.Headbone] = "Headbone"; }
-        try { knownCategoryLabels[EndogeneCategory.Head] = BodyPartDefOf.Head.LabelCap; } catch { knownCategoryLabels[EndogeneCategory.Head] = "Head"; }
-        try { knownCategoryLabels[EndogeneCategory.Voice] = "PawnEditor.Voice".Translate(); } catch { knownCategoryLabels[EndogeneCategory.Voice] = "Voice"; }
+        // Cosmetic displayCategory defNames used by vanilla and mods
+        var cosmeticCategories = new HashSet<string> { "Cosmetic", "Cosmetic_Body", "Cosmetic_Skin", "Cosmetic_Hair" };
 
-        // Scan all genes and group them dynamically
-        var categorized = new HashSet<GeneDef>();
+        // Collect all cosmetic genes, excluding VREA_ android duplicates and _Astrogene archite variants
+        var cosmeticGenes = DefDatabase<GeneDef>.AllDefsListForReading
+            .Where(g => g?.displayCategory != null
+                && cosmeticCategories.Contains(g.displayCategory.defName)
+                && !g.defName.StartsWith("VREA_")
+                && !g.defName.EndsWith("_Astrogene"))
+            .ToList();
+
+        // Group by exclusionTag — genes with the same tag are mutually exclusive (one group)
+        // Genes without exclusionTags go in their own group by endogeneCategory or defName
+        var assigned = new HashSet<GeneDef>();
         var groupsByKey = new Dictionary<string, List<GeneDef>>();
         var groupOrder = new List<string>();
 
-        // Only these endogeneCategories are visual/cosmetic appearance genes
-        var visualCategories = new HashSet<EndogeneCategory>
+        // Pass 1: Group by first exclusionTag
+        foreach (var gene in cosmeticGenes)
         {
-            EndogeneCategory.BodyType,
-            EndogeneCategory.Melanin,
-            EndogeneCategory.HairColor,
-            EndogeneCategory.Ears,
-            EndogeneCategory.Nose,
-            EndogeneCategory.Jaw,
-            EndogeneCategory.Hands,
-            EndogeneCategory.Headbone,
-            EndogeneCategory.Head,
-        };
-
-        // Only these exclusionTags are visual cosmetic (body appearance)
-        var cosmeticExclusionTags = new HashSet<string>
-        {
-            "Fur", "Tail", "HairStyle", "EyeColor", "BeardStyle",
-            "Ears", "Horns", "Wings", "Scales", "Claws", "Fangs",
-            "Beak", "Snout", "Antlers", "Feathers", "Mane"
-        };
-
-        // Pass 1: Group by endogeneCategory (only visual categories)
-        foreach (var gene in DefDatabase<GeneDef>.AllDefsListForReading)
-        {
-            if (gene == null || gene.endogeneCategory == EndogeneCategory.None) continue;
-            if (!visualCategories.Contains(gene.endogeneCategory)) continue;
-
-            var key = "cat_" + gene.endogeneCategory;
-            if (!groupsByKey.ContainsKey(key))
-            {
-                groupsByKey[key] = new List<GeneDef>();
-                groupOrder.Add(key);
-            }
-            groupsByKey[key].Add(gene);
-            categorized.Add(gene);
-        }
-
-        // Pass 2: Group remaining genes by exclusionTag (only known cosmetic tags)
-        foreach (var gene in DefDatabase<GeneDef>.AllDefsListForReading)
-        {
-            if (gene == null || categorized.Contains(gene)) continue;
+            if (assigned.Contains(gene)) continue;
             if (gene.exclusionTags == null || gene.exclusionTags.Count == 0) continue;
 
-            // Find the first cosmetic exclusion tag
-            string cosmeticTag = null;
-            foreach (var tag in gene.exclusionTags)
+            var tag = gene.exclusionTags[0];
+            if (!groupsByKey.ContainsKey(tag))
             {
-                if (cosmeticExclusionTags.Contains(tag))
-                {
-                    cosmeticTag = tag;
-                    break;
-                }
+                groupsByKey[tag] = new List<GeneDef>();
+                groupOrder.Add(tag);
             }
-            if (cosmeticTag == null) continue;
-
-            var key = "tag_" + cosmeticTag;
-            if (!groupsByKey.ContainsKey(key))
-            {
-                groupsByKey[key] = new List<GeneDef>();
-                groupOrder.Add(key);
-            }
-            groupsByKey[key].Add(gene);
-            categorized.Add(gene);
+            groupsByKey[tag].Add(gene);
+            assigned.Add(gene);
         }
 
-        // Pass 3: Catch-all for genes with displayCategory == "Cosmetic" that weren't caught above
-        foreach (var gene in DefDatabase<GeneDef>.AllDefsListForReading)
+        // Pass 2: Ungrouped cosmetic genes — group by endogeneCategory
+        foreach (var gene in cosmeticGenes)
         {
-            if (gene == null || categorized.Contains(gene)) continue;
-            if (gene.displayCategory?.defName != "Cosmetic") continue;
-            // Skip Voice — it's not a visual cosmetic
-            if (gene.endogeneCategory == EndogeneCategory.Voice) continue;
+            if (assigned.Contains(gene)) continue;
 
-            var key = "tag_Other";
+            var key = gene.endogeneCategory != EndogeneCategory.None
+                ? "_cat_" + gene.endogeneCategory
+                : "_ungrouped";
+
             if (!groupsByKey.ContainsKey(key))
             {
                 groupsByKey[key] = new List<GeneDef>();
                 groupOrder.Add(key);
             }
             groupsByKey[key].Add(gene);
-            categorized.Add(gene);
+            assigned.Add(gene);
         }
 
-        // Build final lists — only groups with genes
+        // Build final display lists — only groups with genes, with human-readable labels
         foreach (var key in groupOrder)
         {
             var genes = groupsByKey[key];
             if (genes.Count == 0) continue;
 
+            // Generate label from the key
             string label;
-            if (key.StartsWith("cat_"))
+            if (key.StartsWith("_cat_"))
             {
-                var cat = (EndogeneCategory)Enum.Parse(typeof(EndogeneCategory), key.Substring(4));
-                label = knownCategoryLabels.TryGetValue(cat, out var known) ? known : cat.ToString();
+                var catName = key.Substring(5);
+                label = catName.CapitalizeFirst();
+            }
+            else if (key == "_ungrouped")
+            {
+                label = "PawnEditor.OtherCosmetic".Translate();
             }
             else
             {
-                // tag_ prefix: use the tag name, capitalized
-                label = key.Substring(4).CapitalizeFirst();
-                // Try to translate common ones
-                if (label == "Fur") try { label = "PawnEditor.Fur".Translate(); } catch { }
-                else if (label == "Tail") try { label = PawnEditorDefOf.Tail.LabelCap; } catch { }
-                else if (label == "HairStyle") try { label = "Hair".Translate().CapitalizeFirst(); } catch { }
-                else if (label == "EyeColor") try { label = BodyPartGroupDefOf.Eyes.LabelCap; } catch { }
-                else if (label == "BeardStyle") try { label = "Beard".Translate().CapitalizeFirst(); } catch { }
-                else if (label == "Other") label = "PawnEditor.OtherCosmetic".Translate();
+                // ExclusionTag name — make it human readable
+                label = key.Replace("_", " ").CapitalizeFirst();
             }
 
             cosmeticGroupLabels.Add(label);
             cosmeticGroupGenes.Add(genes);
-            Log.Message($"[Pawn Editor] Cosmetic group '{label}' ({key}): {genes.Count} genes — {string.Join(", ", genes.Take(5).Select(g => g.defName))}{(genes.Count > 5 ? "..." : "")}");
         }
-        Log.Message($"[Pawn Editor] Total cosmetic groups: {cosmeticGroupLabels.Count}, total genes: {cosmeticGroupGenes.Sum(g => g.Count)}");
+
+        Log.Message($"[Pawn Editor] Cosmetic gene groups: {cosmeticGroupLabels.Count} groups, {cosmeticGroupGenes.Sum(g => g.Count)} total genes");
     }
 
     private readonly List<TabRecord> mainTabs = new(3);
@@ -510,6 +455,8 @@ public class Dialog_AppearanceEditor : Window
                         pawn.genes.AddGene(option, false);
                     }
                 }
+
+                TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
             }
 
             GUI.color = enabled ? Color.white : Color.gray;

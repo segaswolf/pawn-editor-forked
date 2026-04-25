@@ -114,16 +114,15 @@ public static partial class PawnEditor
     {
         if (src.abilities?.abilities == null || dst.abilities == null) return;
 
-        // Add abilities present on src but missing on dst
-        foreach (var ability in src.abilities.abilities)
-            if (dst.abilities.GetAbility(ability.def) == null)
-                dst.abilities.GainAbility(ability.def);
+        // Clear all existing abilities on dst first to avoid loadID conflicts
+        // PawnGenerator may have created abilities that would clash with the ones we're about to copy
+        var existingAbilities = dst.abilities.abilities.Select(a => a.def).ToList();
+        foreach (var abilityDef in existingAbilities)
+            dst.abilities.RemoveAbility(abilityDef);
 
-        // Remove abilities present on dst but not on src
-        var dstAbilities = dst.abilities.abilities;
-        for (int i = dstAbilities.Count - 1; i >= 0; i--)
-            if (src.abilities.GetAbility(dstAbilities[i].def) == null)
-                dst.abilities.RemoveAbility(dstAbilities[i].def);
+        // Add all abilities from src
+        foreach (var ability in src.abilities.abilities)
+            dst.abilities.GainAbility(ability.def);
 
         // Strip abilities granted by royal titles — CopyDup_RoyalTitles re-adds them
         if (src.royalty != null)

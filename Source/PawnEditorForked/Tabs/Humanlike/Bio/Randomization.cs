@@ -17,6 +17,12 @@ public partial class TabWorker_Bio_Humanlike
         yield return new("Traits".Translate(), () => RandomizeTraits(pawn));
         yield return new("Skills".Translate(), () => RandomizeSkills(pawn));
         yield return new("Backstory".Translate(), () => RandomizeBackstory(pawn));
+        if (VAspirECompat.Active)
+        {
+            var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+            if (fulfillment != null)
+                yield return new("PawnEditor.Aspirations".Translate(), () => VAspirECompat.ReinitializeAspirations(fulfillment));
+        }
     }
 
     public static void RandomizeAll(Pawn pawn)
@@ -48,8 +54,35 @@ public partial class TabWorker_Bio_Humanlike
 
     public static void RandomizeBackstory(Pawn pawn)
     {
+        // Save passions and levels before backstory change — same fix as ListingMenu_Backstories.
+        var savedPassions = new Dictionary<SkillDef, Passion>();
+        var savedLevels = new Dictionary<SkillDef, int>();
+        if (pawn.skills?.skills != null)
+        {
+            foreach (var sr in pawn.skills.skills)
+            {
+                if (sr?.def != null)
+                {
+                    savedPassions[sr.def] = sr.passion;
+                    savedLevels[sr.def] = sr.levelInt;
+                }
+            }
+        }
+
         if (pawn.story.adulthood != null) PawnBioAndNameGenerator.FillBackstorySlotShuffled(pawn, BackstorySlot.Adulthood, PawnBioAndNameGenerator.GetBackstoryCategoryFiltersFor(pawn, pawn.Faction.def), pawn.Faction.def);
         if (pawn.story.childhood != null) PawnBioAndNameGenerator.FillBackstorySlotShuffled(pawn, BackstorySlot.Childhood, PawnBioAndNameGenerator.GetBackstoryCategoryFiltersFor(pawn, pawn.Faction.def), pawn.Faction.def);
+
+        // Restore passions and levels.
+        if (pawn.skills?.skills != null)
+        {
+            foreach (var sr in pawn.skills.skills)
+            {
+                if (sr?.def != null && savedPassions.TryGetValue(sr.def, out var passion))
+                    sr.passion = passion;
+                if (sr?.def != null && savedLevels.TryGetValue(sr.def, out var level))
+                    sr.levelInt = level;
+            }
+        }
     }
 
     public static void RandomizeAppearance(Pawn pawn)
@@ -89,7 +122,7 @@ public partial class TabWorker_Bio_Humanlike
 
         pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
         pawn.story.headType = headTypes.RandomElement();
-        pawn.gender = Rand.Bool ? Gender.Male : Gender.Female;
+        // Gender intentionally NOT randomized here — RandomizeShape is about body/head, not sex.
 
         pawn.drawer.renderer.SetAllGraphicsDirty();
         PortraitsCache.SetDirty(pawn);
