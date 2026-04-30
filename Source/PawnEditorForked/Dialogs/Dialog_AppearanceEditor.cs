@@ -19,8 +19,15 @@ public class Dialog_AppearanceEditor : Window
 
     static Dialog_AppearanceEditor()
     {
-        // Cosmetic displayCategory defNames used by vanilla and mods
-        var cosmeticCategories = new HashSet<string> { "Cosmetic", "Cosmetic_Body", "Cosmetic_Skin", "Cosmetic_Hair" };
+        // Collect ALL cosmetic GeneCategoryDef defNames dynamically
+        // Captures vanilla (Cosmetic, Cosmetic_Body, Cosmetic_Skin, Cosmetic_Hair)
+        // AND modded categories with any prefix (AG_Cosmetic_Bodies, VRE_Cosmetic_Tails, etc.)
+        var cosmeticCategories = new HashSet<string>();
+        foreach (var catDef in DefDatabase<GeneCategoryDef>.AllDefsListForReading)
+        {
+            if (catDef.defName.Contains("Cosmetic") || catDef.defName == "Fur")
+                cosmeticCategories.Add(catDef.defName);
+        }
 
         // Collect all cosmetic genes, excluding VREA_ android duplicates and _Astrogene archite variants
         var cosmeticGenes = DefDatabase<GeneDef>.AllDefsListForReading
@@ -97,7 +104,7 @@ public class Dialog_AppearanceEditor : Window
             cosmeticGroupGenes.Add(genes);
         }
 
-        Log.Message($"[Pawn Editor] Cosmetic gene groups: {cosmeticGroupLabels.Count} groups, {cosmeticGroupGenes.Sum(g => g.Count)} total genes");
+        Log.Message($"[Pawn Editor] Cosmetic gene groups: {cosmeticGroupLabels.Count} groups, {cosmeticGroupGenes.Sum(g => g.Count)} total genes (categories: {string.Join(", ", cosmeticCategories)})");
     }
 
     private readonly List<TabRecord> mainTabs = new(3);
@@ -482,7 +489,8 @@ public class Dialog_AppearanceEditor : Window
         }
         else if (pawn.IsBaseliner())
         {
-            return option.endogeneCategory == EndogeneCategory.Melanin || option.endogeneCategory == EndogeneCategory.HairColor;
+            // For baseliners, allow all cosmetic genes (they're in the appearance editor for a reason)
+            return true;
         }
         else if (pawn.genes.Xenotype != null)
         {
