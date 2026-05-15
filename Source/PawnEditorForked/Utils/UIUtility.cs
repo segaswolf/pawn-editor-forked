@@ -11,11 +11,18 @@ using Verse.Sound;
 
 namespace PawnEditor;
 
+/// <summary>
+/// UI helper methods and Rect extension methods used throughout Pawn Editor.
+/// Provides layout utilities (TakeTopPart, TakeBottomPart, etc.), custom widgets
+/// (IntField, search bars, column layouts), and style constants.
+/// </summary>
 [HotSwappable]
 public static class UIUtility
 {
-    public static bool HasDoneOnce = false; // Helper bool to execute code only once.
-    
+    /// <summary>Helper flag to execute initialization code only once per session.</summary>
+    public static bool HasDoneOnce = false;
+
+    // ── Layout constants ──
     public const float SearchBarHeight = 30f;
     public const float RegularButtonHeight = 30f;
     public static readonly Vector2 BottomButtonSize = new(150f, 38f);
@@ -24,6 +31,7 @@ public static class UIUtility
     public const float LabelPadding = 10f;
 
 
+    /// <summary>Takes pixels from the top of a rect and shrinks the original.</summary>
     public static Rect TakeTopPart(ref this Rect rect, float pixels)
     {
         var ret = rect.TopPartPixels(pixels);
@@ -31,6 +39,7 @@ public static class UIUtility
         return ret;
     }
 
+    /// <summary>Takes pixels from the bottom of a rect and shrinks the original.</summary>
     public static Rect TakeBottomPart(ref this Rect rect, float pixels)
     {
         var ret = rect.BottomPartPixels(pixels);
@@ -38,6 +47,7 @@ public static class UIUtility
         return ret;
     }
 
+    /// <summary>Takes pixels from the right of a rect and shrinks the original.</summary>
     public static Rect TakeRightPart(ref this Rect rect, float pixels)
     {
         var ret = rect.RightPartPixels(pixels);
@@ -45,6 +55,7 @@ public static class UIUtility
         return ret;
     }
 
+    /// <summary>Takes pixels from the left of a rect and shrinks the original.</summary>
     public static Rect TakeLeftPart(ref this Rect rect, float pixels)
     {
         var ret = rect.LeftPartPixels(pixels);

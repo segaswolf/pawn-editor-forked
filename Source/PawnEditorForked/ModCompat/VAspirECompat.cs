@@ -9,13 +9,20 @@ using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Compatibility layer for Vanilla Aspirations Expanded (VAspirE).
+/// Provides access to the aspiration system: reading, adding, removing, completing aspirations,
+/// and handling life stage transitions (children can't have aspirations).
+/// Also supports save/load and duplication of aspiration state via FulfillmentSnapshot.
+/// All access is via reflection to avoid hard dependency on VAspirE assembly.
+/// </summary>
 [ModCompat("vanillaexpanded.vanillaaspirationsexpanded")]
 public static class VAspirECompat
 {
     public static bool Active;
     public static string Name = "Vanilla Aspirations Expanded";
 
-    // Types
+    // ── Reflection fields: Types ──
     private static Type needFulfillmentType;
     private static Type aspirationDefType;
     private static Type aspirationWorkerType;

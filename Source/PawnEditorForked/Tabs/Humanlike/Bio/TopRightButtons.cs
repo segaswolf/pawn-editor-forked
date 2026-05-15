@@ -123,6 +123,11 @@ public partial class TabWorker_Bio_Humanlike
         height = listing.curHeight;
     }
 
+    /// <summary>
+    /// Shows a confirmation dialog before changing developmental stage if the transition
+    /// would cause data loss (backstory, relations, aspirations, equipment).
+    /// If no data would be lost, applies the change immediately.
+    /// </summary>
     private static void ConfirmAndSetDevStage(Pawn pawn, DevelopmentalStage stage)
     {
         // Same stage = no transition, just refresh
@@ -207,22 +212,22 @@ public partial class TabWorker_Bio_Humanlike
         ));
     }
 
+    /// <summary>
+    /// Applies a developmental stage change to a pawn, handling all side effects:
+    /// age, body type, backstory, apparel, equipment, hediffs, relations, and VAspirE aspirations.
+    /// Called after user confirms via ConfirmAndSetDevStage.
+    /// </summary>
     public static void SetDevStage(Pawn pawn, DevelopmentalStage stage)
     {
         var lifeStage = pawn.RaceProps.lifeStageAges.FirstOrDefault(lifeStage => lifeStage.def.developmentalStage == stage);
         var oldStage = pawn.DevelopmentalStage;
-        Log.Message($"[Pawn Editor] SetDevStage: {pawn.Name} {oldStage}->{stage}");
 
         if (lifeStage != null)
         {
-            var num = lifeStage.minAge;
-            pawn.ageTracker.AgeBiologicalTicks = (long)(num * 3600000L);
-            Log.Message($"[Pawn Editor] SetDevStage: Set age to {num} (minAge of {lifeStage.def.defName})");
+            pawn.ageTracker.AgeBiologicalTicks = (long)(lifeStage.minAge * 3600000L);
         }
 
-        // After setting age, verify the stage actually changed
         var actualStage = pawn.DevelopmentalStage;
-        Log.Message($"[Pawn Editor] SetDevStage: After age change, actual DevelopmentalStage = {actualStage} (wanted {stage})");
 
         // If stage didn't change (can happen with modded races where life stage ages overlap),
         // compare against the REQUESTED stage, not what pawn.DevelopmentalStage reports
@@ -248,28 +253,8 @@ public partial class TabWorker_Bio_Humanlike
             if (stage == DevelopmentalStage.Adult && pawn.story.Adulthood == null)
             {
                 // Going TO adult: generate a contextual adulthood backstory.
-                var allAdult = DefDatabase<BackstoryDef>.AllDefsListForReading
-                    .Where(bs => bs.slot == BackstorySlot.Adulthood && bs.shuffleable).ToList();
-
-                var childCategories = pawn.story.Childhood?.spawnCategories;
-                Log.Message($"[Pawn Editor] Backstory: childhood={pawn.story.Childhood?.defName}, categories={string.Join(",", childCategories ?? new List<string>())}, allAdult count={allAdult.Count}");
-
-                if (childCategories != null && childCategories.Any())
-                {
-                    var matched = allAdult
-                        .Where(bs => bs.spawnCategories.Any(sc => childCategories.Contains(sc)))
-                        .ToList();
-                    Log.Message($"[Pawn Editor] Backstory: matched {matched.Count} adult backstories for categories [{string.Join(",", childCategories)}]");
-                    if (matched.Any())
-                        pawn.story.Adulthood = matched.RandomElement();
-                    else if (allAdult.Any())
-                        pawn.story.Adulthood = allAdult.RandomElement();
-                }
-                else if (allAdult.Any())
-                {
-                    pawn.story.Adulthood = allAdult.RandomElement();
-                }
-                Log.Message($"[Pawn Editor] Backstory: assigned={pawn.story.Adulthood?.defName} title={pawn.story.Adulthood?.TitleCapFor(pawn.gender)}");
+                pawn.story.Adulthood = BackstoryUtility.GenerateAdultBackstory(pawn);
+                Log.Message($"[Pawn Editor] Backstory: assigned={pawn.story.Adulthood?.defName}");
             }
             else if (stage == DevelopmentalStage.Child || stage == DevelopmentalStage.Baby || stage == DevelopmentalStage.Newborn)
             {
@@ -290,10 +275,8 @@ public partial class TabWorker_Bio_Humanlike
                             h.def.defName.Contains("Parasites") ||
                             h.def.defName.Contains("Infestation"))
                         .ToList();
-                    Log.Message($"[Pawn Editor] Hediffs to remove: {hediffsToRemove.Count} ({string.Join(", ", hediffsToRemove.Select(h => h.def.defName))})");
                     foreach (var h in hediffsToRemove)
                         pawn.health.RemoveHediff(h);
-                    Log.Message($"[Pawn Editor] Hediffs after removal: pregnancy count={pawn.health.hediffSet.hediffs.Count(h => h.def.defName.Contains("Pregnant"))}");
                 }
                 catch (System.Exception ex)
                 {
@@ -312,10 +295,8 @@ public partial class TabWorker_Bio_Humanlike
                         PawnRelationDefOf.ExLover, PawnRelationDefOf.ExSpouse
                     };
 
-                    // Remove relations owned BY this pawn
                     var ownedRels = pawn.relations.DirectRelations
                         .Where(r => defsToRemove.Contains(r.def)).ToList();
-                    Log.Message($"[Pawn Editor] Own romantic rels: {ownedRels.Count} ({string.Join(", ", ownedRels.Select(r => r.def.defName + "->" + r.otherPawn?.Name))})");
                     foreach (var rel in ownedRels)
                         pawn.relations.RemoveDirectRelation(rel);
 
@@ -330,17 +311,15 @@ public partial class TabWorker_Bio_Humanlike
                                 .Where(r => defsToRemove.Contains(r.def) && r.otherPawn == pawn).ToList();
                             if (reverseRels.Any())
                             {
-                                Log.Message($"[Pawn Editor] Reverse rels from {other.Name}: {string.Join(", ", reverseRels.Select(r => r.def.defName))}");
                                 foreach (var rel in reverseRels)
                                     other.relations.RemoveDirectRelation(rel);
                             }
                         }
                     }
 
-                    // Verify
+                    // Verify cleanup
                     var remaining = pawn.relations.DirectRelations
-                        .Where(r => defsToRemove.Contains(r.def)).ToList();
-                    Log.Message($"[Pawn Editor] Romantic rels remaining after cleanup: {remaining.Count}");
+                        .Where(r => defsToRemove.Contains(r.def)).Count();
                 }
                 catch (System.Exception ex)
                 {
@@ -398,6 +377,9 @@ public partial class TabWorker_Bio_Humanlike
         }
     }
 
+    /// <summary>
+    /// Sets the pawn's gender and adjusts body type and head type to match.
+    /// </summary>
     public static void SetGender(Pawn pawn, Gender gender)
     {
         pawn.gender = gender;
@@ -412,6 +394,10 @@ public partial class TabWorker_Bio_Humanlike
         RecacheGraphics(pawn);
     }
 
+    /// <summary>
+    /// Marks the pawn's graphics as dirty so the portrait re-renders.
+    /// Called after any visual change (genes, body type, hair, tattoos, etc.).
+    /// </summary>
     public static void RecacheGraphics(Pawn pawn)
     {
         LongEventHandler.ExecuteWhenFinished(delegate
@@ -421,7 +407,10 @@ public partial class TabWorker_Bio_Humanlike
         });
     }
 
-    // FIX #010: Null checks + snapshot gene lists to prevent NRE and collection-modified errors.
+    /// <summary>
+    /// Removes all genes belonging to the pawn's current xenotype (both endo and xeno).
+    /// Does not touch genes from other sources.
+    /// </summary>
     private static void ClearXenotype(Pawn pawn)
     {
         if (pawn.genes == null) return;
@@ -441,6 +430,10 @@ public partial class TabWorker_Bio_Humanlike
             }
     }
 
+    /// <summary>
+    /// Sets a pawn's xenotype by removing the old xenotype's genes and adding the new ones.
+    /// Only removes genes that belonged to the previous xenotype — preserves other genes.
+    /// </summary>
     public static void SetXenotype(Pawn pawn, XenotypeDef xenotype)
     {
         if (pawn.genes == null) return;
@@ -482,6 +475,9 @@ public partial class TabWorker_Bio_Humanlike
         PawnEditor.Notify_PointsUsed();
     }
 
+    /// <summary>
+    /// Sets a pawn's custom xenotype by removing the old xenotype's genes and adding the new ones.
+    /// </summary>
     public static void SetXenotype(Pawn pawn, CustomXenotype xenotype)
     {
         if (pawn.genes == null || xenotype == null) return;

@@ -8,103 +8,17 @@ using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Dialog for editing a pawn's visual appearance: body shape, hair, tattoos, and xenotype cosmetic genes.
+/// The Xenotype tab uses CosmeticGeneDiscovery to dynamically show all cosmetic genes from loaded mods.
+/// </summary>
 [StaticConstructorOnStartup]
 [HotSwappable]
 public class Dialog_AppearanceEditor : Window
 {
-    // Dynamic cosmetic gene groups — built at startup from all loaded GeneDefs
-    // Uses displayCategory (GeneCategoryDef) to identify cosmetic genes, then groups by exclusionTag
-    private static readonly List<string> cosmeticGroupLabels = new();
-    private static readonly List<List<GeneDef>> cosmeticGroupGenes = new();
-
     static Dialog_AppearanceEditor()
     {
-        // Collect ALL cosmetic GeneCategoryDef defNames dynamically
-        // Captures vanilla (Cosmetic, Cosmetic_Body, Cosmetic_Skin, Cosmetic_Hair)
-        // AND modded categories with any prefix (AG_Cosmetic_Bodies, VRE_Cosmetic_Tails, etc.)
-        var cosmeticCategories = new HashSet<string>();
-        foreach (var catDef in DefDatabase<GeneCategoryDef>.AllDefsListForReading)
-        {
-            if (catDef.defName.Contains("Cosmetic") || catDef.defName == "Fur")
-                cosmeticCategories.Add(catDef.defName);
-        }
-
-        // Collect all cosmetic genes, excluding VREA_ android duplicates and _Astrogene archite variants
-        var cosmeticGenes = DefDatabase<GeneDef>.AllDefsListForReading
-            .Where(g => g?.displayCategory != null
-                && cosmeticCategories.Contains(g.displayCategory.defName)
-                && !g.defName.StartsWith("VREA_")
-                && !g.defName.EndsWith("_Astrogene"))
-            .ToList();
-
-        // Group by exclusionTag — genes with the same tag are mutually exclusive (one group)
-        // Genes without exclusionTags go in their own group by endogeneCategory or defName
-        var assigned = new HashSet<GeneDef>();
-        var groupsByKey = new Dictionary<string, List<GeneDef>>();
-        var groupOrder = new List<string>();
-
-        // Pass 1: Group by first exclusionTag
-        foreach (var gene in cosmeticGenes)
-        {
-            if (assigned.Contains(gene)) continue;
-            if (gene.exclusionTags == null || gene.exclusionTags.Count == 0) continue;
-
-            var tag = gene.exclusionTags[0];
-            if (!groupsByKey.ContainsKey(tag))
-            {
-                groupsByKey[tag] = new List<GeneDef>();
-                groupOrder.Add(tag);
-            }
-            groupsByKey[tag].Add(gene);
-            assigned.Add(gene);
-        }
-
-        // Pass 2: Ungrouped cosmetic genes — group by endogeneCategory
-        foreach (var gene in cosmeticGenes)
-        {
-            if (assigned.Contains(gene)) continue;
-
-            var key = gene.endogeneCategory != EndogeneCategory.None
-                ? "_cat_" + gene.endogeneCategory
-                : "_ungrouped";
-
-            if (!groupsByKey.ContainsKey(key))
-            {
-                groupsByKey[key] = new List<GeneDef>();
-                groupOrder.Add(key);
-            }
-            groupsByKey[key].Add(gene);
-            assigned.Add(gene);
-        }
-
-        // Build final display lists — only groups with genes, with human-readable labels
-        foreach (var key in groupOrder)
-        {
-            var genes = groupsByKey[key];
-            if (genes.Count == 0) continue;
-
-            // Generate label from the key
-            string label;
-            if (key.StartsWith("_cat_"))
-            {
-                var catName = key.Substring(5);
-                label = catName.CapitalizeFirst();
-            }
-            else if (key == "_ungrouped")
-            {
-                label = "PawnEditor.OtherCosmetic".Translate();
-            }
-            else
-            {
-                // ExclusionTag name — make it human readable
-                label = key.Replace("_", " ").CapitalizeFirst();
-            }
-
-            cosmeticGroupLabels.Add(label);
-            cosmeticGroupGenes.Add(genes);
-        }
-
-        Log.Message($"[Pawn Editor] Cosmetic gene groups: {cosmeticGroupLabels.Count} groups, {cosmeticGroupGenes.Sum(g => g.Count)} total genes (categories: {string.Join(", ", cosmeticCategories)})");
+        CosmeticGeneDiscovery.Initialize();
     }
 
     private readonly List<TabRecord> mainTabs = new(3);
@@ -408,7 +322,7 @@ public class Dialog_AppearanceEditor : Window
         if (Event.current.type == EventType.Layout) lastXenotypeHeight = 9999;
         var viewRect = new Rect(0, 0, inRect.width - 20, lastXenotypeHeight);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
-        for (var i = 0; i < cosmeticGroupLabels.Count; i++) DoGeneOptions(ref viewRect, cosmeticGroupLabels[i], cosmeticGroupGenes[i]);
+        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++) DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], CosmeticGeneDiscovery.GroupGenes[i]);
         if (Event.current.type == EventType.Layout) lastXenotypeHeight -= viewRect.height;
         Widgets.EndScrollView();
     }
@@ -819,7 +733,7 @@ public class Dialog_AppearanceEditor : Window
                     _ => new()
                 };
             case MainTab.Xenotype:
-                return cosmeticGroupGenes.SelectMany(defs => defs.Cast<Def>());
+                return CosmeticGeneDiscovery.GroupGenes.SelectMany(defs => defs.Cast<Def>());
         }
 
         return Enumerable.Empty<Def>();

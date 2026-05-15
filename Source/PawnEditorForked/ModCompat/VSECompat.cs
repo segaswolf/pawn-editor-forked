@@ -8,12 +8,19 @@ using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Compatibility layer for Vanilla Skills Expanded (VSE).
+/// Provides access to VSE's custom passion system (30+ passion types with icons)
+/// and expertise system (skill specializations with XP tracking).
+/// All access is via reflection to avoid hard dependency on VSE assembly.
+/// </summary>
 [ModCompat("vanillaexpanded.skills")]
 public static class VSECompat
 {
     public static bool Active;
     public static string Name = "Vanilla Skills Expanded";
 
+    // ── Reflection fields: Passion system ──
     private static Type passionManager;
     private static Func<Passion, object> passionToDef;
     private static FieldInfo passionDefArray;
@@ -29,7 +36,7 @@ public static class VSECompat
     private static FieldInfo labelField;
     private static FieldInfo indexField;
 
-    // Expertise system
+    // ── Reflection fields: Expertise system ──
     private static Type expertiseTrackersType;
     private static Type expertiseTrackerType;
     private static Type expertiseRecordType;
@@ -43,6 +50,10 @@ public static class VSECompat
     private static PropertyInfo expertiseLevelProperty;
     private static FieldInfo expertiseXpField;
     
+    /// <summary>
+    /// Initializes all reflection fields by resolving VSE types, methods, and fields.
+    /// Called automatically when the mod is detected as active.
+    /// </summary>
     public static void Activate()
     {
         passionManager = AccessTools.TypeByName("VSE.Passions.PassionManager");
@@ -83,6 +94,7 @@ public static class VSECompat
         }
     }
 
+    /// <summary>Gets the custom passion icon for a VSE passion level.</summary>
     public static Texture2D GetPassionIcon(Passion passion)
     {
         var passionDef = passionToDef(passion);
@@ -90,9 +102,15 @@ public static class VSECompat
         return icon;
     }
 
+    /// <summary>Cycles to the next passion level (wraps around).</summary>
     public static Passion ChangePassion(Passion passion) => changePassion(passion, 1);
+
+    /// <summary>Clears the learn rate factor cache for a skill after changing its passion.</summary>
     public static void ClearCacheFor(SkillRecord sr, Passion passion) => clearCacheFor(sr, passion);
 
+    /// <summary>
+    /// Adds "Set all to [passion]" options to a float menu for bulk passion assignment.
+    /// </summary>
     public static void AddPassionPresets(List<FloatMenuOption> floatMenuOptions, Pawn pawn)
     {
         var passionDefs = passionDefArray.GetValue(null) as Array;
@@ -138,6 +156,7 @@ public static class VSECompat
 
     // ── Expertise API ──
 
+    /// <summary>Whether the expertise system is available (some VSE versions may not have it).</summary>
     public static bool HasExpertiseSupport => expertiseTrackersType != null;
 
     /// <summary>
@@ -231,6 +250,10 @@ public static class VSECompat
         }
     }
 
+    /// <summary>
+    /// Snapshot of a single expertise record for serialization.
+    /// Used by blueprint save/load and pawn duplication.
+    /// </summary>
     public class ExpertiseSnapshot
     {
         public string DefName;

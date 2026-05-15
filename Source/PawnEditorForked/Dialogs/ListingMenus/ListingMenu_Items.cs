@@ -187,7 +187,17 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 var newPossession = ThingMaker.MakeThing(thingDef, thingDef.defaultStuff);
                 return new ConditionalInfo(PawnEditor.CanUsePoints(newPossession), new SuccessInfo(() =>
                 {
-                    pawn.inventory.innerContainer.TryAdd(newPossession, 1);
+                    // Try to stack with an existing item of the same def in the pawn's inventory
+                    var existing = pawn.inventory.innerContainer
+                        .FirstOrDefault(t => t.def == thingDef && t.stackCount < t.def.stackLimit);
+                    if (existing != null)
+                    {
+                        existing.stackCount++;
+                    }
+                    else
+                    {
+                        pawn.inventory.innerContainer.TryAdd(newPossession, 1);
+                    }
                     PawnEditor.Notify_PointsUsed();
                     TabWorker_Gear.ClearCaches();
                 }));
@@ -250,7 +260,17 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         var thing = ThingMaker.MakeThing(thingDef);
         return new ConditionalInfo(PawnEditor.CanUsePoints(thing), new SuccessInfo(() =>
         {
-            things.Add(thing);
+            // Try to stack with an existing item of the same def in the list
+            var existing = things.FirstOrDefault(t => t.def == thingDef && t.stackCount < t.def.stackLimit);
+            if (existing != null)
+            {
+                existing.stackCount++;
+            }
+            else
+            {
+                things.Add(thing);
+            }
+            PawnEditor.Notify_PointsUsed();
             callback?.Invoke();
         }));
     }
