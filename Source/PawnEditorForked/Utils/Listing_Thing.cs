@@ -19,6 +19,7 @@ public class Listing_Thing<T> : Listing_Tree
     private readonly HashSet<T> _auxHighlight;
     private readonly Func<T, string> _descGetter;
     private readonly List<T> _items;
+    private readonly HashSet<T> _itemsSet; // O(1) lookup for Contains checks
     private readonly int _maxCount;
 
     public Action<Rect, T, bool> DoThingExtras;
@@ -47,6 +48,7 @@ public class Listing_Thing<T> : Listing_Tree
         List<Filter<T>> filters = null, IEnumerable<T> auxHighlight = null)
     {
         _items = items;
+        _itemsSet = new HashSet<T>(items);
         LabelGetter = labelGetter;
         _descGetter = descGetter;
         IconDrawer = iconDrawer;
@@ -143,7 +145,7 @@ public class Listing_Thing<T> : Listing_Tree
 
     protected virtual bool Visible(T td)
     {
-        var output = _items.Contains(td);
+        var output = _itemsSet.Contains(td); // O(1) instead of O(n)
         if (ActiveFilters.Any())
             output = output && ActiveFilters.All(lf => lf.Matches(td));
 

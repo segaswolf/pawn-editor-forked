@@ -51,7 +51,8 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
     private void DoBottomOptions(Rect inRect, Pawn pawn)
     {
         if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.QuickActions".Translate(), 80f))
-            Find.WindowStack.Add(new FloatMenu(new()
+        {
+            var quickActions = new List<FloatMenuOption>
             {
                 new("PawnEditor.RefillNeeds".Translate(), () =>
                 {
@@ -59,13 +60,39 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
                 }),
                 new("PawnEditor.CancelBreakdown".Translate(),
                     () => pawn.mindState.mentalStateHandler.CurState?.RecoverFromState())
-            }));
+            };
+
+            // VAspirE quick actions
+            if (VAspirECompat.Active)
+            {
+                var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+                if (fulfillment != null)
+                {
+                    quickActions.Add(new("PawnEditor.CompleteAllAspirations".Translate(), () => VAspirECompat.CompleteAll(fulfillment)));
+                    quickActions.Add(new("PawnEditor.UncompleteAllAspirations".Translate(), () => VAspirECompat.UncompleteAll(fulfillment)));
+                }
+            }
+
+            Find.WindowStack.Add(new FloatMenu(quickActions));
+        }
 
         inRect.xMin += 4f;
 
         if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.AddThought".Translate())) Find.WindowStack.Add(new ListingMenu_Thoughts(pawn, table));
 
         inRect.xMin += 4f;
+
+        // VAspirE: Edit Aspirations button
+        if (VAspirECompat.Active)
+        {
+            var fulfillment = VAspirECompat.GetFulfillmentNeed(pawn);
+            if (fulfillment != null)
+            {
+                if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.EditAspirations".Translate()))
+                    Find.WindowStack.Add(new ListingMenu_Aspirations(pawn, fulfillment));
+                inRect.xMin += 4f;
+            }
+        }
     }
 
     private void DrawNeeds(Rect inRect, Pawn pawn)
@@ -102,6 +129,13 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
 
     private void DrawNeedWidget(Rect inRect, Need n, float margin = 16, bool drawLabel = true)
     {
+        // VAspirE Fulfillment: skip +/- buttons, draw clickable aspiration icons instead
+        if (VAspirECompat.Active && VAspirECompat.IsFulfillmentNeed(n))
+        {
+            DrawFulfillmentNeed(inRect, n, margin, drawLabel);
+            return;
+        }
+
         var width = n.def.major ? 1 : 0.8f;
         if (drawLabel)
             Widgets.Label(inRect.TakeLeftPart(100f), n.LabelCap);
@@ -125,6 +159,54 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
             n.CurLevelPercentage -= 0.1f;
         if (Mouse.IsOver(minRect))
             TooltipHandler.TipRegion(minRect, (TipSignal)"- 10%");
+    }
+
+    private void DrawFulfillmentNeed(Rect inRect, Need fulfillmentNeed, float margin, bool drawLabel)
+    {
+        var width = fulfillmentNeed.def.major ? 1 : 0.8f;
+        if (drawLabel)
+            Widgets.Label(inRect.TakeLeftPart(100f), fulfillmentNeed.LabelCap);
+        var barRect = inRect.LeftPart(width);
+
+        // Draw the need bar (VAspirE's DrawOnGUI also draws aspiration icons below the bar)
+        fulfillmentNeed.DrawOnGUI(barRect, customMargin: margin, drawLabel: false);
+
+        // Draw instant marker
+        var pct = fulfillmentNeed.CurInstantLevelPercentage;
+        var vector2 = new Vector2(barRect.x + (barRect.width - margin * 2f) * pct, barRect.y + barRect.height);
+        GUI.DrawTexture(new(vector2.x - 12 / 2f + 16f, vector2.y - margin / 2f, 12, 12), Need.BarInstantMarkerTex);
+
+        // Now draw clickable aspiration icons on top of where VAspirE drew them
+        var aspirations = VAspirECompat.GetAspirations(fulfillmentNeed);
+        var aspirationCount = VAspirECompat.GetAspirationCount(fulfillmentNeed);
+        if (aspirations.Count == 0) return;
+
+        var aspirsRect = new Rect(barRect.x + margin, barRect.y + barRect.height - 10, barRect.width - margin * 2f, (barRect.width - margin * 2) / aspirationCount);
+        for (var i = 0; i < aspirations.Count; i++)
+        {
+            var aspirRect = aspirsRect;
+            aspirRect.width /= 5;
+            aspirRect.x += aspirRect.width * i;
+
+            // Invisible button over the icon area for click detection
+            if (Widgets.ButtonInvisible(aspirRect))
+            {
+                if (VAspirECompat.IsComplete(fulfillmentNeed, aspirations[i]))
+                    VAspirECompat.Uncomplete(fulfillmentNeed, aspirations[i]);
+                else
+                    VAspirECompat.Complete(fulfillmentNeed, aspirations[i]);
+            }
+
+            // Enhanced tooltip with click instruction
+            if (Mouse.IsOver(aspirRect))
+            {
+                var completed = VAspirECompat.IsComplete(fulfillmentNeed, aspirations[i]);
+                var clickHint = completed
+                    ? "\n\n" + "PawnEditor.ClickToUncomplete".Translate().Colorize(ColoredText.SubtleGrayColor)
+                    : "\n\n" + "PawnEditor.ClickToComplete".Translate().Colorize(ColoredText.SubtleGrayColor);
+                TooltipHandler.TipRegion(aspirRect, aspirations[i].LabelCap + clickHint);
+            }
+        }
     }
 
     private void DrawThoughts(Rect inRect, Pawn pawn)

@@ -33,8 +33,37 @@ public class ListingMenu_Backstories : ListingMenu<BackstoryDef>
         else
             pawn.story.Adulthood = backstoryDef;
 
+        // Save current passions and levels before regenerating skills.
+        // Without this, changing backstory randomizes all passions — a common complaint.
+        var savedPassions = new Dictionary<SkillDef, Passion>();
+        var savedLevels = new Dictionary<SkillDef, int>();
+        if (pawn.skills?.skills != null)
+        {
+            foreach (var sr in pawn.skills.skills)
+            {
+                if (sr?.def != null)
+                {
+                    savedPassions[sr.def] = sr.passion;
+                    savedLevels[sr.def] = sr.levelInt;
+                }
+            }
+        }
+
         pawn.skills = new Pawn_SkillTracker(pawn);
         PawnGenerator.GenerateSkills(pawn, default);
+
+        // Restore passions and levels that the user had set.
+        if (pawn.skills?.skills != null)
+        {
+            foreach (var sr in pawn.skills.skills)
+            {
+                if (sr?.def != null && savedPassions.TryGetValue(sr.def, out var passion))
+                    sr.passion = passion;
+                if (sr?.def != null && savedLevels.TryGetValue(sr.def, out var level))
+                    sr.levelInt = level;
+            }
+        }
+
         pawn.Notify_DisabledWorkTypesChanged();
         return true;
     }

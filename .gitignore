@@ -1,0 +1,28 @@
+# ─── IDE / Editor ───
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# ─── Build artifacts ───
+Source/PawnEditorForked/obj/
+Source/PawnEditorForked/bin/
+*.pdb
+
+# ─── NuGet ───
+*.nupkg
+**/packages/
+
+# ─── Local scripts (not for repo) ───
+deploy-to-workshop.ps1
+
+# ─── OS junk ───
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ─── Keep the compiled DLL (Steam Workshop needs it) ───
+# 1.6/Assemblies/PawnEditor.dll is intentionally tracked

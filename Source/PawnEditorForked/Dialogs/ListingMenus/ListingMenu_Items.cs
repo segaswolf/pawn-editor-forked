@@ -45,11 +45,11 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 // Skip entries with null ThingDef or StyleDef — can happen with broken/partial mod defs
                 if (thingDefStyle == null || thingDefStyle.ThingDef == null || thingDefStyle.StyleDef == null) continue;
 
-                if (ThingStyles.Select(ts => ts.ThingDef).Contains(thingDefStyle.ThingDef))
+                var existing = ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.ThingDef);
+                if (existing.ThingDef != null && existing.StyleDefs != null)
                 {
-                    // If the def already exists in the list, add the style to the existing list.
-                    ThingStyles.FirstOrDefault(ts => ts.ThingDef == thingDefStyle.thingDef)
-                               .StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
+                    // ThingDef already in the set — add the style to its dictionary
+                    existing.StyleDefs.TryAdd(thingDefStyle.StyleDef, styleCategoryDef);
                     continue;
                 }
 
@@ -58,7 +58,7 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                     ThingDef = thingDefStyle.ThingDef,
                     StyleDefs = new()
                     {
-                        { thingDefStyle.styleDef, styleCategoryDef }
+                        { thingDefStyle.StyleDef, styleCategoryDef }
                     }
                 });
             }
@@ -187,7 +187,17 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 var newPossession = ThingMaker.MakeThing(thingDef, thingDef.defaultStuff);
                 return new ConditionalInfo(PawnEditor.CanUsePoints(newPossession), new SuccessInfo(() =>
                 {
-                    pawn.inventory.innerContainer.TryAdd(newPossession, 1);
+                    // Try to stack with an existing item of the same def in the pawn's inventory
+                    var existing = pawn.inventory.innerContainer
+                        .FirstOrDefault(t => t.def == thingDef && t.stackCount < t.def.stackLimit);
+                    if (existing != null)
+                    {
+                        existing.stackCount++;
+                    }
+                    else
+                    {
+                        pawn.inventory.innerContainer.TryAdd(newPossession, 1);
+                    }
                     PawnEditor.Notify_PointsUsed();
                     TabWorker_Gear.ClearCaches();
                 }));
@@ -250,7 +260,17 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         var thing = ThingMaker.MakeThing(thingDef);
         return new ConditionalInfo(PawnEditor.CanUsePoints(thing), new SuccessInfo(() =>
         {
-            things.Add(thing);
+            // Try to stack with an existing item of the same def in the list
+            var existing = things.FirstOrDefault(t => t.def == thingDef && t.stackCount < t.def.stackLimit);
+            if (existing != null)
+            {
+                existing.stackCount++;
+            }
+            else
+            {
+                things.Add(thing);
+            }
+            PawnEditor.Notify_PointsUsed();
             callback?.Invoke();
         }));
     }

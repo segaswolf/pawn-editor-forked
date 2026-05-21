@@ -8,28 +8,18 @@ using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Dialog for editing a pawn's visual appearance: body shape, hair, tattoos, and xenotype cosmetic genes.
+/// The Xenotype tab uses CosmeticGeneDiscovery to dynamically show all cosmetic genes from loaded mods.
+/// </summary>
 [StaticConstructorOnStartup]
 [HotSwappable]
 public class Dialog_AppearanceEditor : Window
 {
-    private static readonly List<EndogeneCategory> geneCategories = new()
+    static Dialog_AppearanceEditor()
     {
-        EndogeneCategory.BodyType,
-        EndogeneCategory.Melanin,
-        (EndogeneCategory)0xB,
-        (EndogeneCategory)0xC,
-        EndogeneCategory.Headbone,
-        EndogeneCategory.Jaw,
-        (EndogeneCategory)0xD,
-        EndogeneCategory.HairColor,
-        (EndogeneCategory)0xE,
-        EndogeneCategory.Nose,
-        EndogeneCategory.Voice,
-        (EndogeneCategory)0xF,
-        EndogeneCategory.Hands
-    };
-
-    private static readonly List<List<GeneDef>> genesByCategory;
+        CosmeticGeneDiscovery.Initialize();
+    }
 
     private readonly List<TabRecord> mainTabs = new(3);
     private readonly Pawn pawn;
@@ -37,26 +27,13 @@ public class Dialog_AppearanceEditor : Window
     private bool ignoreXenotype;
 
     private float lastColorHeight;
-
     private FloatMenuOption lastRandomization;
-
     private float lastXenotypeHeight;
     private MainTab mainTab;
-
     private Vector2 scrollPos;
-
     private int selectedColorIndex;
     private ShapeTab shapeTab;
     private ModContentPack sourceFilter;
-
-    static Dialog_AppearanceEditor()
-    {
-        genesByCategory = Enumerable.Repeat(0, geneCategories.Count).Select(i => new List<GeneDef>(i)).ToList();
-        foreach (var geneDef in DefDatabase<GeneDef>.AllDefsListForReading)
-            for (var i = 0; i < geneCategories.Count; i++)
-                if (InCategory(geneCategories[i], geneDef))
-                    genesByCategory[i].Add(geneDef);
-    }
 
     public Dialog_AppearanceEditor(Pawn pawn)
     {
@@ -79,50 +56,6 @@ public class Dialog_AppearanceEditor : Window
     public override float Margin => 8;
 
     public override Vector2 InitialSize => new(1000, 700);
-
-    private static bool InCategory(EndogeneCategory category, GeneDef gene)
-    {
-        if (category <= EndogeneCategory.Voice) return gene.endogeneCategory == category;
-        switch (category)
-        {
-            case (EndogeneCategory)0xB:
-                return gene.exclusionTags.NotNullAndContains("Fur");
-            case (EndogeneCategory)0xC:
-                return gene.exclusionTags.NotNullAndContains("Tail");
-            case (EndogeneCategory)0xD:
-                return gene.exclusionTags.NotNullAndContains("HairStyle");
-            case (EndogeneCategory)0xE:
-                return gene.exclusionTags.NotNullAndContains("EyeColor");
-            case (EndogeneCategory)0xF:
-                return gene.exclusionTags.NotNullAndContains("BeardStyle");
-        }
-
-        return false;
-    }
-
-    private static string GetLabel(EndogeneCategory category)
-    {
-        return category switch
-        {
-            EndogeneCategory.None => "None".Translate(),
-            EndogeneCategory.Melanin => PawnSkinColors.SkinColorGenesInOrder[0].LabelCap,
-            EndogeneCategory.HairColor => "HairColor".Translate().CapitalizeFirst(),
-            EndogeneCategory.Ears => "PawnEditor.Ears".Translate(),
-            EndogeneCategory.Nose => PawnEditorDefOf.Nose.LabelCap,
-            EndogeneCategory.Jaw => PawnEditorDefOf.Jaw.LabelCap,
-            EndogeneCategory.Hands => PawnEditorDefOf.Hands.LabelCap,
-            EndogeneCategory.Headbone => "PawnEditor.Headbone".Translate(),
-            EndogeneCategory.Head => BodyPartDefOf.Head.LabelCap,
-            EndogeneCategory.BodyType => "PawnEditor.BodyType".Translate(),
-            EndogeneCategory.Voice => "PawnEditor.Voice".Translate(),
-            (EndogeneCategory)0xB => "PawnEditor.Fur".Translate(),
-            (EndogeneCategory)0xC => PawnEditorDefOf.Tail.LabelCap,
-            (EndogeneCategory)0xD => "Hair".Translate().CapitalizeFirst(),
-            (EndogeneCategory)0xE => BodyPartGroupDefOf.Eyes.LabelCap,
-            (EndogeneCategory)0xF => "Beard".Translate().CapitalizeFirst(),
-            _ => throw new ArgumentOutOfRangeException(nameof(category), category, null)
-        };
-    }
 
     public override void DoWindowContents(Rect inRect)
     {
@@ -389,7 +322,7 @@ public class Dialog_AppearanceEditor : Window
         if (Event.current.type == EventType.Layout) lastXenotypeHeight = 9999;
         var viewRect = new Rect(0, 0, inRect.width - 20, lastXenotypeHeight);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
-        for (var i = 0; i < geneCategories.Count; i++) DoGeneOptions(ref viewRect, GetLabel(geneCategories[i]), genesByCategory[i]);
+        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++) DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], CosmeticGeneDiscovery.GroupGenes[i]);
         if (Event.current.type == EventType.Layout) lastXenotypeHeight -= viewRect.height;
         Widgets.EndScrollView();
     }
@@ -443,6 +376,8 @@ public class Dialog_AppearanceEditor : Window
                         pawn.genes.AddGene(option, false);
                     }
                 }
+
+                TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
             }
 
             GUI.color = enabled ? Color.white : Color.gray;
@@ -468,7 +403,8 @@ public class Dialog_AppearanceEditor : Window
         }
         else if (pawn.IsBaseliner())
         {
-            return option.endogeneCategory == EndogeneCategory.Melanin || option.endogeneCategory == EndogeneCategory.HairColor;
+            // For baseliners, allow all cosmetic genes (they're in the appearance editor for a reason)
+            return true;
         }
         else if (pawn.genes.Xenotype != null)
         {
@@ -797,7 +733,7 @@ public class Dialog_AppearanceEditor : Window
                     _ => new()
                 };
             case MainTab.Xenotype:
-                return genesByCategory.SelectMany(defs => defs.Cast<Def>());
+                return CosmeticGeneDiscovery.GroupGenes.SelectMany(defs => defs.Cast<Def>());
         }
 
         return Enumerable.Empty<Def>();

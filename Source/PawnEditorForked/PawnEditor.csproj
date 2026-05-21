@@ -2,44 +2,57 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <OutputType>Library</OutputType>
-    <AssemblyTitle>PawnEditor</AssemblyTitle>
-	  <Description>A mod for RimWorld that allows you to edit pawns.</Description>
-    <Company>isorex</Company>
-    <Product>PawnEditor</Product>
+    <AssemblyTitle>PawnEditorForked</AssemblyTitle>
+    <Description>A mod for RimWorld that allows you to edit pawns.</Description>
+    <Company>SegasWolf</Company>
+    <Product>PawnEditorForked</Product>
     <AssemblyVersion>1.2.0</AssemblyVersion>
     <FileVersion>1.2.0</FileVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <OutputPath>..\..\1.6\Assemblies</OutputPath>
+
+    <Nullable>disable</Nullable>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS8625;CS8618;CS8600;CS8601;CS8602;CS8603;CA1305;CA1304;CA1311;CA1806;CA1822;CA1707;CA1852;CA2211;CA1805</NoWarn>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>..\..\1.6\Assemblies</OutputPath>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <OutputPath>..\..\1.6\Assemblies</OutputPath>
     <DefineConstants></DefineConstants>
-    <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">
       <Version>2.3.0</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+
     <PackageReference Include="Krafs.Rimworld.Ref">
       <Version>1.6.4489-beta</Version>
     </PackageReference>
+
     <PackageReference Include="Lib.Harmony">
       <Version>2.3.3</Version>
       <ExcludeAssets>runtime</ExcludeAssets>
       <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+
     <Publicize Include="Assembly-CSharp" />
   </ItemGroup>
+
   <ItemGroup>
     <Content Include="Utils\RimUI\ReadMe.txt" />
   </ItemGroup>

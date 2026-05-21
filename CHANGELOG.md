@@ -1,61 +1,113 @@
 # Changelog
 
-## v3d7 - work in progress
-
-### New features
-- Blueprint save/load system fully expanded (relations, work priorities, inventory, royal titles, records, mod list)
-- Pawn duplication with full appearance, gear, and faction copy
-- Facial Animations mod compatibility (face type, eyeball color, brow, lid, mouth, skin, head controllers)
-
-### Fixes
-
-- **Faction leader not restored after blueprint replace** (`PawnEditorUI.cs`): When replacing an NPC faction leader via blueprint, the faction now correctly keeps the new pawn as its leader instead of going leaderless.
-- **VE Hussar Giant gene visual offset not applied on load** (`LeftPanel.cs`, `PawnEditorUI.cs`): Gene `PostAdd()` runs before the pawn is spawned, so the renderer is unavailable. Portrait cache and texture atlas are now explicitly invalidated after spawn, so size/draw offsets apply correctly without needing a reload or re-applying the xenotype.
-- **ListingMenu_Items crash on open** (`ListingMenu_Items.cs`): `TypeInitializationException` caused by mods with null `ThingDef` or `StyleDef` entries in `StyleCategoryDef.thingDefStyles`. Added null guards throughout.
-- **Facial Animations face data lost after finalize** (`FacialAnimCompat.cs`): FA Genetic Heads overrides head visuals during `SetAllGraphicsDirty`. FA data is now re-applied after finalize.
+All notable changes to this project will be documented in this file.
 
 
-## v2.1 - 2026-02-17
+## [v2.4.2] - 2026-04-07
 
-All fixes below are applied to the community fork.
+### Changed — Xenotype Selection UI
+- Replaced the massive FloatMenu xenotype dropdown with a searchable listing window
+- Xenotype listing now shows icons, tooltips with description, gene count, and inheritable status
+- Custom (user-created) xenotypes appear in a dedicated section below the listing with forced cache load
+- Added "Xenotype editor..." button inside the listing for quick access
+- Added confirmation dialog when changing xenotype: warns about gene reset, user decides
+- HAR race restrictions are applied automatically to filter incompatible xenotypes
 
-### Social compatibility identity fix
+### Added — VRE Android Compatibility
+- Restored "Android editor..." button that was lost when FloatMenu was replaced
+- VREAndroidCompat.cs detects VRE Androids and opens Window_CreateAndroidXenotype via reflection
 
-- Cloned pawns now keep a stable social compatibility seed from their original saved ThingID.
-- New clones still receive a unique new ThingID (no duplicate entity IDs).
-- `Pawn_RelationsTracker.CompatibilityWith()` is patched to use the saved compatibility seed offset instead of the remapped clone ThingID offset.
-- Method detail: replace pair offset source from `ConstantPerPawnsPairCompatibilityOffset(otherPawn.thingIDNumber)` to `ConstantPerPawnsPairCompatibilityOffset(CompatibilitySeedFor(otherPawn))` when seed exists.
+### Added — VAspirE Life Stage Safeguards
+- Changing a pawn from adult to child/baby now clears all aspirations (children cannot have them)
+- Changing a pawn from child/baby to adult generates fresh random aspirations via SetInitialLevel
+- Warning dialog now lists aspiration removal when changing to a non-adult stage
+- CompleteSilent mode: completing aspirations in pre-colony no longer triggers growth moment letters
 
-### Critical fixes
+### Fixed
+- Fixed pawns spawning inside walls when duplicating or loading blueprints in-game
+- Fixed ListingMenu_PawnKindDef crash when modded PawnKindDefs have empty lifeStages or null bodyGraphicData
+- Fixed custom xenotype tooltip showing garbled text ("Nòt ìnhêrìtàblê") due to missing translation key
+- Fixed Xenotype Editor crashing in-game with NullRef (now uses index -1 for post-colony)
+- Fixed aspirations not regenerating when changing pawn from child to adult (was calling CheckCompletion instead of SetInitialLevel)
 
-- **#001 IntField reset** (`UIUtility.cs`): `intBuff` initializes from current value and control naming is stable.
-- **#002 Favorite color Def mutation** (`LeftList.cs`): color picker assigns nearest `ColorDef` reference instead of mutating shared `ColorDef.color`.
-- **#004 Missing body part kills pawn** (`ListingMenu_Hediffs.cs`): no default to core part for `Hediff_MissingPart`; requires valid non-core part.
+## [v2.4.1] - 2026-04-01
 
-### High-severity fixes
+### Changed — VAspirE (Vanilla Aspirations Expanded) Compatibility
+- Reworked the "Edit Aspirations" menu into a proper multi-selection editor
+- Aspirations are now displayed in a searchable alphabetical list
+- Current aspirations are preselected automatically when opening the menu
+- Added 4-5 aspiration selection rules to match VAspirE's intended design
+- Added live selected counter in the aspiration editor
+- Added OK/Cancel confirmation flow with rollback-safe editing
 
-- **#016 Dev toolbar button stability** (`PawnEditorMod.cs`): uses safe postfix path (no fragile IL dependency).
-- **#019 Duplicate pawn IDs** (`SaveLoadPatches.cs`): `ReassignLoadID` handles `loadID` and `id/thingIDNumber` safely with Thing-parent guard.
+### Notes
+- This update improves the pre-colony aspiration editing workflow introduced in v2.4.0
+- Future improvements may include filtering by content source (Core, DLCs, Mods)
 
-### Medium-severity fixes
+## [v2.4.0] - 2026-03-30
 
-- **#007 Child backstory missing** (`TopRightButtons.cs`): handles child/adult transition backstories safely.
-- **#008 Copy/Paste item loss** (`CopyPaste.cs`): preserves stack count, quality, and color; uses safe iteration snapshots.
-- **#009 Scenario items lost** (`StartingThingsManager.cs`): snapshots scenario parts and restores safely on failure.
-- **#010 Xenotype NullReferenceException** (`TopRightButtons.cs`): null checks and safe gene list handling.
-- **#012 Invisible weapons after load** (`TabWorker_Gear.cs`): on-load callbacks recache graphics and clear gear caches.
-- **#018 Mechs go rogue** (`LeftPanel.cs`): auto-assigns available Mechanitor as Overseer during pregame add.
+### Added — VAspirE (Vanilla Aspirations Expanded) Compatibility
+- Aspiration icons in the Needs tab are now clickable: click to mark as completed, click again to revert
+- Fulfillment need bar no longer shows +/- buttons (they had no effect since the system recalculates based on completed aspirations)
+- New "Edit Aspirations" button in the Needs tab bottom panel — opens a listing to add aspirations from the full pool of valid aspirations for the pawn
+- Quick Actions menu now includes "Complete all aspirations" and "Reset all aspirations" options
+- Full reflection-based compatibility layer — no hard dependency on VAspirE
 
-### UI / behavior policy
+### Fixed
+- Fixed static constructor crash in ListingMenu_Items when a ThingStyle had null StyleDef (ThingStyles dictionary null key error)
+- Fixed static constructor crash in ListingMenu_PawnKindDef when a modded PawnKindDef had empty lifeStages or null bodyGraphicData
+- Fixed inconsistent property/field access (thingDefStyle.styleDef vs .StyleDef) causing silent mismatches in style lookups
 
-- Top-right Pawn Editor button: requires **Dev Mode**.
-- Selected pawn `Edit` gizmo: requires **Dev Mode + God Mode**.
-- Social tab defaults to show all relations on first open.
+### Notes
+- VAspirE integration is Phase 1 (pre-colony editor). In-game editing will come in a future update
 
-### Known issues not yet addressed
+## [v2.3.1] - 2026-03-28
 
-- #005 Relationship tab can still miss entries in some pregame contexts.
-- #011 Tabs may not refresh when switching pawns in specific flows.
-- #013 Gene list can be incomplete in edge cases.
-- #014 Pawn names and spaces are still limited by vanilla IMGUI behavior.
-- #017 Social stats reset on game launch requires more runtime investigation.
+### Fixed
+- Starting items no longer disappear after editing pawns in pregame (idempotency guard + GoToMainMenu hook)
+- Passions and skill levels preserved when changing backstory (save/restore around GenerateSkills)
+- Hotkey can be fully disabled via right-click (sets to None); Escape cancels picker
+
+## [v2.3.0] - 2026-03-28
+
+### Major: Blueprint & Duplication Overhaul (Tracker Transplant)
+- Complete rewrite of blueprint save/load and pawn duplication
+- New system automatically preserves all mod data without per-mod patches
+- VPE Psycasts: paths, unlocked nodes, XP, and level fully preserved
+- Mechlink, Cyberlink, and all Hediff_Level types correctly duplicated
+- 35+ mod components automatically preserved via reflection
+- Duplication now uses the same system as blueprints
+
+### Fixed
+- Passion sanitizer: mods like Alpha Skills with passion values 3+ no longer reset to None
+- Ideo fallback: fixed crash when loading blueprints for pawns whose faction ideo couldn't resolve
+- Action bars: fixed missing gizmo bar on loaded/duplicated pawns
+- Discard crash: fixed NullReferenceException when replacing a pawn via blueprint
+- VRE Android: energy need correctly preserved during duplication
+- TacticalGroups: compatibility patches applied via finalizer
+
+### Known Issues
+- VAspirE: Need_Fulfillment may crash during load — investigating
+- Blueprint overwrite: rewriting an existing file may cause issues — save as new file recommended
+
+## [v3d10] - 2026-03-14
+
+### Added
+- Added a warning when changing a pawn's life stage through the age combo box.
+
+### Changed
+- Reorganized the blueprint save/load code to make future maintenance and updates easier.
+- Remaining points now behave like an actual budget instead of reflecting colony value in a confusing way.
+
+### Fixed
+- Humanlike pawns now stay within the correct age range for their current life stage.
+- Incompatible equipped gear is no longer lost when changing a pawn's life stage through the mod.
+- Installed prosthetics now remain in place when changing life stage through the mod.
+
+### Notes
+- Androids continue to follow their own race-specific logic and are not forced into regular biological life stage limits.
+
+### Work in Progress
+- Prosthetics with extra modules are still under review for duplicate/blueprint parity.
+- Android energy restore on duplicate/blueprint load is still being worked on.
+- The backstory issue is still under investigation.

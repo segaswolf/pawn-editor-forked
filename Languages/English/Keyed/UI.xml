@@ -43,15 +43,15 @@
     <PawnEditor.LoadFaction>Load faction</PawnEditor.LoadFaction>
     <PawnEditor.Randomize>Randomize</PawnEditor.Randomize>
     <PawnEditor.AllIncludingFaction>all - including faction</PawnEditor.AllIncludingFaction>
-    <PawnEditor.SelectRandomFaction>Randomize Faction</PawnEditor.SelectRandomFaction>
+    <PawnEditor.SelectRandomFaction>Randomize faction</PawnEditor.SelectRandomFaction>
     <PawnEditor.WithRandomFaction>With random faction</PawnEditor.WithRandomFaction>
-    <PawnEditor.FactionHidden>Faction Hidden</PawnEditor.FactionHidden>
-    <PawnEditor.NoFaction>No Faction</PawnEditor.NoFaction>
-    <PawnEditor.RandomFaction>Random Faction</PawnEditor.RandomFaction>
-    <PawnEditor.RandomAlly>Random Ally Faction</PawnEditor.RandomAlly>
-    <PawnEditor.RandomEnemy>Random Enemy Faction</PawnEditor.RandomEnemy>
-    <PawnEditor.RandomNonHostile>Random Non-Hostile Faction</PawnEditor.RandomNonHostile>
-    <PawnEditor.RandomNonColonist>Random Non-Colonist Faction</PawnEditor.RandomNonColonist>
+    <PawnEditor.FactionHidden>Faction hidden</PawnEditor.FactionHidden>
+    <PawnEditor.NoFaction>No faction</PawnEditor.NoFaction>
+    <PawnEditor.RandomFaction>Random faction</PawnEditor.RandomFaction>
+    <PawnEditor.RandomAlly>Random ally faction</PawnEditor.RandomAlly>
+    <PawnEditor.RandomEnemy>Random enemy faction</PawnEditor.RandomEnemy>
+    <PawnEditor.RandomNonHostile>Random non-hostile faction</PawnEditor.RandomNonHostile>
+    <PawnEditor.RandomNonColonist>Random non-colonist faction</PawnEditor.RandomNonColonist>
 
 
     <!-- Edit Appearance -->
@@ -262,5 +262,28 @@
     <PawnEditor.MechNoOverseer>{0} has no overseer — assign a Mechanitor colonist or the mech will go rogue.</PawnEditor.MechNoOverseer>
 
     <!-- Blueprint system -->
-    <PawnEditor.SaveBlueprint>Save as Blueprint (portable)</PawnEditor.SaveBlueprint>
+    <PawnEditor.SaveBlueprint>Save as blueprint (portable)</PawnEditor.SaveBlueprint>
+
+    <!-- VAspirE Aspirations -->
+    <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>
+    <PawnEditor.ClickToUncomplete>Click to mark as incomplete</PawnEditor.ClickToUncomplete>
+    <PawnEditor.EditAspirations>Edit aspirations</PawnEditor.EditAspirations>
+    <PawnEditor.Aspirations>Aspirations</PawnEditor.Aspirations>
+    <PawnEditor.AddAspiration>Add aspiration</PawnEditor.AddAspiration>
+    <PawnEditor.RemoveAspiration>Remove</PawnEditor.RemoveAspiration>
+    <PawnEditor.CompleteAllAspirations>Complete all</PawnEditor.CompleteAllAspirations>
+    <PawnEditor.UncompleteAllAspirations>Reset all</PawnEditor.UncompleteAllAspirations>
+    <PawnEditor.AspirationCompleted>Completed</PawnEditor.AspirationCompleted>
+    <PawnEditor.AspirationPending>Pending</PawnEditor.AspirationPending>
+    <PawnEditor.AspirationNotValid>Not valid for this pawn</PawnEditor.AspirationNotValid>
+    <PawnEditor.AspirationAlreadyAssigned>{0} is already assigned to this pawn</PawnEditor.AspirationAlreadyAssigned>
+
+    <!-- Xenotype change -->
+    <PawnEditor.XenotypeChangeWarning>Changing xenotype from {0} to {1} will reset all current genes.</PawnEditor.XenotypeChangeWarning>
+    <PawnEditor.ResetGenesToBase>All existing endogenes and xenogenes will be removed and replaced with the new xenotype's genes. This cannot be undone.</PawnEditor.ResetGenesToBase>
+    <PawnEditor.NotInheritable>Not inheritable</PawnEditor.NotInheritable>
+    <PawnEditor.CustomXenotypes>Custom xenotypes</PawnEditor.CustomXenotypes>
+    <PawnEditor.NoCustomXenotypes>No custom xenotypes found. Use the Xenotype editor to create one.</PawnEditor.NoCustomXenotypes>
+    <PawnEditor.NoSearchResults>No results found.</PawnEditor.NoSearchResults>
+    <PawnEditor.OtherCosmetic>Other cosmetic</PawnEditor.OtherCosmetic>
 </LanguageData>

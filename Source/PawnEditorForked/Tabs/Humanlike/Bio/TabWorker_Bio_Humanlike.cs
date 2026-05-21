@@ -100,9 +100,9 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                 if (VSECompat.Active) {
                     if (Widgets.ButtonImage(rect.TakeLeftPart(30), VSECompat.GetPassionIcon(skill.passion)))
                     {
-                        var newPassion = VSECompat.ChangePassion(skill.passion);
-                        VSECompat.ClearCacheFor(skill, newPassion);
-                        skill.passion = newPassion;
+                        // With VSE: open a dropdown with ALL passions instead of cycling
+                        var passionOptions = VSECompat.GetPassionFloatMenuOptions(skill);
+                        Find.WindowStack.Add(new FloatMenu(passionOptions));
                     }
                 } else {
                     if (Widgets.ButtonImage(rect.TakeLeftPart(30), skill.passion switch

@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using PawnEditor.Utils;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
 
 namespace PawnEditor;
 
+/// <summary>
+/// Base class for tracking and listing pawns by faction and category.
+/// Scans all maps, caravans, and the world for matching pawns.
+/// Used as the data source for the pawn list panel in the editor.
+/// </summary>
 public class PawnListerBase
 {
     private static readonly List<PawnListerBase> allLists = new();
@@ -22,6 +26,7 @@ public class PawnListerBase
         allLists.Add(this);
     }
 
+    /// <summary>Updates the cached pawn list for the given faction and category.</summary>
     public void UpdateCache(Faction faction, PawnCategory category)
     {
         ClearCache();
@@ -39,6 +44,7 @@ public class PawnListerBase
         inited = true;
     }
     
+    /// <summary>Updates cache for pawns without a faction (wild, slaves, etc.).</summary>
     public void UpdateCacheWithNullFaction()
     {
         ClearCache();
@@ -56,6 +62,7 @@ public class PawnListerBase
         inited = true;
     }
 
+    /// <summary>Scans a location (map, caravan, world) for pawns matching the current filter.</summary>
     protected virtual bool AddLocation(object location, IEnumerable<Pawn> occupants)
     {
         var hasAny = false;
@@ -71,6 +78,7 @@ public class PawnListerBase
     }
 
 
+    /// <summary>Adds a pawn to the list, skipping duplicates.</summary>
     protected virtual void AddPawn(object location, Pawn pawn)
     {
         if (pawns.Contains(pawn) is false)
@@ -108,6 +116,10 @@ public class PawnListerBase
     }
 }
 
+/// <summary>
+/// Extended pawn lister that tracks locations and section headers for UI display.
+/// Supports reordering, teleporting, and deleting pawns across maps, caravans, and the world.
+/// </summary>
 public class PawnLister : PawnListerBase
 {
     private readonly List<object> locations = new();
@@ -139,6 +151,7 @@ public class PawnLister : PawnListerBase
         base.AddPawn(location, pawn);
     }
 
+    /// <summary>Handles drag-and-drop reordering in the pawn list, including teleportation between locations.</summary>
     public void OnReorder(Pawn pawn, int fromIndex, int toIndex)
     {
         if (PawnEditor.Pregame)
@@ -167,6 +180,7 @@ public class PawnLister : PawnListerBase
 
     public (List<Pawn>, List<string>, int) GetLists() => (GetList(), sections, sectionCount);
 
+    /// <summary>Removes a pawn from the game world and the list entirely.</summary>
     public void OnDelete(Pawn pawn)
     {
         var pawns = GetList();
@@ -187,6 +201,7 @@ public class PawnLister : PawnListerBase
         if (sections[index] != null && sections[nextIndex] == null) sections[nextIndex] = sections[index];
     }
 
+    /// <summary>Teleports a pawn between two locations (maps, caravans, world).</summary>
     public void TeleportFromTo(Pawn pawn, object from, object to)
     {
         if (to == from) return;
@@ -214,21 +229,24 @@ public class PawnLister : PawnListerBase
         DoTeleport(pawn, from, to);
     }
 
+    /// <summary>Physically moves a pawn from one location to another, using FindSafeSpawnCell for maps.</summary>
     private void DoTeleport(Pawn pawn, object from, object to)
     {
         pawn.teleporting = true;
         FullyRemove(pawn);
-        if (to is Map map) GenSpawn.Spawn(pawn, CellFinder.RandomCell(map), map);
+        if (to is Map map) GenSpawn.Spawn(pawn, PawnEditor.FindSafeSpawnCell(map), map);
         else if (to is Caravan caravan) caravan.AddPawn(pawn, true);
         else if (to is World) Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever);
         pawn.teleporting = false;
     }
 
+    /// <summary>Creates a float menu option for teleporting a pawn to a specific location.</summary>
     public FloatMenuOption GetTeleportOption(object location, Pawn pawn)
     {
         return new(LocationLabel(location), () => TeleportFromTo(pawn, GetLocation(pawn), location));
     }
 
+    /// <summary>Finds the current location (map, caravan, or world) of a pawn.</summary>
     public object GetLocation(Pawn pawn)
     {
         var pawns = GetList();
@@ -239,6 +257,7 @@ public class PawnLister : PawnListerBase
         return null;
     }
 
+    /// <summary>Removes a pawn from wherever it currently exists (map, caravan, or world).</summary>
     public static void FullyRemove(Pawn pawn)
     {
         if (pawn.SpawnedOrAnyParentSpawned) pawn.ExitMap(false, Rot4.Invalid);
@@ -246,6 +265,7 @@ public class PawnLister : PawnListerBase
         if (pawn.IsWorldPawn()) Find.WorldPawns.RemovePawn(pawn);
     }
 
+    /// <summary>Returns a human-readable label for a location (map name, caravan name, or "World").</summary>
     public static string LocationLabel(object location)
     {
         return location switch

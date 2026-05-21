@@ -27,30 +27,29 @@ public partial class TabWorker_Bio_Humanlike
             traitsLastHeight = Text.LineHeight;
         }
         else
-            // FIX: Snapshot traits list to prevent ArgumentOutOfRangeException if list changes during render
-            traitsLastHeight = GenUI.DrawElementStack(traitRect, 24, pawn.story.traits.TraitsSorted.ToList(), delegate(Rect r, Trait trait)
-                {
-                    GUI.color = CharacterCardUtility.StackElementBackground;
-                    GUI.DrawTexture(r, BaseContent.WhiteTex);
-                    GUI.color = Color.white;
-                    if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
-
-                    if (trait.Suppressed) GUI.color = ColoredText.SubtleGrayColor;
-                    else if (trait.sourceGene != null) GUI.color = ColoredText.GeneColor;
-
-                    Widgets.Label(new(r.x + 5f, r.y, r.width - 10f, r.height), trait.LabelCap);
-                    if (Mouse.IsOver(r))
-                    {
-                        var trLocal = trait;
-                        TooltipHandler.TipRegion(r, () => trLocal.TipString(pawn), r.GetHashCode());
-                        if (Widgets.ButtonImage(r.RightPartPixels(r.height).ContractedBy(4), TexButton.Delete))
-                        {
-                            pawn.story.traits.RemoveTrait(trait, true);
-                            PawnEditor.Notify_PointsUsed();
-                        }
-                    }
-                }, WidthGetter, 4f, 5f, false)
-               .height;
+			traitsLastHeight = GenUI.DrawElementStack(traitRect, 24, pawn.story.traits.TraitsSorted.ToList(), delegate(Rect r, Trait trait)
+				{
+					GUI.color = CharacterCardUtility.StackElementBackground;
+					GUI.DrawTexture(r, BaseContent.WhiteTex);
+					GUI.color = Color.white;
+					if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
+			
+					if (trait.Suppressed) GUI.color = ColoredText.SubtleGrayColor;
+					else if (trait.sourceGene != null) GUI.color = ColoredText.GeneColor;
+			
+					Widgets.Label(new(r.x + 5f, r.y, r.width - 10f, r.height), trait.LabelCap);
+					if (Mouse.IsOver(r))
+					{
+						var trLocal = trait;
+						TooltipHandler.TipRegion(r, () => trLocal.TipString(pawn), r.GetHashCode());
+			
+						if (Widgets.ButtonImage(r.RightPartPixels(r.height).ContractedBy(4), TexButton.Delete))
+						{
+							ListingMenu_Trait.RemoveTraitAndRefresh(pawn, trait);
+						}
+					}
+				}, WidthGetter, 4f, 5f, false)
+			.height;
 
         traitsLastHeight = Mathf.Max(45, traitsLastHeight);
 
