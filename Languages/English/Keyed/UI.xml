@@ -286,4 +286,12 @@
     <PawnEditor.NoCustomXenotypes>No custom xenotypes found. Use the Xenotype editor to create one.</PawnEditor.NoCustomXenotypes>
     <PawnEditor.NoSearchResults>No results found.</PawnEditor.NoSearchResults>
     <PawnEditor.OtherCosmetic>Other cosmetic</PawnEditor.OtherCosmetic>
+
+    <!-- Life Lessons Proficiencies -->
+    <PawnEditor.EditProficiencies>Edit proficiencies</PawnEditor.EditProficiencies>
+    <PawnEditor.ProficienciesLearnable>Can learn</PawnEditor.ProficienciesLearnable>
+    <PawnEditor.ProficienciesKnown>Known</PawnEditor.ProficienciesKnown>
+    <PawnEditor.ProficiencyClickLearn>Click to learn</PawnEditor.ProficiencyClickLearn>
+    <PawnEditor.ProficiencyClickRemove>Click to remove</PawnEditor.ProficiencyClickRemove>
+    <PawnEditor.Search>Search</PawnEditor.Search>
 </LanguageData>
