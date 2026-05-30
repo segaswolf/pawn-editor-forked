@@ -3,6 +3,68 @@
 All notable changes to this project will be documented in this file.
 
 
+## [v2.4.6] - 2026-05-28
+
+### Fixed — Life Lessons Compatibility
+- Compat layer no longer fails to initialize on load (was throwing during startup, leaving the proficiency feature non-functional)
+- Proficiency editor no longer opens to a black/empty window
+- Removed the exception spam (dozens of identical null-reference errors per frame) that was firing in the background while the proficiency window was open
+- Adding or removing a proficiency now actually recalculates the pawn's stat and skill modifiers (was silently failing — the pawn would gain the proficiency on paper but get none of its benefits)
+- Defensive null-filtering when reading proficiency lists, so unexpected nulls don't crash the UI
+
+### Changed — Proficiency Editor Redesigned
+- Rebuilt as a two-column trade-style window: "Can learn" on the left, "Known" on the right
+- Click a proficiency to move it across — learning grants prerequisites automatically, removing it also cleans up descendant proficiencies that would otherwise be left with broken prereqs
+- Window stays open after each change so you can configure several proficiencies in a single pass (the previous version closed after every add)
+- Search box filters both columns at once
+- Counters in the column headers show totals at a glance
+- Tooltips include the proficiency's category and a click-action hint
+
+### Added — Compatibility Layer
+- New compat methods: `RemoveProficiency`, `CanLearn`, `RefreshModifiers`
+- All reflection signatures re-verified against the actual Life Lessons assembly to prevent silent mismatches in the future
+
+
+## [v2.4.4] / [v2.4.5] - 2026-05-15
+
+### Fixed
+- **Backstory transitions**: Changing a pawn's age from 18 to 13 now properly removes the adult backstory. Going from 13 to 18 generates a new contextual adult backstory matching the childhood. The age field is no longer locked to the current developmental stage.
+- **Item stacking**: Adding the same item multiple times now correctly increments the stack count instead of creating separate entries. Also fixes the point system not properly tracking duplicate items.
+- **DeepSave fix**: Duplicating pawns with abilities no longer causes save corruption errors.
+
+### Performance
+- **Search box FPS fix**: Fixed a major performance issue where clicking the search box with large modlists (600+ mods) would drop the framerate to ~5 FPS. The item lookup was using an O(n) linear search — now uses O(1) hash lookup.
+
+### Code Quality
+- Extracted cosmetic gene discovery and backstory transition logic into dedicated utility classes
+- Split large methods into focused, well-named smaller methods
+- Added XML documentation to all public classes and methods across 11 files
+- Removed leftover debug logging from previous development sprints
+- Replaced magic numbers with named constants
+- Labels fixed to consistent sentence case throughout the editor
+
+### Notes
+- These code-quality changes don't affect gameplay but make the codebase much easier to understand for anyone wanting to contribute or create compatibility patches.
+
+
+## [v2.4.3] - 2026-04-24
+
+### Changed — Appearance Editor Cosmetic Genes Rewrite
+- The Xenotype tab in the appearance editor has been completely rewritten. Previously it had hardcoded gene categories that missed most modded cosmetic genes — tails, ears, horns, heads, bodies, and more were invisible.
+- **All cosmetic genes visible**: tails, ears, horns, tusks, antennae, heads, bodies, fur, eyes, hair color, skin color, and everything else your mods add
+- **Dynamic category discovery**: scans all loaded `GeneCategoryDef`s automatically — no hardcoded lists, no manual updates needed when you add new mods
+- **No more duplicated genes**: VREA android copies and Astrogene archite variants are filtered automatically
+- **Instant visual feedback**: selecting a gene now updates the pawn portrait immediately
+- **Baseliners unlocked**: Baseliner pawns can now access all cosmetic genes without needing "Ignore xenotype restrictions"
+- Works with: Alpha Genes, Vanilla Races Expanded (all), Cyanobot's Genes, Det's Xenotypes, and any mod that defines cosmetic `GeneCategoryDef`s
+
+### Added — Blueprint & Duplication Data
+- **VAspirE Aspirations**: now saved/loaded in blueprints and copied during duplication
+- **VSE Expertise**: expertise type, level, and XP preserved in blueprints and duplication
+- **Trait skill bonuses**: adding/removing traits now correctly adjusts skill levels
+- **DeepSave fix**: duplicating pawns with abilities no longer causes save errors
+
+
 ## [v2.4.2] - 2026-04-07
 
 ### Changed — Xenotype Selection UI
