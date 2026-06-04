@@ -1,5 +1,6 @@
 using System.Linq;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace PawnEditor;
@@ -57,5 +58,53 @@ public static class BackstoryUtility
         }
 
         return allAdult.RandomElement();
+    }
+
+    /// <summary>
+    /// Returns the skill gain a single backstory grants for a given skill (0 if none).
+    /// BackstoryDef.skillGains is deterministic (no RNG), so this is a clean lookup.
+    /// </summary>
+    private static int SkillGainFrom(BackstoryDef backstory, SkillDef skill)
+    {
+        if (backstory?.skillGains == null) return 0;
+        var gain = backstory.skillGains.FirstOrDefault(sg => sg.skill == skill);
+        return gain != null ? gain.amount : 0;
+    }
+
+    /// <summary>
+    /// Total skill gain from both backstory slots (childhood + adulthood) for a skill.
+    /// </summary>
+    public static int TotalBackstoryGain(Pawn pawn, SkillDef skill)
+    {
+        return SkillGainFrom(pawn.story?.Childhood, skill) + SkillGainFrom(pawn.story?.Adulthood, skill);
+    }
+
+    /// <summary>
+    /// Re-bases a pawn's skill levels when a backstory changes, preserving the user's manual
+    /// adjustment on top of the backstory contribution. For each skill:
+    ///   userAdjustment = currentLevel - oldBackstoryGain
+    ///   newLevel       = newBackstoryGain + userAdjustment
+    /// This means changing backstory shifts each skill by exactly the difference between the
+    /// old and new backstory gains, leaving the player's own edits intact. Passions are not
+    /// touched here. Levels are clamped to the valid 0..20 range.
+    /// </summary>
+    /// <param name="pawn">The pawn whose skills are being re-based.</param>
+    /// <param name="oldChildhood">Childhood backstory before the change.</param>
+    /// <param name="oldAdulthood">Adulthood backstory before the change.</param>
+    public static void ApplyBackstorySkillDelta(Pawn pawn, BackstoryDef oldChildhood, BackstoryDef oldAdulthood)
+    {
+        if (pawn.skills?.skills == null) return;
+
+        foreach (var sr in pawn.skills.skills)
+        {
+            if (sr?.def == null) continue;
+
+            var oldGain = SkillGainFrom(oldChildhood, sr.def) + SkillGainFrom(oldAdulthood, sr.def);
+            var newGain = SkillGainFrom(pawn.story?.Childhood, sr.def) + SkillGainFrom(pawn.story?.Adulthood, sr.def);
+            var delta = newGain - oldGain;
+            if (delta == 0) continue;
+
+            sr.levelInt = Mathf.Clamp(sr.levelInt + delta, 0, 20);
+        }
     }
 }

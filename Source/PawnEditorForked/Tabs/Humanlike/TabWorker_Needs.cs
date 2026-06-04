@@ -93,6 +93,14 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
                 inRect.xMin += 4f;
             }
         }
+
+        // Life Lessons: Edit Proficiencies button
+        if (LifeLessonsCompat.Active)
+        {
+            if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.EditProficiencies".Translate()))
+                Find.WindowStack.Add(new ListingMenu_Proficiencies(pawn));
+            inRect.xMin += 4f;
+        }
     }
 
     private void DrawNeeds(Rect inRect, Pawn pawn)

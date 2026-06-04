@@ -49,6 +49,7 @@ public static class LifeLessonsCompat
 
     // ── Reflection: ProficiencyDef fields ──
     private static FieldInfo defCategoryField;
+    private static FieldInfo defPrerequisitesField;
 
     /// <summary>
     /// Initializes all reflection fields by resolving Life Lessons types, methods, and fields.
@@ -122,6 +123,9 @@ public static class LifeLessonsCompat
 
             // ProficiencyDef — category field
             defCategoryField = proficiencyDefType.GetField("category");
+
+            // ProficiencyDef — prerequisites field (List<ProficiencyDef> of direct prereqs).
+            defPrerequisitesField = proficiencyDefType.GetField("prerequisites");
 
             Active = true;
             Log.Message("[Pawn Editor] Life Lessons compatibility active.");
@@ -258,6 +262,40 @@ public static class LifeLessonsCompat
     }
 
     /// <summary>
+    /// Removes ALL completed proficiencies from a pawn, one by one. Used before copying a
+    /// source pawn's proficiencies onto a clone/loaded pawn, so the result matches the source
+    /// exactly instead of stacking on top of whatever the pawn was generated with (a clone is
+    /// born with its own backstory-resolved proficiencies, which would otherwise be extra).
+    /// </summary>
+    public static void ClearProficiencies(Pawn pawn)
+    {
+        var comp = GetProficiencyComp(pawn);
+        if (comp == null || removeProficiencyMethod == null) return;
+
+        try
+        {
+            // Snapshot first — removing mutates the underlying list, so don't iterate it live.
+            var current = GetCompletedProficiencies(pawn);
+            if (current.Count == 0) return;
+
+            // Reuse a single argument array across all removals to avoid allocating one per
+            // proficiency (matters when clearing many at once during duplication/load).
+            var args = new object[2];
+            args[1] = false; // removeAncestors: false — clearing everything anyway, no cascade needed.
+            foreach (var def in current)
+            {
+                if (def == null) continue;
+                args[0] = def;
+                removeProficiencyMethod.Invoke(comp, args);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to clear proficiencies: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Returns true if the pawn can currently learn the given proficiency
     /// (prerequisites met, not already known, learning conditions satisfied).
     /// </summary>
@@ -343,6 +381,10 @@ public static class LifeLessonsCompat
     {
         if (snapshot?.completedDefNames == null) return;
 
+        // Clear existing (backstory-resolved) proficiencies so the result matches the
+        // snapshot exactly rather than stacking on top.
+        ClearProficiencies(pawn);
+
         // Get all ProficiencyDefs from the database
         var allDefs = GetAllProficiencyDefs();
 
@@ -393,5 +435,30 @@ public static class LifeLessonsCompat
         }
         catch { }
         return "Unknown";
+    }
+
+    /// <summary>
+    /// Gets the direct prerequisites of a ProficiencyDef (the proficiencies that must be
+    /// known before this one can be learned). Returns an empty list when there are none
+    /// or when Life Lessons isn't active. These are direct prerequisites only — not the
+    /// full recursive chain.
+    /// </summary>
+    public static List<Def> GetPrerequisites(Def proficiencyDef)
+    {
+        var result = new List<Def>();
+        if (defPrerequisitesField == null || proficiencyDef == null) return result;
+
+        try
+        {
+            if (defPrerequisitesField.GetValue(proficiencyDef) is System.Collections.IList list)
+                foreach (var item in list)
+                    if (item is Def def)
+                        result.Add(def);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to get prerequisites: {ex.Message}");
+        }
+        return result;
     }
 }

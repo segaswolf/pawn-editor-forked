@@ -12,7 +12,11 @@ namespace PawnEditor;
 /// Two-column editor for Life Lessons proficiencies, styled after the in-game trade UI.
 /// Left column lists proficiencies the pawn can still learn; right column lists the ones
 /// already known. Clicking a row moves it across: learning grants the proficiency (and its
-/// prerequisites), while removing it takes it away (and any descendants that depend on it).
+/// prerequisites), while removing it takes it away (and everything that depends on it).
+///
+/// Each row surfaces prerequisite information so the player can see the dependency chain
+/// without leaving the editor: learnable rows show a "needs N" badge when prerequisites are
+/// missing, and every tooltip lists each prerequisite with a met (✓) / unmet (✗) marker.
 /// The window stays open after each change so several proficiencies can be edited in one pass.
 /// </summary>
 public class ListingMenu_Proficiencies : Window
@@ -22,12 +26,18 @@ public class ListingMenu_Proficiencies : Window
     private const float RowHeight = 28f;
     private const float ColumnGap = 12f;
     private const float IconSize = 22f;
+    private const float CategoryHeaderHeight = 24f;
 
     private readonly Pawn pawn;
 
     private string searchText = "";
     private Vector2 learnableScroll;
     private Vector2 knownScroll;
+
+    // Click actions mutate the pawn's proficiency list. Running them mid-render (while we are
+    // iterating the very lists we built this frame) leaves the layout in an inconsistent state.
+    // We capture the action here and run it after drawing completes.
+    private System.Action pendingAction;
 
     public ListingMenu_Proficiencies(Pawn pawn)
     {
@@ -68,6 +78,14 @@ public class ListingMenu_Proficiencies : Window
 
         DrawColumn(learnableRect, "PawnEditor.ProficienciesLearnable".Translate(), GetLearnable(), isKnownColumn: false);
         DrawColumn(knownRect, "PawnEditor.ProficienciesKnown".Translate(), GetKnown(), isKnownColumn: true);
+
+        // Run any click action now that all drawing for this frame is done.
+        if (pendingAction != null)
+        {
+            var action = pendingAction;
+            pendingAction = null;
+            action();
+        }
     }
 
     /// <summary>
@@ -86,7 +104,9 @@ public class ListingMenu_Proficiencies : Window
     }
 
     /// <summary>
-    /// Draws a titled, scrollable column of proficiency rows inside a bordered section.
+    /// Draws a titled, scrollable column of proficiency rows, grouped by category.
+    /// Each group is preceded by a category header so the dependency-related ordering
+    /// (LL groups related proficiencies in the same category) stays visible.
     /// </summary>
     private void DrawColumn(Rect rect, string title, List<Def> defs, bool isKnownColumn)
     {
@@ -100,23 +120,60 @@ public class ListingMenu_Proficiencies : Window
         Widgets.DrawMenuSection(listRect);
         var innerRect = listRect.ContractedBy(4f);
 
-        var viewRect = new Rect(0f, 0f, innerRect.width - 16f, defs.Count * RowHeight);
-        ref var scroll = ref isKnownColumn ? ref knownScroll : ref learnableScroll;
+        // Group by category, preserving the category order we sorted into.
+        var groups = defs
+            .GroupBy(d => LifeLessonsCompat.GetCategory(d))
+            .ToList();
+
+        var contentHeight = defs.Count * RowHeight + groups.Count * CategoryHeaderHeight;
+        var viewRect = new Rect(0f, 0f, innerRect.width - 16f, contentHeight);
+
+        // Use the column's own scroll position. A ref-local over a ternary can fail to
+        // persist the updated value back to the field between frames, which collapses the
+        // scroll view — so branch explicitly instead.
+        var scroll = isKnownColumn ? knownScroll : learnableScroll;
         Widgets.BeginScrollView(innerRect, ref scroll, viewRect);
+        if (isKnownColumn) knownScroll = scroll; else learnableScroll = scroll;
 
         var rowY = 0f;
-        foreach (var def in defs)
+        foreach (var group in groups)
         {
-            var rowRect = new Rect(0f, rowY, viewRect.width, RowHeight);
-            DrawRow(rowRect, def, isKnownColumn);
-            rowY += RowHeight;
+            var catRect = new Rect(0f, rowY, viewRect.width, CategoryHeaderHeight);
+            DrawCategoryHeader(catRect, group.Key);
+            rowY += CategoryHeaderHeight;
+
+            foreach (var def in group)
+            {
+                var rowRect = new Rect(0f, rowY, viewRect.width, RowHeight);
+                DrawRow(rowRect, def, isKnownColumn);
+                rowY += RowHeight;
+            }
         }
 
         Widgets.EndScrollView();
     }
 
     /// <summary>
-    /// Draws a single proficiency row: icon hint, label, hover highlight, tooltip, and click action.
+    /// Draws a category header row used to separate proficiency groups within a column.
+    /// </summary>
+    private static void DrawCategoryHeader(Rect rect, string category)
+    {
+        GUI.color = ColoredText.SubtleGrayColor;
+        Text.Font = GameFont.Tiny;
+        var anchor = Text.Anchor;
+        Text.Anchor = TextAnchor.LowerLeft;
+        Widgets.Label(rect.ContractedBy(2f, 0f), category.ToUpperInvariant());
+        Text.Anchor = anchor;
+        Text.Font = GameFont.Small;
+        GUI.color = Color.white;
+        GUI.color = new Color(1f, 1f, 1f, 0.2f);
+        Widgets.DrawLineHorizontal(rect.x, rect.yMax, rect.width);
+        GUI.color = Color.white;
+    }
+
+    /// <summary>
+    /// Draws a single proficiency row: known-check or "needs N" prerequisite badge,
+    /// label, hover highlight, dependency tooltip, and click action.
     /// </summary>
     private void DrawRow(Rect rect, Def def, bool isKnownColumn)
     {
@@ -131,7 +188,23 @@ public class ListingMenu_Proficiencies : Window
             GUI.color = Color.white;
         }
 
+        // For learnable rows, show how many prerequisites are still missing (if any).
         var labelRect = new Rect(iconRect.xMax + 4f, rect.y, rect.width - IconSize - 6f, rect.height);
+        int missing = isKnownColumn ? 0 : CountMissingPrerequisites(def);
+        if (missing > 0)
+        {
+            var badgeRect = new Rect(rect.xMax - 70f, rect.y, 66f, rect.height);
+            labelRect.width -= 70f;
+            GUI.color = ColorLibrary.RedReadable;
+            Text.Font = GameFont.Tiny;
+            var ba = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(badgeRect, "PawnEditor.ProficiencyNeedsN".Translate(missing));
+            Text.Anchor = ba;
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+        }
+
         var anchor = Text.Anchor;
         Text.Anchor = TextAnchor.MiddleLeft;
         Widgets.Label(labelRect, def.LabelCap);
@@ -141,10 +214,11 @@ public class ListingMenu_Proficiencies : Window
 
         if (Widgets.ButtonInvisible(rect))
         {
+            // Defer to end of frame (see pendingAction field comment).
             if (isKnownColumn)
-                RemoveProficiency(def);
+                pendingAction = () => RemoveProficiency(def);
             else
-                LearnProficiency(def);
+                pendingAction = () => LearnProficiency(def);
         }
     }
 
@@ -159,77 +233,94 @@ public class ListingMenu_Proficiencies : Window
     }
 
     /// <summary>
-    /// Removes a proficiency (and its descendants) from the pawn, then refreshes derived state.
-    /// Descendants are removed because they would otherwise have unmet prerequisites.
+    /// Removes a proficiency from the pawn. Uses Life Lessons' native removeAncestors flag
+    /// so anything that depends on this proficiency is removed too, keeping the tree valid.
+    /// If dependents would be removed, asks the player to confirm first.
     /// </summary>
     private void RemoveProficiency(Def def)
     {
-        // Remove any known proficiency that lists this one as a prerequisite first,
-        // so we never leave a known proficiency with a missing prerequisite.
-        foreach (var dependent in GetKnownDependents(def))
-            LifeLessonsCompat.RemoveProficiency(pawn, dependent, removeAncestors: false);
+        var dependents = GetKnownDependents(def);
+        if (dependents.Count > 0)
+        {
+            var names = string.Join(", ", dependents.Select(d => d.LabelCap.ToString()));
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                "PawnEditor.ProficiencyRemoveCascade".Translate(def.LabelCap, names),
+                () => DoRemove(def)));
+            return;
+        }
 
-        LifeLessonsCompat.RemoveProficiency(pawn, def, removeAncestors: false);
+        DoRemove(def);
+    }
+
+    /// <summary>
+    /// Performs the actual removal (with native ancestor cleanup) and refreshes modifiers.
+    /// </summary>
+    private void DoRemove(Def def)
+    {
+        // removeAncestors: true → LL removes everything that has this as a prerequisite.
+        LifeLessonsCompat.RemoveProficiency(pawn, def, removeAncestors: true);
         LifeLessonsCompat.RefreshModifiers(pawn);
         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
     }
 
     /// <summary>
-    /// Finds known proficiencies that depend (directly or transitively) on the given def,
-    /// so they can be removed alongside it to keep the proficiency tree consistent.
+    /// Counts how many of a proficiency's direct prerequisites the pawn does not yet have.
+    /// </summary>
+    private int CountMissingPrerequisites(Def def)
+    {
+        var prereqs = LifeLessonsCompat.GetPrerequisites(def);
+        if (prereqs.Count == 0) return 0;
+
+        var knownNames = KnownDefNames();
+        return prereqs.Count(p => !knownNames.Contains(p.defName));
+    }
+
+    /// <summary>
+    /// Finds known proficiencies that have the given def among their direct prerequisites.
+    /// These are the proficiencies that would become invalid if this one were removed.
     /// </summary>
     private List<Def> GetKnownDependents(Def def)
     {
-        var known = GetKnown();
         var result = new List<Def>();
-        foreach (var candidate in known)
+        foreach (var candidate in GetCompleted())
         {
             if (candidate == def) continue;
-            var prereqs = GetPrerequisites(candidate);
-            if (prereqs.Contains(def.defName))
+            if (LifeLessonsCompat.GetPrerequisites(candidate).Any(p => p.defName == def.defName))
                 result.Add(candidate);
         }
         return result;
     }
 
-    /// <summary>
-    /// Reads the prerequisite defNames of a proficiency def via its 'prerequisites' field.
-    /// Returns an empty set when the field is absent or empty.
-    /// </summary>
-    private static HashSet<string> GetPrerequisites(Def def)
-    {
-        var result = new HashSet<string>();
-        var field = def.GetType().GetField("prerequisites");
-        if (field?.GetValue(def) is System.Collections.IEnumerable prereqs)
-            foreach (var p in prereqs)
-                if (p is Def pd)
-                    result.Add(pd.defName);
-        return result;
-    }
+    // ── Data helpers ──
+
+    private List<Def> GetCompleted() => LifeLessonsCompat.GetCompletedProficiencies(pawn);
+
+    private HashSet<string> KnownDefNames() =>
+        new(GetCompleted().Select(d => d.defName));
 
     /// <summary>
-    /// Proficiencies the pawn already knows, filtered by the search box.
+    /// Proficiencies the pawn already knows, filtered by search and ordered by category.
     /// </summary>
     private List<Def> GetKnown()
     {
-        return LifeLessonsCompat.GetCompletedProficiencies(pawn)
+        return GetCompleted()
             .Where(MatchesSearch)
-            .OrderBy(d => d.LabelCap.ToString())
+            .OrderBy(d => LifeLessonsCompat.GetCategory(d))
+            .ThenBy(d => d.LabelCap.ToString())
             .ToList();
     }
 
     /// <summary>
-    /// Proficiencies the pawn does not yet know, filtered by the search box.
+    /// Proficiencies the pawn does not yet know, filtered by search and ordered by category.
     /// </summary>
     private List<Def> GetLearnable()
     {
-        var knownNames = new HashSet<string>(
-            LifeLessonsCompat.GetCompletedProficiencies(pawn).Select(d => d.defName));
-
+        var knownNames = KnownDefNames();
         return LifeLessonsCompat.GetAllProficiencyDefs()
             .Where(d => d != null && !knownNames.Contains(d.defName))
             .Where(MatchesSearch)
-            .OrderBy(d => d.LabelCap.ToString())
+            .OrderBy(d => LifeLessonsCompat.GetCategory(d))
+            .ThenBy(d => d.LabelCap.ToString())
             .ToList();
     }
 
@@ -240,7 +331,8 @@ public class ListingMenu_Proficiencies : Window
     }
 
     /// <summary>
-    /// Builds the hover tooltip for a proficiency row, including category and learn/remove hint.
+    /// Builds the hover tooltip: title, description, category, and the prerequisite chain
+    /// with a met (✓) / unmet (✗) marker per prerequisite, plus a click-action hint.
     /// </summary>
     private string GetTooltip(Def def, bool isKnownColumn)
     {
@@ -258,6 +350,34 @@ public class ListingMenu_Proficiencies : Window
         {
             sb.AppendLine();
             sb.AppendLine(("Category: " + category).Colorize(ColoredText.SubtleGrayColor));
+        }
+
+        // Prerequisite chain with met/unmet markers.
+        var prereqs = LifeLessonsCompat.GetPrerequisites(def);
+        if (prereqs.Count > 0)
+        {
+            var knownNames = KnownDefNames();
+            sb.AppendLine();
+            sb.AppendLine("PawnEditor.ProficiencyRequires".Translate().Colorize(ColoredText.SubtleGrayColor));
+            foreach (var prereq in prereqs)
+            {
+                bool has = knownNames.Contains(prereq.defName);
+                var marker = has ? "✓".Colorize(Color.green) : "✗".Colorize(ColorLibrary.RedReadable);
+                sb.AppendLine($"  {marker} {prereq.LabelCap}");
+            }
+        }
+
+        // For known rows, warn if removing will cascade to dependents.
+        if (isKnownColumn)
+        {
+            var dependents = GetKnownDependents(def);
+            if (dependents.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("PawnEditor.ProficiencyRequiredBy".Translate(
+                    string.Join(", ", dependents.Select(d => d.LabelCap.ToString())))
+                    .Colorize(ColorLibrary.RedReadable));
+            }
         }
 
         sb.AppendLine();

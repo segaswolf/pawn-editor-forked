@@ -332,4 +332,29 @@ public static partial class PawnBlueprintSaveLoad
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteExpertise: {ex.Message}"); }
     }
+
+    // ── Save: Life Lessons Proficiencies ──
+
+    private static void WriteProficiencies(XmlWriter w, Pawn pawn)
+    {
+        if (!LifeLessonsCompat.Active) return;
+
+        var completed = LifeLessonsCompat.GetCompletedProficiencies(pawn);
+        if (completed.Count == 0) return;
+
+        try
+        {
+            w.WriteStartElement("proficiencies");
+            foreach (var prof in completed)
+            {
+                if (prof == null) continue;
+                w.WriteStartElement("li");
+                w.WriteAttributeString("defName", prof.defName);
+                WriteSourceMod(w, prof);
+                w.WriteEndElement();
+            }
+            w.WriteEndElement();
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WriteProficiencies: {ex.Message}"); }
+    }
 }

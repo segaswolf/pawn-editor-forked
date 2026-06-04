@@ -293,5 +293,9 @@
     <PawnEditor.ProficienciesKnown>Known</PawnEditor.ProficienciesKnown>
     <PawnEditor.ProficiencyClickLearn>Click to learn</PawnEditor.ProficiencyClickLearn>
     <PawnEditor.ProficiencyClickRemove>Click to remove</PawnEditor.ProficiencyClickRemove>
+    <PawnEditor.ProficiencyNeedsN>needs {0}</PawnEditor.ProficiencyNeedsN>
+    <PawnEditor.ProficiencyRequires>Requires:</PawnEditor.ProficiencyRequires>
+    <PawnEditor.ProficiencyRequiredBy>Removing this also removes: {0}</PawnEditor.ProficiencyRequiredBy>
+    <PawnEditor.ProficiencyRemoveCascade>Removing {0} will also remove everything that depends on it: {1}.\n\nContinue?</PawnEditor.ProficiencyRemoveCascade>
     <PawnEditor.Search>Search</PawnEditor.Search>
 </LanguageData>

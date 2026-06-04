@@ -29,7 +29,13 @@ public sealed class PawnEditorSettingsDrawer
             ref settings.InGameDevButton,
             "PawnEditor.InGameDevButton.Desc".Translate());
 
+        // Point limit: editable text box + slider. The text box lets the user type an exact
+        // value (requested over the slider-only approach, which was imprecise for large numbers),
+        // while the slider stays for quick coarse adjustment. Both write the same setting.
         listing.Label("PawnEditor.PointLimit".Translate() + ": " + settings.PointLimit.ToStringMoney());
+        var pointLimitRow = listing.GetRect(Text.LineHeight);
+        var pointLimitBuffer = settings.PointLimit.ToString("0");
+        Widgets.TextFieldNumeric(pointLimitRow.LeftPart(0.35f), ref settings.PointLimit, ref pointLimitBuffer, 100f, 1000000000f);
         settings.PointLimit = listing.Slider(settings.PointLimit, 100f, 10000000f);
 
         listing.CheckboxLabeled(

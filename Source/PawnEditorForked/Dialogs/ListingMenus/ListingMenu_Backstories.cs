@@ -26,6 +26,10 @@ public class ListingMenu_Backstories : ListingMenu<BackstoryDef>
 
     private static AddResult TryAdd(BackstoryDef backstoryDef, Pawn pawn)
     {
+        // Capture the backstories BEFORE the change so we can compute the skill delta.
+        var oldChildhood = pawn.story.Childhood;
+        var oldAdulthood = pawn.story.Adulthood;
+
         if (backstoryDef.slot == BackstorySlot.Childhood)
             pawn.story.Childhood = backstoryDef;
         else if (!pawn.ageTracker.Adult)
@@ -33,38 +37,25 @@ public class ListingMenu_Backstories : ListingMenu<BackstoryDef>
         else
             pawn.story.Adulthood = backstoryDef;
 
-        // Save current passions and levels before regenerating skills.
-        // Without this, changing backstory randomizes all passions — a common complaint.
-        var savedPassions = new Dictionary<SkillDef, Passion>();
-        var savedLevels = new Dictionary<SkillDef, int>();
-        if (pawn.skills?.skills != null)
-        {
-            foreach (var sr in pawn.skills.skills)
-            {
-                if (sr?.def != null)
-                {
-                    savedPassions[sr.def] = sr.passion;
-                    savedLevels[sr.def] = sr.levelInt;
-                }
-            }
-        }
-
-        pawn.skills = new Pawn_SkillTracker(pawn);
-        PawnGenerator.GenerateSkills(pawn, default);
-
-        // Restore passions and levels that the user had set.
-        if (pawn.skills?.skills != null)
-        {
-            foreach (var sr in pawn.skills.skills)
-            {
-                if (sr?.def != null && savedPassions.TryGetValue(sr.def, out var passion))
-                    sr.passion = passion;
-                if (sr?.def != null && savedLevels.TryGetValue(sr.def, out var level))
-                    sr.levelInt = level;
-            }
-        }
+        // Re-base skills: shift each skill by the difference between the old and new backstory
+        // gains, preserving the player's manual adjustments. Passions are untouched, so the
+        // long-standing "passions randomize on backstory change" issue stays fixed without
+        // also wiping the backstory's skill contribution (which the old save/restore did).
+        BackstoryUtility.ApplyBackstorySkillDelta(pawn, oldChildhood, oldAdulthood);
 
         pawn.Notify_DisabledWorkTypesChanged();
+
+        // Life Lessons resolves a pawn's proficiencies from their backstory. Changing the
+        // backstory here doesn't go through LL's normal hooks, so reinitialize explicitly:
+        // this re-resolves which proficiencies the new backstory grants (adding/removing as
+        // needed) and recalculates the stat/skill modifiers they provide.
+        if (LifeLessonsCompat.Active)
+        {
+            LifeLessonsCompat.ReinitializeComp(pawn);
+            LifeLessonsCompat.RefreshModifiers(pawn);
+        }
+
+        PawnEditor.Notify_PointsUsed();
         return true;
     }
 

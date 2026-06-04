@@ -183,6 +183,7 @@ public static partial class PawnEditor
         FacialAnimCompat.CopyFacialData(source, newPawn);
         CopyDup_Expertise(source, newPawn);            // VSE Expertise
         CopyDup_Aspirations(source, newPawn);          // VAspirE Aspirations
+        CopyDup_Proficiencies(source, newPawn);        // Life Lessons Proficiencies
 
         // Miscellaneous fields too small for their own CopyDup_ method
         if (source.guest != null && newPawn.guest != null)
@@ -244,6 +245,12 @@ public static partial class PawnEditor
         try { pawn.Notify_DisabledWorkTypesChanged(); } catch { }
         try { EnsurePawnGraphicsInitialized(pawn); }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] EnsurePawnGraphicsInitialized: {ex.Message}"); }
+
+        // Duplication generates a burst of short-lived objects (reflection arg arrays, temp
+        // lists, new portrait textures). Collect now, in one controlled hitch, so the automatic
+        // GC doesn't fire a long stop-the-world pass seconds later (which can black out the GUI).
+        // See PawnEditorMemory for the policy and the rules on when NOT to call this.
+        PawnEditorMemory.CollectAfterHeavyOp("pawn duplication");
     }
 
     /// <summary>

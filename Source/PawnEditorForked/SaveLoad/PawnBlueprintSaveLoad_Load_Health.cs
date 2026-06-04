@@ -174,6 +174,9 @@ public static partial class PawnBlueprintSaveLoad
         {
             try
             {
+                // Clear existing apparel to prevent loadID conflicts
+                pawn.apparel.DestroyAll();
+
                 foreach (XmlNode li in apparelNode.SelectNodes("li"))
                 {
                     if (!IsAvailable(li)) continue;
@@ -226,6 +229,9 @@ public static partial class PawnBlueprintSaveLoad
         {
             try
             {
+                // Clear existing equipment to prevent loadID conflicts
+                pawn.equipment.DestroyAllEquipment();
+
                 foreach (XmlNode li in equipNode.SelectNodes("li"))
                 {
                     if (!IsAvailable(li)) continue;

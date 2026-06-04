@@ -374,4 +374,46 @@ public static partial class PawnBlueprintSaveLoad
         }
         catch (Exception ex) { Warn($"Expertise: {ex.Message}"); }
     }
+
+    // ── Load: Life Lessons Proficiencies ──
+
+    private static void LoadProficiencies(Pawn pawn, XmlNode root)
+    {
+        if (!LifeLessonsCompat.Active) return;
+
+        var proficienciesNode = root.SelectSingleNode("proficiencies");
+        if (proficienciesNode == null) return;
+
+        try
+        {
+            // The pawn may already have backstory-resolved proficiencies. Clear them so the
+            // loaded set matches the blueprint exactly instead of stacking on top.
+            LifeLessonsCompat.ClearProficiencies(pawn);
+
+            foreach (XmlNode li in proficienciesNode.SelectNodes("li"))
+            {
+                var defName = li.Attributes?["defName"]?.Value;
+                if (defName.NullOrEmpty()) continue;
+
+                // MayRequire gating: skip proficiencies whose source mod isn't loaded.
+                if (!IsAvailable(li)) continue;
+
+                var def = DefDatabase<Def>.GetNamedSilentFail(defName)
+                          ?? LifeLessonsCompat.GetAllProficiencyDefs()
+                              .FirstOrDefault(d => d.defName == defName);
+                if (def == null)
+                {
+                    Warn($"Proficiency '{defName}' not found");
+                    continue;
+                }
+
+                // force: true also grants any prerequisite proficiencies as complete.
+                LifeLessonsCompat.TryGainProficiency(pawn, def, force: true);
+            }
+
+            // Recalculate stat/skill modifiers once all proficiencies are applied.
+            LifeLessonsCompat.RefreshModifiers(pawn);
+        }
+        catch (Exception ex) { Warn($"Proficiencies: {ex.Message}"); }
+    }
 }

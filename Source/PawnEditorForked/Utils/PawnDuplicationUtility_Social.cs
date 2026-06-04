@@ -276,4 +276,36 @@ public static partial class PawnEditor
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Inventory: {ex.Message}"); }
     }
+
+    // ────────────────────────────────────────────────────────
+    //  Life Lessons Proficiencies
+    // ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Copies the pawn's completed Life Lessons proficiencies to the duplicate.
+    /// No-op if Life Lessons isn't active. Uses force: true so prerequisites are
+    /// granted alongside each proficiency, then refreshes the derived modifiers.
+    /// Mirrors WriteProficiencies / LoadProficiencies in the blueprint save/load.
+    /// </summary>
+    private static void CopyDup_Proficiencies(Pawn src, Pawn dst)
+    {
+        if (!LifeLessonsCompat.Active) return;
+        try
+        {
+            var completed = LifeLessonsCompat.GetCompletedProficiencies(src);
+            if (completed.Count == 0) return;
+
+            // The clone is born with its own backstory-resolved proficiencies. Clear them first
+            // so the result matches the source exactly instead of being source + clone's own.
+            LifeLessonsCompat.ClearProficiencies(dst);
+
+            foreach (var prof in completed)
+            {
+                if (prof == null) continue;
+                LifeLessonsCompat.TryGainProficiency(dst, prof, force: true);
+            }
+            LifeLessonsCompat.RefreshModifiers(dst);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Proficiencies: {ex.Message}"); }
+    }
 }
