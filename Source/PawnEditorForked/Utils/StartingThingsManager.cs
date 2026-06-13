@@ -39,51 +39,66 @@ public static class StartingThingsManager
 
         // FIX #009: Snapshot parts before iterating — RemovePart() inside foreach corrupts the enumerator.
         var partsSnapshot = Find.Scenario.AllParts.ToList();
-        try
+
+        // Each part is handled in its own try/catch so ONE problematic ScenPart (e.g. a custom
+        // subclass from another mod, like Vanilla Gravship Expanded) can't abort the whole pass
+        // and leave the player with NO starting items. A failed part is logged with its exact
+        // type and skipped; the rest still process.
+        //
+        // We match by EXACT type (GetType() == typeof(...)) instead of a type-pattern switch,
+        // because `case ScenPart_ScatterThingsNearPlayerStart near` also captures SUBCLASSES.
+        // Mods that derive their own ScenPart from these vanilla types were being caught here and
+        // then failing on field access ("Specified cast is not valid"). Exact-type matching leaves
+        // those custom parts untouched in the scenario, where their own mod knows how to handle them.
+        foreach (var part in partsSnapshot)
         {
-            foreach (var part in partsSnapshot)
-                switch (part)
+            try
+            {
+                var type = part.GetType();
+
+                if (type == typeof(ScenPart_StartingAnimal))
                 {
-                    case ScenPart_StartingAnimal:
-                        startingAnimals.AddRange(part.PlayerStartingThings().OfType<Pawn>());
-                        Find.Scenario.RemovePart(part);
-                        removedParts.Add(part);
-                        break;
-                    case ScenPart_StartingMech:
-                        startingMechs.AddRange(part.PlayerStartingThings().OfType<Pawn>());
-                        Find.Scenario.RemovePart(part);
-                        removedParts.Add(part);
-                        break;
-                    case ScenPart_StartingThing_Defined:
-                        startingThings.AddRange(part.PlayerStartingThings());
-                        Find.Scenario.RemovePart(part);
-                        removedParts.Add(part);
-                        break;
-                    case ScenPart_ScatterThingsNearPlayerStart near:
-                        {
-                            var thing = ThingMaker.MakeThing(near.thingDef, near.stuff);
-                            thing.stackCount = near.count;
-                            startingThingsNear.Add(thing);
-                            Find.Scenario.RemovePart(part);
-                            removedParts.Add(part);
-                            break;
-                        }
-                    case ScenPart_ScatterThingsAnywhere far:
-                        {
-                            var thing = ThingMaker.MakeThing(far.thingDef, far.stuff);
-                            thing.stackCount = far.count;
-                            startingThingsFar.Add(thing);
-                            Find.Scenario.RemovePart(part);
-                            removedParts.Add(part);
-                            break;
-                        }
+                    startingAnimals.AddRange(part.PlayerStartingThings().OfType<Pawn>());
+                    Find.Scenario.RemovePart(part);
+                    removedParts.Add(part);
                 }
-        }
-        catch (System.Exception ex)
-        {
-            Log.Error($"[PawnEditor] ProcessScenario failed, restoring: {ex.Message}");
-            RestoreScenario();
-            return;
+                else if (type == typeof(ScenPart_StartingMech))
+                {
+                    startingMechs.AddRange(part.PlayerStartingThings().OfType<Pawn>());
+                    Find.Scenario.RemovePart(part);
+                    removedParts.Add(part);
+                }
+                else if (type == typeof(ScenPart_StartingThing_Defined))
+                {
+                    startingThings.AddRange(part.PlayerStartingThings());
+                    Find.Scenario.RemovePart(part);
+                    removedParts.Add(part);
+                }
+                else if (type == typeof(ScenPart_ScatterThingsNearPlayerStart) && part is ScenPart_ScatterThingsNearPlayerStart near)
+                {
+                    var thing = ThingMaker.MakeThing(near.thingDef, near.stuff);
+                    thing.stackCount = near.count;
+                    startingThingsNear.Add(thing);
+                    Find.Scenario.RemovePart(part);
+                    removedParts.Add(part);
+                }
+                else if (type == typeof(ScenPart_ScatterThingsAnywhere) && part is ScenPart_ScatterThingsAnywhere far)
+                {
+                    var thing = ThingMaker.MakeThing(far.thingDef, far.stuff);
+                    thing.stackCount = far.count;
+                    startingThingsFar.Add(thing);
+                    Find.Scenario.RemovePart(part);
+                    removedParts.Add(part);
+                }
+                // Any other ScenPart (including modded custom subclasses) is left in the scenario
+                // untouched, so its own mod handles it normally.
+            }
+            catch (System.Exception ex)
+            {
+                // Skip this one part, keep going. Log the exact type so we know which mod's part
+                // caused trouble, without aborting everyone's starting items.
+                Log.Warning($"[Pawn Editor] ProcessScenario: skipped ScenPart '{part.GetType().FullName}' ({ex.GetType().Name}: {ex.Message}). Other items still processed.");
+            }
         }
 
         Find.Scenario.parts.Add(new ScenPart_StartingThingsFromPawnEditor()

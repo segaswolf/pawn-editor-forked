@@ -234,6 +234,23 @@ public static partial class SaveLoadUtility
         var type = typeof(T).Name;
         Find.WindowStack.Add(new Dialog_PawnEditorFiles_Load(typePostfix.NullOrEmpty() ? type : Path.Combine(type, typePostfix!), path =>
         {
+            // Run the actual load inside a SYNCHRONOUS long event. Vanilla always loads pawns with
+            // a long event active; we were loading straight from the dialog's GUI thread without one.
+            // LongEventHandler.ExecuteWhenFinished only DEFERS its action while a long event is
+            // running — with none active it executes IMMEDIATELY. Mods like "Defaults" patch tracker
+            // constructors (Pawn_TimetableTracker) and call ExecuteWhenFinished from them; their
+            // callback (which saves mod settings via ScribeSaver.InitSaving) was firing in the middle
+            // of our Scribe load → "Called InitSaving() but current mode is LoadingVars". Wrapping in
+            // a long event defers those callbacks until after FinalizeLoading, same as vanilla.
+            LongEventHandler.QueueLongEvent(() => LoadItemFromPath(item, path, type, callback, parentPawn, prepare, typePostfix),
+                "PawnEditor.LoadingItem", doAsynchronously: false, null);
+        }));
+    }
+
+    private static void LoadItemFromPath<T>(T item, string path, string type, Action<T> callback, Pawn parentPawn, Action<T> prepare, string typePostfix)
+        where T : IExposable
+    {
+        {
             string beforeSave = string.Empty;
             PawnLoadPreprocessResult pawnLoadPreprocess = null;
             bool patchesApplied = false;
@@ -371,7 +388,7 @@ public static partial class SaveLoadUtility
                     }
                 }
             }
-        }));
+        }
     }
 
     private static void SanitizeLoadedPawn(Pawn pawn)
