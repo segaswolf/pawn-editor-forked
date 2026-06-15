@@ -363,21 +363,34 @@ public class Dialog_AppearanceEditor : Window
             }
             if (enabled && Widgets.ButtonInvisible(rect))
             {
-                if (pawn.genes.HasActiveGene(option))
+                // Guard the whole add/remove against a gene from a removed mod (null/bad def):
+                // without this, an exception here mid-render can hard-crash the game.
+                try
                 {
-                    pawn.genes.RemoveGene(pawn.genes.GetGene(option));
-                }
-                else
-                {
-                    foreach (var geneDef in options)
+                    if (pawn.genes.HasActiveGene(option))
                     {
-                        if (pawn.genes.GetGene(geneDef) is { } gene) pawn.genes.RemoveGene(gene);
+                        pawn.genes.RemoveGene(pawn.genes.GetGene(option));
+                    }
+                    else
+                    {
+                        // Genes in this group are mutually exclusive (same exclusionTag), so
+                        // remove any the pawn already has from the group, THEN add the chosen one
+                        // once. AddGene must be OUTSIDE the loop — inside it re-added the same gene
+                        // once per group member (harmless but wasteful and confusing).
+                        foreach (var geneDef in options)
+                        {
+                            if (pawn.genes.GetGene(geneDef) is { } gene) pawn.genes.RemoveGene(gene);
+                        }
 
                         pawn.genes.AddGene(option, false);
                     }
-                }
 
-                TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                    TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[Pawn Editor] Failed to toggle gene '{option?.defName ?? "null"}': {ex.Message}");
+                }
             }
 
             GUI.color = enabled ? Color.white : Color.gray;
@@ -505,10 +518,10 @@ public class Dialog_AppearanceEditor : Window
                         list.Add(new(customInner.name.CapitalizeFirst() + " (" + "Custom".Translate() + ")",
                             delegate
                             {
-                                if (!pawn.IsBaseliner()) pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
-                                pawn.genes.xenotypeName = customXenotype.name;
-                                pawn.genes.iconDef = customXenotype.IconDef;
-                                foreach (var geneDef in customXenotype.genes) pawn.genes.AddGene(geneDef, !customXenotype.inheritable);
+                                // Use customInner (the per-iteration copy), NOT customXenotype: the loop
+                                // variable is shared across all delegates, so referencing it directly would
+                                // apply whichever xenotype was LAST in the loop, not the one clicked.
+                                ApplyCustomXenotype(customInner);
                             }, customInner.IconDef.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default, null, null, 24f, delegate(Rect r)
                             {
                                 if (Widgets.ButtonImage(new(r.x, r.y + (r.height - r.width) / 2f, r.width, r.width), TexButton.Delete, GUI.color))
@@ -580,6 +593,39 @@ public class Dialog_AppearanceEditor : Window
 
         pawn.genes.ClearXenogenes();
         PawnGenerator.GenerateGenes(pawn, xenotype, default);
+    }
+
+    /// <summary>
+    /// Applies a custom xenotype to the pawn. Guards against gene defs that are null — which
+    /// happens when a saved custom xenotype references genes from a mod that is no longer
+    /// installed. Without this guard, AddGene(null, ...) throws and (in game, mid-render) can
+    /// hard-crash. Each gene is added in isolation so one missing gene can't abort the rest.
+    /// </summary>
+    private void ApplyCustomXenotype(CustomXenotype customXenotype)
+    {
+        if (customXenotype == null) return;
+        try
+        {
+            if (!pawn.IsBaseliner()) pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
+            pawn.genes.xenotypeName = customXenotype.name;
+            pawn.genes.iconDef = customXenotype.IconDef;
+
+            if (customXenotype.genes != null)
+            {
+                foreach (var geneDef in customXenotype.genes)
+                {
+                    if (geneDef == null) continue; // gene from a removed mod — skip instead of crashing
+                    try { pawn.genes.AddGene(geneDef, !customXenotype.inheritable); }
+                    catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipped a gene while applying custom xenotype '{customXenotype.name}': {ex.Message}"); }
+                }
+            }
+
+            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Pawn Editor] Failed to apply custom xenotype '{customXenotype.name}': {ex.Message}");
+        }
     }
 
     private void DrawBottomButtons(Rect inRect)
