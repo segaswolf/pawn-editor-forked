@@ -27,7 +27,15 @@ public partial class TabWorker_Bio_Humanlike
             traitsLastHeight = Text.LineHeight;
         }
         else
-			traitsLastHeight = GenUI.DrawElementStack(traitRect, 24, pawn.story.traits.TraitsSorted.ToList(), delegate(Rect r, Trait trait)
+			// Use allTraits instead of TraitsSorted as the data source. TraitsSorted was hiding
+			// some traits the pawn actually HAS and that ARE active (reported: a baseliner trader
+			// with Mute — the Mute was active, it blocked trading, yet it didn't appear in the list).
+			// Because the "already has" check uses allTraits, the editor detected the trait but
+			// refused to re-add it while never showing it. allTraits is the pawn's real trait list,
+			// so nothing the pawn has goes missing. We still grey out Suppressed traits (handled
+			// below) for the cases where that applies. Suppressed-first ordering keeps a stable sort.
+			traitsLastHeight = GenUI.DrawElementStack(traitRect, 24,
+				pawn.story.traits.allTraits.OrderByDescending(t => t.Suppressed ? 0 : 1).ToList(), delegate(Rect r, Trait trait)
 				{
 					GUI.color = CharacterCardUtility.StackElementBackground;
 					GUI.DrawTexture(r, BaseContent.WhiteTex);
