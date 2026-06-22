@@ -39,6 +39,98 @@ public class ListingMenu_Proficiencies : Window
     // We capture the action here and run it after drawing completes.
     private System.Action pendingAction;
 
+    // ── Per-frame allocation fix (v3.0) ──
+    // The profiler showed DoWindowContents allocating ~150 KB EVERY frame (~9 MB/s at 60fps),
+    // which fed the GC until it stalled and blacked out the screen. The cause was rebuilding
+    // everything every frame: GroupBy().ToList(), and a NEW HashSet per row (KnownDefNames was
+    // called inside CountMissingPrerequisites for every visible row). None of that changes
+    // between frames — it only changes when the search text changes or the pawn gains/loses a
+    // proficiency. So we build it ONCE into this cache and the per-frame render only reads it.
+    // Call InvalidateCache() whenever the underlying data changes.
+    private string cachedForSearch;
+    private bool cacheValid;
+    private HashSet<string> cachedKnownNames;          // names the pawn already has (built once)
+    private List<IGrouping<string, Def>> cachedLearnableGroups;
+    private List<IGrouping<string, Def>> cachedKnownGroups;
+    private int cachedLearnableCount;
+    private int cachedKnownCount;
+    private Dictionary<Def, int> cachedMissingCounts;   // per-def missing-prereq count (built once)
+    private Dictionary<Def, List<Def>> cachedDependents; // per-def known dependents (built once)
+
+    // Column header strings include the live count, so they only change when the cache rebuilds.
+    // Precompute them there instead of building a new interpolated string every frame.
+    private string cachedLearnableTitle;
+    private string cachedKnownTitle;
+
+    // Static-ish UI strings built once on first use (Translate allocates a TaggedString each call).
+    private string searchPlaceholder;
+
+    /// <summary>
+    /// Marks the cached proficiency snapshot stale so it is rebuilt on the next frame. Call this
+    /// after any change to the pawn's proficiencies (learn/remove) so the UI reflects it.
+    /// </summary>
+    private void InvalidateCache() => cacheValid = false;
+
+    /// <summary>
+    /// Rebuilds the cached snapshot used by the per-frame render: known-name set, grouped and
+    /// sorted learnable/known lists, missing-prerequisite counts, and known-dependent lists.
+    /// Runs only when the cache is stale or the search text changed — NOT every frame. This is
+    /// the "build once, render reads" pattern: heavy work (reflection into Life Lessons, set and
+    /// list construction) happens here, at most once per user action, instead of 60 times a
+    /// second. Measured under the profiler as a PerAction event so we can confirm the win.
+    /// </summary>
+    private void EnsureCache()
+    {
+        if (cacheValid && cachedForSearch == searchText) return;
+
+        PawnEditorProfiler.Measure("Proficiencies.RebuildCache", PawnEditorProfiler.Cadence.PerAction, () =>
+        {
+            var completed = GetCompleted();
+            cachedKnownNames = new HashSet<string>(completed.Select(d => d.defName));
+
+            // Known list: completed proficiencies, filtered + sorted, grouped by category.
+            var known = completed
+                .Where(MatchesSearch)
+                .OrderBy(d => LifeLessonsCompat.GetCategory(d))
+                .ThenBy(d => d.LabelCap.ToString())
+                .ToList();
+            cachedKnownCount = known.Count;
+            cachedKnownGroups = known.GroupBy(d => LifeLessonsCompat.GetCategory(d)).ToList();
+
+            // Learnable list: everything not known, filtered + sorted, grouped by category.
+            var learnable = LifeLessonsCompat.GetAllProficiencyDefs()
+                .Where(d => d != null && !cachedKnownNames.Contains(d.defName))
+                .Where(MatchesSearch)
+                .OrderBy(d => LifeLessonsCompat.GetCategory(d))
+                .ThenBy(d => d.LabelCap.ToString())
+                .ToList();
+            cachedLearnableCount = learnable.Count;
+            cachedLearnableGroups = learnable.GroupBy(d => LifeLessonsCompat.GetCategory(d)).ToList();
+
+            // Missing-prerequisite count per learnable def (uses the cached known-name set).
+            cachedMissingCounts = new Dictionary<Def, int>();
+            foreach (var def in learnable)
+            {
+                var prereqs = LifeLessonsCompat.GetPrerequisites(def);
+                cachedMissingCounts[def] = prereqs.Count == 0
+                    ? 0
+                    : prereqs.Count(p => !cachedKnownNames.Contains(p.defName));
+            }
+
+            // Known dependents per known def (for the remove-cascade warning/tooltip).
+            cachedDependents = new Dictionary<Def, List<Def>>();
+            foreach (var def in known)
+                cachedDependents[def] = BuildKnownDependents(def, completed);
+
+            // Column titles embed the count, so rebuild them here (not every frame).
+            cachedLearnableTitle = $"{"PawnEditor.ProficienciesLearnable".Translate()} ({cachedLearnableCount})";
+            cachedKnownTitle = $"{"PawnEditor.ProficienciesKnown".Translate()} ({cachedKnownCount})";
+
+            cachedForSearch = searchText;
+            cacheValid = true;
+        });
+    }
+
     public ListingMenu_Proficiencies(Pawn pawn)
     {
         this.pawn = pawn;
@@ -53,15 +145,36 @@ public class ListingMenu_Proficiencies : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        // [BANDERITA] The whole per-frame render of this window. If this shows up as a per-frame
+        // allocator in the profiler summary, the list rebuilds below are the cause.
+        PawnEditorProfiler.Measure("Proficiencies.DoWindowContents", PawnEditorProfiler.Cadence.PerFrame, () =>
+        {
+            DoWindowContentsInner(inRect);
+        });
+    }
+
+    private void DoWindowContentsInner(Rect inRect)
+    {
+        // Build the snapshot once (here, only when stale/search changed) so the per-frame draw
+        // below allocates nothing. This is what removed the ~9 MB/s churn that caused the GC
+        // stall / black screen.
+        EnsureCache();
+
         var headerRect = new Rect(inRect.x, inRect.y, inRect.width, HeaderHeight);
         DrawHeader(headerRect);
 
         var searchRect = new Rect(inRect.x, headerRect.yMax, inRect.width, SearchHeight);
-        searchText = Widgets.TextField(searchRect, searchText);
+        var newSearch = Widgets.TextField(searchRect, searchText);
+        if (newSearch != searchText)
+        {
+            searchText = newSearch;
+            InvalidateCache(); // search changed → rebuild snapshot next frame
+        }
         if (searchText.NullOrEmpty())
         {
+            searchPlaceholder ??= "PawnEditor.Search".Translate() + "..."; // build once, reuse
             GUI.color = ColoredText.SubtleGrayColor;
-            Widgets.Label(searchRect.ContractedBy(4f, 0f), "PawnEditor.Search".Translate() + "...");
+            Widgets.Label(searchRect.ContractedBy(4f, 0f), searchPlaceholder);
             GUI.color = Color.white;
         }
 
@@ -76,9 +189,8 @@ public class ListingMenu_Proficiencies : Window
         var learnableRect = new Rect(bodyRect.x, bodyRect.y, columnWidth, bodyRect.height);
         var knownRect = new Rect(learnableRect.xMax + ColumnGap, bodyRect.y, columnWidth, bodyRect.height);
 
-        DrawColumn(learnableRect, "PawnEditor.ProficienciesLearnable".Translate(), GetLearnable(), isKnownColumn: false);
-        DrawColumn(knownRect, "PawnEditor.ProficienciesKnown".Translate(), GetKnown(), isKnownColumn: true);
-
+        DrawColumn(learnableRect, cachedLearnableTitle, cachedLearnableGroups, cachedLearnableCount, isKnownColumn: false);
+        DrawColumn(knownRect, cachedKnownTitle, cachedKnownGroups, cachedKnownCount, isKnownColumn: true);
         // Run any click action now that all drawing for this frame is done.
         if (pendingAction != null)
         {
@@ -104,28 +216,24 @@ public class ListingMenu_Proficiencies : Window
     }
 
     /// <summary>
-    /// Draws a titled, scrollable column of proficiency rows, grouped by category.
-    /// Each group is preceded by a category header so the dependency-related ordering
-    /// (LL groups related proficiencies in the same category) stays visible.
+    /// Draws a titled, scrollable column of proficiency rows, grouped by category. Reads the
+    /// pre-built groups and title from the cache (see EnsureCache); does no list/group/string
+    /// construction itself, so it allocates nothing per frame beyond the Rects it draws.
     /// </summary>
-    private void DrawColumn(Rect rect, string title, List<Def> defs, bool isKnownColumn)
+    private void DrawColumn(Rect rect, string title, List<IGrouping<string, Def>> groups, int totalCount, bool isKnownColumn)
     {
         var titleRect = new Rect(rect.x, rect.y, rect.width, RowHeight);
         var anchor = Text.Anchor;
         Text.Anchor = TextAnchor.MiddleCenter;
-        Widgets.Label(titleRect, $"{title} ({defs.Count})");
+        Widgets.Label(titleRect, title); // precomputed title with count, no per-frame string build
         Text.Anchor = anchor;
 
         var listRect = new Rect(rect.x, titleRect.yMax, rect.width, rect.height - RowHeight);
         Widgets.DrawMenuSection(listRect);
         var innerRect = listRect.ContractedBy(4f);
 
-        // Group by category, preserving the category order we sorted into.
-        var groups = defs
-            .GroupBy(d => LifeLessonsCompat.GetCategory(d))
-            .ToList();
-
-        var contentHeight = defs.Count * RowHeight + groups.Count * CategoryHeaderHeight;
+        var groupCount = groups?.Count ?? 0;
+        var contentHeight = totalCount * RowHeight + groupCount * CategoryHeaderHeight;
         var viewRect = new Rect(0f, 0f, innerRect.width - 16f, contentHeight);
 
         // Use the column's own scroll position. A ref-local over a ternary can fail to
@@ -136,19 +244,20 @@ public class ListingMenu_Proficiencies : Window
         if (isKnownColumn) knownScroll = scroll; else learnableScroll = scroll;
 
         var rowY = 0f;
-        foreach (var group in groups)
-        {
-            var catRect = new Rect(0f, rowY, viewRect.width, CategoryHeaderHeight);
-            DrawCategoryHeader(catRect, group.Key);
-            rowY += CategoryHeaderHeight;
-
-            foreach (var def in group)
+        if (groups != null)
+            foreach (var group in groups)
             {
-                var rowRect = new Rect(0f, rowY, viewRect.width, RowHeight);
-                DrawRow(rowRect, def, isKnownColumn);
-                rowY += RowHeight;
+                var catRect = new Rect(0f, rowY, viewRect.width, CategoryHeaderHeight);
+                DrawCategoryHeader(catRect, group.Key);
+                rowY += CategoryHeaderHeight;
+
+                foreach (var def in group)
+                {
+                    var rowRect = new Rect(0f, rowY, viewRect.width, RowHeight);
+                    DrawRow(rowRect, def, isKnownColumn);
+                    rowY += RowHeight;
+                }
             }
-        }
 
         Widgets.EndScrollView();
     }
@@ -189,8 +298,9 @@ public class ListingMenu_Proficiencies : Window
         }
 
         // For learnable rows, show how many prerequisites are still missing (if any).
+        // Read from the prebuilt cache instead of recomputing (and allocating a HashSet) per row.
         var labelRect = new Rect(iconRect.xMax + 4f, rect.y, rect.width - IconSize - 6f, rect.height);
-        int missing = isKnownColumn ? 0 : CountMissingPrerequisites(def);
+        int missing = isKnownColumn ? 0 : (cachedMissingCounts != null && cachedMissingCounts.TryGetValue(def, out var m) ? m : 0);
         if (missing > 0)
         {
             var badgeRect = new Rect(rect.xMax - 70f, rect.y, 66f, rect.height);
@@ -229,6 +339,7 @@ public class ListingMenu_Proficiencies : Window
     {
         LifeLessonsCompat.TryGainProficiency(pawn, def, force: true);
         LifeLessonsCompat.RefreshModifiers(pawn);
+        InvalidateCache(); // pawn's proficiencies changed → rebuild snapshot
         SoundDefOf.Tick_High.PlayOneShotOnCamera();
     }
 
@@ -260,29 +371,19 @@ public class ListingMenu_Proficiencies : Window
         // removeAncestors: true → LL removes everything that has this as a prerequisite.
         LifeLessonsCompat.RemoveProficiency(pawn, def, removeAncestors: true);
         LifeLessonsCompat.RefreshModifiers(pawn);
+        InvalidateCache(); // pawn's proficiencies changed → rebuild snapshot
         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
     }
 
     /// <summary>
-    /// Counts how many of a proficiency's direct prerequisites the pawn does not yet have.
+    /// Finds known proficiencies that have the given def among their direct prerequisites,
+    /// searching within the supplied completed-list. These are the proficiencies that would
+    /// become invalid if this one were removed. Built once into the cache (see EnsureCache).
     /// </summary>
-    private int CountMissingPrerequisites(Def def)
-    {
-        var prereqs = LifeLessonsCompat.GetPrerequisites(def);
-        if (prereqs.Count == 0) return 0;
-
-        var knownNames = KnownDefNames();
-        return prereqs.Count(p => !knownNames.Contains(p.defName));
-    }
-
-    /// <summary>
-    /// Finds known proficiencies that have the given def among their direct prerequisites.
-    /// These are the proficiencies that would become invalid if this one were removed.
-    /// </summary>
-    private List<Def> GetKnownDependents(Def def)
+    private List<Def> BuildKnownDependents(Def def, List<Def> completed)
     {
         var result = new List<Def>();
-        foreach (var candidate in GetCompleted())
+        foreach (var candidate in completed)
         {
             if (candidate == def) continue;
             if (LifeLessonsCompat.GetPrerequisites(candidate).Any(p => p.defName == def.defName))
@@ -291,38 +392,13 @@ public class ListingMenu_Proficiencies : Window
         return result;
     }
 
+    /// <summary>Known dependents of a def, read from the cache (empty if not present).</summary>
+    private List<Def> GetKnownDependents(Def def) =>
+        cachedDependents != null && cachedDependents.TryGetValue(def, out var list) ? list : new List<Def>();
+
     // ── Data helpers ──
 
     private List<Def> GetCompleted() => LifeLessonsCompat.GetCompletedProficiencies(pawn);
-
-    private HashSet<string> KnownDefNames() =>
-        new(GetCompleted().Select(d => d.defName));
-
-    /// <summary>
-    /// Proficiencies the pawn already knows, filtered by search and ordered by category.
-    /// </summary>
-    private List<Def> GetKnown()
-    {
-        return GetCompleted()
-            .Where(MatchesSearch)
-            .OrderBy(d => LifeLessonsCompat.GetCategory(d))
-            .ThenBy(d => d.LabelCap.ToString())
-            .ToList();
-    }
-
-    /// <summary>
-    /// Proficiencies the pawn does not yet know, filtered by search and ordered by category.
-    /// </summary>
-    private List<Def> GetLearnable()
-    {
-        var knownNames = KnownDefNames();
-        return LifeLessonsCompat.GetAllProficiencyDefs()
-            .Where(d => d != null && !knownNames.Contains(d.defName))
-            .Where(MatchesSearch)
-            .OrderBy(d => LifeLessonsCompat.GetCategory(d))
-            .ThenBy(d => d.LabelCap.ToString())
-            .ToList();
-    }
 
     private bool MatchesSearch(Def def)
     {
@@ -356,7 +432,7 @@ public class ListingMenu_Proficiencies : Window
         var prereqs = LifeLessonsCompat.GetPrerequisites(def);
         if (prereqs.Count > 0)
         {
-            var knownNames = KnownDefNames();
+            var knownNames = cachedKnownNames ?? new HashSet<string>(GetCompleted().Select(d => d.defName));
             sb.AppendLine();
             sb.AppendLine("PawnEditor.ProficiencyRequires".Translate().Colorize(ColoredText.SubtleGrayColor));
             foreach (var prereq in prereqs)

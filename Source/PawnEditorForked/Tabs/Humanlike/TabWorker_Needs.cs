@@ -56,7 +56,17 @@ public class TabWorker_Needs : TabWorker_Table<Pawn>
             {
                 new("PawnEditor.RefillNeeds".Translate(), () =>
                 {
-                    foreach (var need in pawn.needs.AllNeeds) need.CurLevelPercentage = 1f;
+                    // Skip VAspirE's Fulfillment need: its level is DERIVED from how many
+                    // aspirations are completed, not a free 0-100% bar. Forcing it to 1f here
+                    // desyncs the bar from the actual aspirations, and then clicking the
+                    // aspiration icons to fix it fires spurious growth-moment letters. The
+                    // user controls Fulfillment by completing/uncompleting aspirations via the
+                    // clickable icons, so we leave that need untouched here.
+                    foreach (var need in pawn.needs.AllNeeds)
+                    {
+                        if (VAspirECompat.Active && VAspirECompat.IsFulfillmentNeed(need)) continue;
+                        need.CurLevelPercentage = 1f;
+                    }
                 }),
                 new("PawnEditor.CancelBreakdown".Translate(),
                     () => pawn.mindState.mentalStateHandler.CurState?.RecoverFromState())

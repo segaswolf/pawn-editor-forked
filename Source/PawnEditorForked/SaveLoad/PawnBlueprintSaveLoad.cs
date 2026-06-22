@@ -38,6 +38,14 @@ public static partial class PawnBlueprintSaveLoad
 
     public static void SaveBlueprint(Pawn pawn, string filePath)
     {
+        // [BANDERITA] Whole save operation. PerAction: fires when the user saves a pawn, never
+        // per-frame. Lets the profiler show how costly a save is (XML write + portrait PNG).
+        PawnEditorProfiler.Measure("SaveLoad.SaveBlueprint", PawnEditorProfiler.Cadence.PerAction, () =>
+            SaveBlueprintInner(pawn, filePath));
+    }
+
+    private static void SaveBlueprintInner(Pawn pawn, string filePath)
+    {
         // Atomic write: write to temp file first, then replace target.
         // If anything fails mid-write, the original file stays intact.
         var tempPath = filePath + ".tmp";
@@ -113,6 +121,14 @@ public static partial class PawnBlueprintSaveLoad
     // ─────────────────────────────────────────────────────────────────────────
 
     public static Pawn LoadBlueprint(string filePath)
+    {
+        // [BANDERITA] Whole load operation. PerAction: fires when the user loads a blueprint.
+        // Lets the profiler show how costly a load is (XML parse + PawnGenerator + apply).
+        return PawnEditorProfiler.Measure("SaveLoad.LoadBlueprint", PawnEditorProfiler.Cadence.PerAction, () =>
+            LoadBlueprintInner(filePath));
+    }
+
+    private static Pawn LoadBlueprintInner(string filePath)
     {
         loadWarnings.Clear();
 

@@ -23,6 +23,10 @@ public class PawnEditorSettings : ModSettings
     public bool UseSilver;
     public KeyCode EditorHotkey = KeyCode.KeypadMinus;
 
+    // Debug-only: when enabled, PawnEditorProfiler logs timing/allocation "flags" for editor
+    // events. Off by default so it never costs anything during normal play.
+    public bool ProfilingEnabled;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -37,6 +41,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref CountNPCs, nameof(CountNPCs));
         Scribe_Values.Look(ref HediffLocationLimit, nameof(HediffLocationLimit), HediffLocation.RecipeDef);
         Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
+        Scribe_Values.Look(ref ProfilingEnabled, nameof(ProfilingEnabled));
 
         if (HARCompat.Active)
         {

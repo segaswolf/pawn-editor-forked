@@ -77,6 +77,26 @@ public sealed class PawnEditorSettingsDrawer
 
         _hotkeyService.DrawHotkeyPicker(listing, settings);
 
+        // ── Debug: profiler ("banderitas") ──
+        // Opt-in instrumentation for diagnosing memory/GC pressure. Off by default. Plain text
+        // labels (no translation keys) since this is a developer/diagnostic tool, not player UI.
+        listing.GapLine();
+        listing.CheckboxLabeled(
+            "Enable performance profiler (debug)",
+            ref settings.ProfilingEnabled,
+            "Logs timing and memory-allocation 'flags' for editor events to help diagnose lag and " +
+            "black-screen issues. Leave off during normal play. Use the buttons below to reset and " +
+            "dump the collected stats while diagnosing.");
+
+        if (settings.ProfilingEnabled)
+        {
+            var profRow = listing.GetRect(Text.LineHeight + 4f);
+            if (Widgets.ButtonText(profRow.LeftHalf().ContractedBy(2f, 0f), "Reset profiler stats"))
+                PawnEditorProfiler.Reset();
+            if (Widgets.ButtonText(profRow.RightHalf().ContractedBy(2f, 0f), "Dump profiler summary to log"))
+                PawnEditorProfiler.DumpSummary();
+        }
+
         listing.End();
     }
 
