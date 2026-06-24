@@ -296,6 +296,81 @@ public static class LifeLessonsCompat
     }
 
     /// <summary>
+    /// Removes INVALID proficiencies from a pawn: ones whose def no longer exists (def null,
+    /// e.g. a mod was removed), and ORPHANS — proficiencies the pawn has whose direct prerequisite
+    /// is missing from its own completed list. In Life Lessons there is no legitimate way to hold
+    /// an advanced proficiency without its base (the system enforces prerequisites on learn), so a
+    /// proficiency sitting there without its base is corruption (typically from an old save, a
+    /// removed mod, or hand-editing). Unlike psycasts, these can't be acquired any other way, so
+    /// without the base they're simply dead weight that can desync Life Lessons' own comps.
+    ///
+    /// Runs in CASCADE: removing a base can orphan the things that depended on it, so we keep
+    /// sweeping until a full pass removes nothing. Only ever called when the user opens a specific
+    /// pawn's proficiency editor (Option A) — never bulk over all pawns — so it only touches pawns
+    /// the user is actively editing. Logs exactly what it removed so there's a trace if anyone asks
+    /// "where did my proficiency go". The user can simply re-learn anything that was cleaned and
+    /// re-save, fixing the corrupted save.
+    /// </summary>
+    /// <returns>The names of the proficiencies that were removed (empty if nothing was invalid).</returns>
+    public static List<string> SanitizeProficiencies(Pawn pawn)
+    {
+        var removed = new List<string>();
+        var comp = GetProficiencyComp(pawn);
+        if (comp == null || removeProficiencyMethod == null) return removed;
+
+        try
+        {
+            // Cascade: each pass removes orphans; removing them may create new orphans, so repeat
+            // until a pass changes nothing. Bounded by the number of proficiencies (each pass
+            // removes at least one, or we stop), so it can't loop forever.
+            bool changed = true;
+            int safety = 0;
+            while (changed && safety++ < 100)
+            {
+                changed = false;
+                var completed = GetCompletedProficiencies(pawn);
+                // Build the set of names the pawn currently has, to check prerequisites against.
+                var have = new HashSet<string>(completed.Select(d => d.defName));
+
+                foreach (var def in completed)
+                {
+                    if (def == null) continue; // null defs are filtered by ExtractDefs, but be safe
+
+                    // Orphan check: every DIRECT prerequisite must also be present. If any is
+                    // missing, this proficiency could never have been learned legitimately.
+                    var prereqs = GetPrerequisites(def);
+                    bool orphaned = prereqs.Any(p => p != null && !have.Contains(p.defName));
+                    if (!orphaned) continue;
+
+                    // Remove just this one (removeAncestors:false): the cascade loop will catch
+                    // anything that depended on it on the next pass. Removing ancestors here could
+                    // delete valid bases that other still-valid proficiencies rely on.
+                    if (RemoveProficiency(pawn, def, removeAncestors: false))
+                    {
+                        removed.Add(def.defName);
+                        changed = true;
+                        break; // restart the pass: the completed list just changed
+                    }
+                }
+            }
+
+            if (removed.Count > 0)
+            {
+                RefreshModifiers(pawn);
+                Log.Message($"[Pawn Editor] Sanitized {removed.Count} invalid proficiencies from " +
+                            $"{pawn.LabelShortCap} (orphaned/missing prerequisites): {string.Join(", ", removed)}. " +
+                            $"Re-learn and re-save to repair the save.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to sanitize proficiencies for {pawn?.LabelShortCap}: {ex.Message}");
+        }
+
+        return removed;
+    }
+
+    /// <summary>
     /// Returns true if the pawn can currently learn the given proficiency
     /// (prerequisites met, not already known, learning conditions satisfied).
     /// </summary>

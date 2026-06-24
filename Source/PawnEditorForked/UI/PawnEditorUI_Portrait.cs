@@ -11,8 +11,14 @@ namespace PawnEditor;
 public static partial class PawnEditor
 {
     public static RenderTexture GetPawnTex(Pawn pawn, Vector2 portraitSize, Rot4 dir, Vector3 cameraOffset = default, float cameraZoom = 1f) =>
-        PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
-            renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true);
+        // [BANDERITA] Portrait fetch. PortraitsCache.Get returns a cached RenderTexture when one
+        // exists for (pawn, size, dir, ...); otherwise it RENDERS A NEW ONE. If the editor keeps
+        // clearing the cache (PortraitsCache.Clear in RecachePawnList), every fetch here becomes a
+        // fresh render = constant RenderTexture churn = GC pressure = atlas drop = black screen.
+        // PerFrame because it's called once per visible pawn per frame in the list.
+        PawnEditorProfiler.Measure("Portrait.GetPawnTex", PawnEditorProfiler.Cadence.PerFrame, () =>
+            PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
+                renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true));
 
     public static void SavePawnTex(Pawn pawn, string path, Rot4 dir)
     {
@@ -28,7 +34,15 @@ public static partial class PawnEditor
 
     public static void DrawPawnPortrait(Rect rect)
     {
-        var image = GetPawnTex(selectedPawn, rect.size, curRot);
+        // Round the requested portrait size to whole pixels. PortraitsCache.Get keys its cached
+        // RenderTextures by size, so if rect.size wobbles by sub-pixel amounts between frames
+        // (layout rounding, scaling), each frame asks for a "new" size and renders a BRAND NEW
+        // RenderTexture, while the slightly-different old ones linger in the cache. The profiler
+        // caught this as GetPawnTex peaking at ~19 MB in a single frame. A stable, rounded size
+        // means every frame hits the same cache entry instead of churning textures — which is
+        // what was feeding the GC and dropping the GUI atlas (the black screen).
+        var stableSize = new Vector2(Mathf.Round(rect.size.x), Mathf.Round(rect.size.y));
+        var image = GetPawnTex(selectedPawn, stableSize, curRot);
         GUI.color = Command.LowLightBgColor;
         Widgets.DrawBox(rect);
         GUI.color = Color.white;

@@ -62,28 +62,32 @@ public static partial class PawnBlueprintSaveLoad
         request.CanGeneratePawnRelations = false;
         if (xenotype != null) request.ForcedXenotype = xenotype;
 
-        Pawn pawn = PawnGenerator.GeneratePawn(request);
+        Pawn pawn = PawnEditorProfiler.Measure("Load.GeneratePawn", PawnEditorProfiler.Cadence.PerAction,
+            () => PawnGenerator.GeneratePawn(request));
 
         // PawnGenerator may ignore fixedGender for some xenotypes — force it back
         if (pawn.gender != gender) pawn.gender = gender;
 
         // ── 3. Apply all blueprint sections ──
-        LoadName(pawn, root);
-        LoadStory(pawn, root);
-        LoadTraits(pawn, root);
-        LoadGenes(pawn, root);       // Genes first — they can force hair/body/skin changes
-        LoadAppearance(pawn, root);  // Appearance after genes to override back to saved values
-        LoadStyle(pawn, root);
-        LoadSkills(pawn, root);
-        LoadHediffs(pawn, root);
-        LoadAbilities(pawn, root);
-        LoadApparel(pawn, root);
-        LoadRelations(pawn, root);
-        LoadWorkPriorities(pawn, root);
-        LoadInventory(pawn, root);
-        LoadRoyalTitles(pawn, root);
-        LoadRecords(pawn, root);
-        FacialAnimCompat.LoadFacialData(pawn, root);
+        PawnEditorProfiler.Measure("Load.ApplySections", PawnEditorProfiler.Cadence.PerAction, () =>
+        {
+            LoadName(pawn, root);
+            LoadStory(pawn, root);
+            LoadTraits(pawn, root);
+            LoadGenes(pawn, root);       // Genes first — they can force hair/body/skin changes
+            LoadAppearance(pawn, root);  // Appearance after genes to override back to saved values
+            LoadStyle(pawn, root);
+            LoadSkills(pawn, root);
+            LoadHediffs(pawn, root);
+            LoadAbilities(pawn, root);
+            LoadApparel(pawn, root);
+            LoadRelations(pawn, root);
+            LoadWorkPriorities(pawn, root);
+            LoadInventory(pawn, root);
+            LoadRoyalTitles(pawn, root);
+            LoadRecords(pawn, root);
+            FacialAnimCompat.LoadFacialData(pawn, root);
+        });
 
         // Biotech extras not covered by LoadGenes
         if (ModsConfig.BiotechActive && pawn.genes != null)
@@ -168,9 +172,10 @@ public static partial class PawnBlueprintSaveLoad
             }
         }
 
-        // Building a pawn from a blueprint is a heavy one-off op (genes, hediffs, proficiencies,
-        // new portrait textures). Collect now in one controlled hitch so the automatic GC doesn't
-        // fire a long stop-the-world pass later. See PawnEditorMemory for the policy.
+        // Sweep the short-lived garbage this load just produced with a CHEAP gen-0 collection.
+        // (The old version forced a full-heap MaxGeneration collect here, which the profiler
+        // caught taking ~4.3s — 94% of the load time. CollectAfterHeavyOp is now gen-0 only, so
+        // we keep the memory cleanup Segas wanted without the multi-second freeze.)
         PawnEditorMemory.CollectAfterHeavyOp("blueprint load");
 
         return pawn;

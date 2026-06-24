@@ -139,6 +139,15 @@ public class ListingMenu_Proficiencies : Window
         doCloseButton = true;
         closeOnClickedOutside = true;
         absorbInputAroundWindow = true;
+
+        // Option A safeguard: when the user opens THIS pawn's proficiency editor, clean up any
+        // invalid proficiencies it may have from an old save / removed mod / hand-edit (orphans
+        // without their prerequisite, or null defs). We only touch the pawn the user is editing,
+        // never all pawns. Anything removed is logged; the user can re-learn it and re-save to
+        // repair the save. Done in the ctor so the first cache build already reflects the cleaned
+        // state and the list shows correctly from the first frame.
+        if (LifeLessonsCompat.Active)
+            LifeLessonsCompat.SanitizeProficiencies(pawn);
     }
 
     public override Vector2 InitialSize => new(720f, 600f);
@@ -339,6 +348,11 @@ public class ListingMenu_Proficiencies : Window
     {
         LifeLessonsCompat.TryGainProficiency(pawn, def, force: true);
         LifeLessonsCompat.RefreshModifiers(pawn);
+        // NOTE: we deliberately do NOT call ReinitializeComp here. The profiler trace [PE-LLDBG]
+        // proved that ReinitializeComp re-resolves the proficiency list from scratch and DROPS
+        // proficiencies (e.g. gain took the count 20->21, then reinit collapsed it to 18). It was
+        // added to fix an NRE in PioneeringComp, but it does more harm than good on the live-edit
+        // path. The NRE is handled separately (see LifeLessonsCompat) without nuking the list.
         InvalidateCache(); // pawn's proficiencies changed → rebuild snapshot
         SoundDefOf.Tick_High.PlayOneShotOnCamera();
     }
@@ -371,6 +385,9 @@ public class ListingMenu_Proficiencies : Window
         // removeAncestors: true → LL removes everything that has this as a prerequisite.
         LifeLessonsCompat.RemoveProficiency(pawn, def, removeAncestors: true);
         LifeLessonsCompat.RefreshModifiers(pawn);
+        // NOTE: no ReinitializeComp here either — see LearnProficiency. It was dropping
+        // proficiencies. The PioneeringComp NRE is addressed in LifeLessonsCompat without the
+        // destructive full reinit.
         InvalidateCache(); // pawn's proficiencies changed → rebuild snapshot
         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
     }

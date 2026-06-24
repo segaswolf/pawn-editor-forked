@@ -30,12 +30,20 @@ namespace PawnEditor;
 public static class PawnEditorMemory
 {
     /// <summary>
-    /// Forces a controlled garbage collection after a heavy, one-off operation, so the cleanup
-    /// happens now (one short hitch) instead of as an unpredictable long pause seconds later.
+    /// Performs a CHEAP, gen-0-only collection after a heavy, one-off operation, to sweep the
+    /// short-lived garbage that op just produced (reflection arg arrays, temp lists) before it
+    /// gets promoted to older generations.
     ///
-    /// Uses an optimized, non-blocking collection where the runtime allows it, falling back to
-    /// a standard collection. Safe to call even if Life Lessons or other mods aren't present —
-    /// it only touches the runtime GC, never mod state.
+    /// IMPORTANT HISTORY (don't regress this): the original version called
+    /// GC.Collect(MaxGeneration, ...), a FULL-heap collection. The profiler measured that at
+    /// ~4.3 SECONDS on a large modlist (it was 94% of a 4.5s blueprint load), because collecting
+    /// the whole heap is expensive no matter the mode — Optimized/non-blocking does NOT save you
+    /// when the heap is huge. So we now collect ONLY gen 0: it reclaims the recent burst of
+    /// garbage (the actual reason this helper exists) without the multi-second full-heap sweep.
+    /// Gen 0 collections are designed to be fast and frequent.
+    ///
+    /// We intentionally do NOT force gen 1/2 here. The automatic GC handles older generations on
+    /// its own schedule; forcing a full collection bought us nothing but a freeze.
     /// </summary>
     /// <param name="reason">
     /// Short label for logging if the collection itself throws (it normally won't). Helps trace
@@ -45,9 +53,9 @@ public static class PawnEditorMemory
     {
         try
         {
-            // GCCollectionMode.Optimized lets the runtime skip the collection if it judges it
-            // unnecessary, avoiding a needless pause; it still collects when there's real pressure.
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false);
+            // Generation 0 only: cheap sweep of the just-created short-lived objects. Forced (not
+            // Optimized) because we DO want gen 0 cleared now; gen 0 is small so this stays fast.
+            GC.Collect(0, GCCollectionMode.Forced, blocking: true);
         }
         catch (Exception ex)
         {

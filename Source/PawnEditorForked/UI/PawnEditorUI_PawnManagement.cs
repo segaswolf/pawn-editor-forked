@@ -26,7 +26,10 @@ public static partial class PawnEditor
             selectedPawn = pawns.FirstOrDefault();
             CheckChangeTabGroup();
         }
-        PortraitsCache.Clear();
+        // [BANDERITA] Counting Clear() calls. Each Clear wipes the WHOLE game portrait cache, so
+        // every portrait must re-render afterward. If this fires often, it's the churn source.
+        PawnEditorProfiler.Measure("Portrait.CacheClear", PawnEditorProfiler.Cadence.PerAction,
+            () => PortraitsCache.Clear());
     }
 
     public static void RecachePawnList()
@@ -67,7 +70,10 @@ public static partial class PawnEditor
             CheckChangeTabGroup();
         }
 
-        PortraitsCache.Clear();
+        // [BANDERITA] See note in RecachePawnListWithNoFactionPawns. This is the hot one: it runs
+        // on every editor open, faction change, pawn add/delete, and tab-group change.
+        PawnEditorProfiler.Measure("Portrait.CacheClear", PawnEditorProfiler.Cadence.PerAction,
+            () => PortraitsCache.Clear());
     }
 
     // ── Tab/Widget management ──
