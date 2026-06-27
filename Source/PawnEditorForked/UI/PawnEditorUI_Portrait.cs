@@ -47,12 +47,36 @@ public static partial class PawnEditor
         Widgets.DrawBox(rect);
         GUI.color = Color.white;
         GUI.DrawTexture(rect, Command.BGTex);
-        if (image != null)
-            GUI.DrawTexture(rect, image);
+        // Draw the portrait, or a placeholder if the atlas was dropped (avoids black hole + spam).
+        DrawPortraitOrPlaceholder(rect, image);
         if (Widgets.ButtonImage(rect.ContractedBy(8).RightPartPixels(16).TopPartPixels(16), TexUI.RotRightTex))
             curRot.Rotate(RotationDirection.Counterclockwise);
 
         if (Widgets.InfoCardButtonWorker(rect.ContractedBy(8).LeftPartPixels(16).TopPartPixels(16))) Find.WindowStack.Add(new Dialog_InfoCard(selectedPawn));
+    }
+
+    /// <summary>
+    /// Draws a pawn portrait into <paramref name="rect"/>, falling back to a neutral placeholder
+    /// (filled box) when the cached texture is null. The texture goes null when Unity's
+    /// UnloadUnusedAssets pass drops the GUI atlas (a multi-second hitch on heavy modlists), which
+    /// otherwise leaves a black hole AND spams "null texture passed to GUI.DrawTexture". This does
+    /// NOT fix the underlying hitch (that's Unity reclaiming memory, outside our control); it just
+    /// keeps our window looking like it's loading instead of broken, and avoids the per-draw spam.
+    /// Returns true if the real portrait was drawn, false if the placeholder was used.
+    /// </summary>
+    public static bool DrawPortraitOrPlaceholder(Rect rect, RenderTexture tex)
+    {
+        if (tex != null)
+        {
+            GUI.DrawTexture(rect, tex);
+            return true;
+        }
+        // Placeholder: subtle filled box so the slot reads as "loading", not as a black gap.
+        var prev = GUI.color;
+        GUI.color = new Color(prev.r, prev.g, prev.b, prev.a * 0.35f);
+        GUI.DrawTexture(rect, BaseContent.GreyTex);
+        GUI.color = prev;
+        return false;
     }
 
     // ── Graphics helpers ──

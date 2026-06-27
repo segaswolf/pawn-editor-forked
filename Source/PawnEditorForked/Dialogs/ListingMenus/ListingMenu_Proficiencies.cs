@@ -30,6 +30,12 @@ public class ListingMenu_Proficiencies : Window
 
     private readonly Pawn pawn;
 
+    // Pawns whose Life Lessons comp we've already re-synced this session. The repair
+    // (snapshot -> reinit -> restore) is only needed once per pawn to fix the PioneeringComp
+    // desync left by older builds; repeating it on every editor open would be wasted work (and
+    // would run the delicate reinit more than necessary). Static so it persists across opens.
+    private static readonly HashSet<int> repairedPawnIds = new();
+
     private string searchText = "";
     private Vector2 learnableScroll;
     private Vector2 knownScroll;
@@ -147,7 +153,17 @@ public class ListingMenu_Proficiencies : Window
         // repair the save. Done in the ctor so the first cache build already reflects the cleaned
         // state and the list shows correctly from the first frame.
         if (LifeLessonsCompat.Active)
+        {
+            // First, surgically repair the PioneeringComp NRE that older builds baked into some
+            // saves: PioneeringComp.Initialize() just re-creates its null activity lists, curing
+            // the per-tick UnexhaustActivities crash without touching proficiencies. Once per pawn
+            // per session, only if the pawn has proficiencies (no comp activity to fix otherwise).
+            if (repairedPawnIds.Add(pawn.thingIDNumber) && GetCompleted().Count > 0)
+                LifeLessonsCompat.RepairPioneeringComp(pawn);
+
+            // Then clean up any orphaned/invalid proficiencies (see SanitizeProficiencies).
             LifeLessonsCompat.SanitizeProficiencies(pawn);
+        }
     }
 
     public override Vector2 InitialSize => new(720f, 600f);

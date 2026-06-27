@@ -42,6 +42,15 @@ public static class LifeLessonsCompat
     private static MethodInfo canLearnMethod;
     private static MethodInfo refreshModifiersMethod;
 
+    // ── Reflection: PioneeringComp (subcomponent of ProficiencyComp) ──
+    // The PioneeringComp tracks per-proficiency "learning activities". Its CompTick path
+    // (UnexhaustActivities) NREs when its internal lists (exhaustedActivities /
+    // activityRepetitionsToday) are null. PioneeringComp.Initialize() re-creates exactly those
+    // lists if null, and touches NOTHING else (confirmed from the decompiled source). That makes
+    // it the surgical repair for the per-tick NRE older builds baked into some saves.
+    private static PropertyInfo pioneeringProperty;       // ProficiencyComp.Pioneering getter
+    private static MethodInfo pioneeringInitializeMethod;  // PioneeringComp.Initialize()
+
     // ── Reflection: ProficiencyRecord fields ──
     private static FieldInfo recordDefField;
     private static FieldInfo recordCompleteField;
@@ -108,6 +117,13 @@ public static class LifeLessonsCompat
 
             // ProficiencyComp.RefreshModifiers() — recalculates stat/skill modifiers after changes.
             refreshModifiersMethod = proficiencyCompType.GetMethod("RefreshModifiers", Type.EmptyTypes);
+
+            // PioneeringComp surgical repair: ProficiencyComp.Pioneering returns the PioneeringComp
+            // subcomponent; PioneeringComp.Initialize() rebuilds only its null activity lists.
+            pioneeringProperty = proficiencyCompType.GetProperty("Pioneering");
+            var pioneeringType = assembly.GetType("LifeLessons.PioneeringComp");
+            if (pioneeringType != null)
+                pioneeringInitializeMethod = pioneeringType.GetMethod("Initialize", Type.EmptyTypes);
 
             // ProficiencyRecord — fields
             if (proficiencyRecordType != null)
@@ -368,6 +384,75 @@ public static class LifeLessonsCompat
         }
 
         return removed;
+    }
+
+    /// <summary>
+    /// Surgically repairs the PioneeringComp NRE that older builds baked into some saves, WITHOUT
+    /// touching the pawn's proficiencies at all.
+    ///
+    /// THE BUG (confirmed from Life Lessons' decompiled source):
+    /// ProficiencyComp.CompTick() calls Pioneering.UnexhaustActivities() once a day. That method is
+    ///     activityRepetitionsToday.Clear(); exhaustedActivities.Clear();
+    /// and it NREs if either list is null. An older Pawn Editor build called the destructive
+    /// Initialize(forceReinit:true) on the live-edit path, which left some pawns' PioneeringComp in
+    /// a state where those lists are null — so they throw every tick, permanently, in the save.
+    ///
+    /// THE FIX: PioneeringComp.Initialize() (the parameterless subcomponent one) is exactly:
+    ///     if (exhaustedActivities == null) exhaustedActivities = new();
+    ///     if (activityRepetitionsToday == null) activityRepetitionsToday = new();
+    /// It re-creates ONLY the null lists and touches nothing else — no proficiencies, no backstory
+    /// re-resolution. So we fetch the pawn's PioneeringComp via ProficiencyComp.Pioneering and call
+    /// its Initialize() directly. This is surgical: it cures the NRE and cannot drop proficiencies
+    /// (unlike the old ProficiencyComp.Initialize(forceReinit:true), which re-resolved from
+    /// backstory). Verified against the decompiled LifeLessons 2.1.2 source.
+    ///
+    /// Only called when the user opens a specific pawn's proficiency editor (never bulk), so it
+    /// only touches pawns the user is actively editing.
+    /// </summary>
+    public static void RepairPioneeringComp(Pawn pawn)
+    {
+        var comp = GetProficiencyComp(pawn);
+        if (comp == null || pioneeringProperty == null || pioneeringInitializeMethod == null) return;
+
+        try
+        {
+            // ProficiencyComp.Pioneering => the PioneeringComp subcomponent. If it's null the
+            // subcomponent list itself wasn't set up (the deeper form of the older-build damage);
+            // InitializeSubcomponents() rebuilds the whole list, then we re-fetch.
+            var pioneering = pioneeringProperty.GetValue(comp);
+            if (pioneering == null)
+            {
+                TryInitializeSubcomponents(comp);
+                pioneering = pioneeringProperty.GetValue(comp);
+                if (pioneering == null) return;
+            }
+
+            // PioneeringComp.Initialize(): re-creates only the null activity lists. This is the
+            // surgical cure for the per-tick UnexhaustActivities NRE, with zero side effects on
+            // proficiencies. Verified in testing: cured the NRE on all damaged pawns without
+            // dropping any proficiencies.
+            pioneeringInitializeMethod.Invoke(pioneering, null);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Failed to repair Pioneering comp for {pawn?.LabelShortCap}: {ex.Message}");
+        }
+    }
+
+    // Rebuilds the ProficiencyComp's whole subcomponent list when it's missing entirely (the
+    // deeper form of the older-build damage). Resolved lazily so we don't pay for it unless needed.
+    private static MethodInfo initializeSubcomponentsMethod;
+    private static void TryInitializeSubcomponents(object comp)
+    {
+        try
+        {
+            initializeSubcomponentsMethod ??= proficiencyCompType.GetMethod("InitializeSubcomponents", Type.EmptyTypes);
+            initializeSubcomponentsMethod?.Invoke(comp, null);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] InitializeSubcomponents failed: {ex.Message}");
+        }
     }
 
     /// <summary>
