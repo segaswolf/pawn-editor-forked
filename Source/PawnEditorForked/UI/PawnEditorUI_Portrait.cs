@@ -11,11 +11,15 @@ namespace PawnEditor;
 public static partial class PawnEditor
 {
     public static RenderTexture GetPawnTex(Pawn pawn, Vector2 portraitSize, Rot4 dir, Vector3 cameraOffset = default, float cameraZoom = 1f) =>
-        // [BANDERITA] Portrait fetch. PortraitsCache.Get returns a cached RenderTexture when one
-        // exists for (pawn, size, dir, ...); otherwise it RENDERS A NEW ONE. If the editor keeps
-        // clearing the cache (PortraitsCache.Clear in RecachePawnList), every fetch here becomes a
-        // fresh render = constant RenderTexture churn = GC pressure = atlas drop = black screen.
-        // PerFrame because it's called once per visible pawn per frame in the list.
+        // [BANDERITA] Portrait fetch. PortraitsCache.Get returns a CACHED RenderTexture for a given
+        // (pawn, size, dir, ...) or renders a new one on a miss. Profiling (4 consecutive dumps,
+        // 2026-06-20) confirmed this is healthy now: peak stays flat at ~23 MB (a one-off spike
+        // when new pawns are loaded and their portraits first render), total barely grows as calls
+        // climb, and KB/call trends DOWN (3.9 -> 1.5) — i.e. later calls hit the cache for ~free.
+        // It's flagged PER-FRAME only because it's called per visible pawn per frame; the calls
+        // themselves are cheap cache hits, not churn. (The old churn came from PortraitsCache.Clear
+        // in RecachePawnList + a wobbling rect.size — both fixed; see PawnEditorUI_PawnManagement
+        // and DrawPawnPortrait.)
         PawnEditorProfiler.Measure("Portrait.GetPawnTex", PawnEditorProfiler.Cadence.PerFrame, () =>
             PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
                 renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true));
