@@ -102,20 +102,24 @@ public static partial class PawnBlueprintSaveLoad
             if (growthPts >= 0f) pawn.ageTracker.growthPoints = growthPts;
         }
 
-        // Favorite color — find closest ColorDef by Euclidean RGB distance
-        var favColorNode = root.SelectSingleNode("favoriteColor");
-        if (favColorNode != null && pawn.story != null)
+        // Favorite color — find closest ColorDef by Euclidean RGB distance.
+        // [BANDERITA] Loops over ALL ColorDefs. Suspected chunk of the unaccounted ~3.7s.
+        PawnEditorProfiler.Measure("Load.FavoriteColor", PawnEditorProfiler.Cadence.PerAction, () =>
         {
-            var targetColor = ReadColor(favColorNode);
-            ColorDef bestMatch = null;
-            float bestDist = float.MaxValue;
-            foreach (var cd in DefDatabase<ColorDef>.AllDefsListForReading)
+            var favColorNode = root.SelectSingleNode("favoriteColor");
+            if (favColorNode != null && pawn.story != null)
             {
-                float dist = ColorDistance(cd.color, targetColor);
-                if (dist < bestDist) { bestDist = dist; bestMatch = cd; }
+                var targetColor = ReadColor(favColorNode);
+                ColorDef bestMatch = null;
+                float bestDist = float.MaxValue;
+                foreach (var cd in DefDatabase<ColorDef>.AllDefsListForReading)
+                {
+                    float dist = ColorDistance(cd.color, targetColor);
+                    if (dist < bestDist) { bestDist = dist; bestMatch = cd; }
+                }
+                if (bestMatch != null) pawn.story.favoriteColor = bestMatch;
             }
-            if (bestMatch != null) pawn.story.favoriteColor = bestMatch;
-        }
+        });
 
         // ── 4. Finalize ──
         try { pawn.Notify_DisabledWorkTypesChanged(); } catch { }
@@ -151,14 +155,15 @@ public static partial class PawnBlueprintSaveLoad
         // v3d7: Re-apply FA data AFTER finalize.
         FacialAnimCompat.LoadFacialData(pawn, root);
 
-        // VAspirE: Restore aspirations from blueprint
-        LoadAspirations(pawn, root);
-
-        // VSE: Restore expertise from blueprint
-        LoadExpertise(pawn, root);
-
-        // Life Lessons: Restore proficiencies from blueprint
-        LoadProficiencies(pawn, root);
+        // [BANDERITA] These three are reflection into external mods (VAspirE / VSE / Life Lessons).
+        // Reflection can be slow, and these were the biggest un-instrumented block — prime suspects
+        // for the unaccounted ~3.7s. Measured separately to see which (if any) is the culprit.
+        PawnEditorProfiler.Measure("Load.Aspirations", PawnEditorProfiler.Cadence.PerAction,
+            () => LoadAspirations(pawn, root));   // VAspirE
+        PawnEditorProfiler.Measure("Load.Expertise", PawnEditorProfiler.Cadence.PerAction,
+            () => LoadExpertise(pawn, root));      // VSE
+        PawnEditorProfiler.Measure("Load.Proficiencies", PawnEditorProfiler.Cadence.PerAction,
+            () => LoadProficiencies(pawn, root));  // Life Lessons
 
         // Ideo certainty LAST — other steps trigger ideo recalculation
         if (ModsConfig.IdeologyActive && pawn.ideo != null)
@@ -172,11 +177,13 @@ public static partial class PawnBlueprintSaveLoad
             }
         }
 
-        // Sweep the short-lived garbage this load just produced with a CHEAP gen-0 collection.
-        // (The old version forced a full-heap MaxGeneration collect here, which the profiler
-        // caught taking ~4.3s — 94% of the load time. CollectAfterHeavyOp is now gen-0 only, so
-        // we keep the memory cleanup Segas wanted without the multi-second freeze.)
-        PawnEditorMemory.CollectAfterHeavyOp("blueprint load");
+        // NOTE: no forced GC here. We measured GC.Collect(0, Forced, blocking:true) at ~3.9s on
+        // a large modlist (94% of the whole blueprint load) while freeing 0 KB — a blocking
+        // collection is stop-the-world regardless of generation, and on a huge heap even gen-0
+        // takes seconds. The actual load work (GeneratePawn + ApplySections + compat) is only
+        // ~230ms. So we let the automatic GC reclaim the load's short-lived garbage on its own
+        // schedule instead of forcing a multi-second freeze that reclaimed nothing.
+        // (Confirmed by profiler banderita Load.CollectGen0 = 3920ms peak, 0 KB.)
 
         return pawn;
     }

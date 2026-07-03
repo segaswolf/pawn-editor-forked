@@ -397,14 +397,16 @@ public partial class TabWorker_Bio_Humanlike
     /// <summary>
     /// Marks the pawn's graphics as dirty so the portrait re-renders.
     /// Called after any visual change (genes, body type, hair, tattoos, etc.).
+    ///
+    /// Now delegates to the centralized PawnEditor.RefreshPawnGraphics (the canonical, deferred,
+    /// fully-guarded refresh). Kept as a thin wrapper so the many existing callers
+    /// (SetGender, SetDevStage, SetXenotype, the whole appearance editor) don't all need editing.
+    /// Behavior change vs the old inline body: PortraitsCache.SetDirty now runs for ALL pawns (not
+    /// just colonists) and the pawn's MAP sprite is refreshed too via GlobalTextureAtlasManager.
     /// </summary>
     public static void RecacheGraphics(Pawn pawn)
     {
-        LongEventHandler.ExecuteWhenFinished(delegate
-        {
-            pawn.drawer.renderer.SetAllGraphicsDirty();
-            if (pawn.IsColonist) PortraitsCache.SetDirty(pawn);
-        });
+        PawnEditor.RefreshPawnGraphics(pawn);
     }
 
     /// <summary>

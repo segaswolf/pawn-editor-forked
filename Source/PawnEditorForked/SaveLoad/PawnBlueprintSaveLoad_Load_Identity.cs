@@ -79,13 +79,8 @@ public static partial class PawnBlueprintSaveLoad
                 if (melanin >= 0f) pawn.story.melanin = melanin;
             }
 
-            try
-            {
-                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
-                PortraitsCache.SetDirty(pawn);
-                GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
-            }
-            catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadAppearance graphics: {ex.Message}"); }
+            // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+            PawnEditor.RefreshPawnGraphics(pawn);
         }
         catch (Exception ex) { Warn($"Appearance: {ex.Message}"); }
     }
@@ -108,13 +103,8 @@ public static partial class PawnBlueprintSaveLoad
                 var faceTattoo = ResolveDef<TattooDef>(styleNode, "faceTattoo");
                 if (faceTattoo != null) pawn.style.FaceTattoo = faceTattoo;
             }
-            try
-            {
-                pawn.Drawer?.renderer?.SetAllGraphicsDirty();
-                PortraitsCache.SetDirty(pawn);
-                GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(pawn);
-            }
-            catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadStyle graphics: {ex.Message}"); }
+            // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+            PawnEditor.RefreshPawnGraphics(pawn);
         }
         catch (Exception ex) { Warn($"Style: {ex.Message}"); }
     }

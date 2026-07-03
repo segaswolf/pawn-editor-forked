@@ -43,6 +43,7 @@
     <PawnEditor.LoadFaction>Load faction</PawnEditor.LoadFaction>
     <PawnEditor.Randomize>Randomize</PawnEditor.Randomize>
     <PawnEditor.AllIncludingFaction>all - including faction</PawnEditor.AllIncludingFaction>
+    <PawnEditor.AllKeepXenotype>all - keep xenotype</PawnEditor.AllKeepXenotype>
     <PawnEditor.SelectRandomFaction>Randomize faction</PawnEditor.SelectRandomFaction>
     <PawnEditor.WithRandomFaction>With random faction</PawnEditor.WithRandomFaction>
     <PawnEditor.FactionHidden>Faction hidden</PawnEditor.FactionHidden>

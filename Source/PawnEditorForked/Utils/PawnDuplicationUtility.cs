@@ -247,9 +247,9 @@ public static partial class PawnEditor
         catch (Exception ex) { Log.Warning($"[Pawn Editor] EnsurePawnGraphicsInitialized: {ex.Message}"); }
 
         // Duplication generates a burst of short-lived objects (reflection arg arrays, temp
-        // lists, new portrait textures). Collect now, in one controlled hitch, so the automatic
-        // GC doesn't fire a long stop-the-world pass seconds later (which can black out the GUI).
-        // See PawnEditorMemory for the policy and the rules on when NOT to call this.
+        // lists, new portrait textures). This is now a NON-BLOCKING GC hint only — the profiler
+        // proved a blocking collect costs seconds and frees nothing on large heaps (see
+        // PawnEditorMemory). It may do nothing; the automatic GC reclaims on its own schedule.
         PawnEditorMemory.CollectAfterHeavyOp("pawn duplication");
     }
 

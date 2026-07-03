@@ -121,14 +121,9 @@ public static partial class PawnEditor
         dst.story.furDef            = src.story.furDef;
         try { dst.story.melanin = src.story.melanin; } catch { }
 
-        // Invalidate all cached render data so the game re-bakes from the new values
-        try
-        {
-            dst.Drawer?.renderer?.SetAllGraphicsDirty();
-            PortraitsCache.SetDirty(dst);
-            GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(dst);
-        }
-        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup graphics refresh (appearance): {ex.Message}"); }
+        // Invalidate all cached render data so the game re-bakes from the new values.
+        // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+        RefreshPawnGraphics(dst);
     }
 
     /// <summary>
@@ -147,13 +142,8 @@ public static partial class PawnEditor
             dst.style.FaceTattoo = src.style.FaceTattoo;
         }
 
-        try
-        {
-            dst.Drawer?.renderer?.SetAllGraphicsDirty();
-            PortraitsCache.SetDirty(dst);
-            GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(dst);
-        }
-        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup graphics refresh (style): {ex.Message}"); }
+        // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+        RefreshPawnGraphics(dst);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

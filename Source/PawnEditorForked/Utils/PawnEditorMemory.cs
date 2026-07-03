@@ -30,32 +30,33 @@ namespace PawnEditor;
 public static class PawnEditorMemory
 {
     /// <summary>
-    /// Performs a CHEAP, gen-0-only collection after a heavy, one-off operation, to sweep the
-    /// short-lived garbage that op just produced (reflection arg arrays, temp lists) before it
-    /// gets promoted to older generations.
+    /// Requests a NON-BLOCKING, optimized garbage collection hint after a heavy, one-off op.
     ///
-    /// IMPORTANT HISTORY (don't regress this): the original version called
-    /// GC.Collect(MaxGeneration, ...), a FULL-heap collection. The profiler measured that at
-    /// ~4.3 SECONDS on a large modlist (it was 94% of a 4.5s blueprint load), because collecting
-    /// the whole heap is expensive no matter the mode — Optimized/non-blocking does NOT save you
-    /// when the heap is huge. So we now collect ONLY gen 0: it reclaims the recent burst of
-    /// garbage (the actual reason this helper exists) without the multi-second full-heap sweep.
-    /// Gen 0 collections are designed to be fast and frequent.
+    /// IMPORTANT HISTORY (measured, don't regress):
+    /// - v1 called GC.Collect(MaxGeneration, ...): profiler measured ~4.3s (full-heap sweep).
+    /// - v2 changed to GC.Collect(0, Forced, blocking:true) assuming "gen-0 is cheap". The
+    ///   profiler (banderita Load.CollectGen0) then measured that at ~3.9s while freeing 0 KB.
+    ///   The lesson: blocking:true is stop-the-world REGARDLESS of generation; on a huge modlist
+    ///   heap even a gen-0 blocking collect takes seconds, and it reclaimed nothing useful.
+    /// - v3 (now): removed the blocking forced collect from the load path entirely (it cost
+    ///   seconds and freed nothing). This helper is kept as a NON-BLOCKING hint only, for callers
+    ///   that still want to nudge the GC without freezing the main thread. It may do nothing if
+    ///   the runtime decides a collection isn't worthwhile — which is fine; the automatic GC will
+    ///   reclaim on its own schedule.
     ///
-    /// We intentionally do NOT force gen 1/2 here. The automatic GC handles older generations on
-    /// its own schedule; forcing a full collection bought us nothing but a freeze.
+    /// If you need memory reclaimed, prefer reducing allocations over forcing collections. Forcing
+    /// a blocking GC to "clean up now" has repeatedly cost multi-second freezes for no measured
+    /// benefit on this heap.
     /// </summary>
-    /// <param name="reason">
-    /// Short label for logging if the collection itself throws (it normally won't). Helps trace
-    /// which operation triggered it without adding noise on the success path.
-    /// </param>
+    /// <param name="reason">Short label for logging if the collection itself throws.</param>
     public static void CollectAfterHeavyOp(string reason = null)
     {
         try
         {
-            // Generation 0 only: cheap sweep of the just-created short-lived objects. Forced (not
-            // Optimized) because we DO want gen 0 cleared now; gen 0 is small so this stays fast.
-            GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+            // NON-BLOCKING + Optimized: a hint, not a stop-the-world. The runtime may skip it if
+            // it judges a collection unnecessary. This is deliberately weak: the profiler proved
+            // that a BLOCKING collect here costs seconds and frees nothing on large heaps.
+            GC.Collect(0, GCCollectionMode.Optimized, blocking: false);
         }
         catch (Exception ex)
         {

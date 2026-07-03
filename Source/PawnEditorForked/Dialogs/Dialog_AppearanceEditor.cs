@@ -658,14 +658,12 @@ public class Dialog_AppearanceEditor : Window
                 new("PawnEditor.Shape".Translate(), () =>
                 {
                     pawn.story.bodyType = (BodyTypeDef)GetAllDefsForTab(MainTab.Shape, ShapeTab.Body).Where(MatchesSource).RandomElement();
-                    pawn.drawer.renderer.SetAllGraphicsDirty();
-                    PortraitsCache.SetDirty(pawn);
+                    PawnEditor.RefreshPawnGraphics(pawn);
                 }),
                 new("PawnEditor.Head".Translate().CapitalizeFirst(), () =>
                 {
                     pawn.story.headType = (HeadTypeDef)GetAllDefsForTab(MainTab.Shape, ShapeTab.Head).Where(MatchesSource).RandomElement();
-                    pawn.drawer.renderer.SetAllGraphicsDirty();
-                    PortraitsCache.SetDirty(pawn);
+                    PawnEditor.RefreshPawnGraphics(pawn);
                 }),
             };
 
@@ -675,8 +673,7 @@ public class Dialog_AppearanceEditor : Window
                 {
                     pawn.style.FaceTattoo = DefDatabase<TattooDef>.AllDefs.Where(MatchesSource).RandomElement();
                     pawn.style.BodyTattoo = DefDatabase<TattooDef>.AllDefs.Where(MatchesSource).RandomElement();
-                    pawn.drawer.renderer.SetAllGraphicsDirty();
-                    PortraitsCache.SetDirty(pawn);
+                    PawnEditor.RefreshPawnGraphics(pawn);
                 }));
             }
 

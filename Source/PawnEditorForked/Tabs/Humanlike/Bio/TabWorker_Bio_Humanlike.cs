@@ -235,8 +235,10 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                 pawn.style.beardDef = beard;
             }
 
-            pawn.drawer.renderer.SetAllGraphicsDirty();
-            PortraitsCache.SetDirty(pawn);
+            // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+            // Previously omitted GlobalTextureAtlasManager; the helper includes it so the map
+            // sprite updates too after loading a saved appearance.
+            PawnEditor.RefreshPawnGraphics(pawn);
         }
     }
 }

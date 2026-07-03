@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -11,6 +12,9 @@ public partial class TabWorker_Bio_Humanlike
     public override IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn)
     {
         yield return new("PawnEditor.All".Translate(), () => RandomizeAll(pawn));
+        // "Keep xenotype": same full randomize, but the new pawn keeps the original's species/
+        // xenotype (def or custom). Useful for "give me a fresh pawn but still a Veldrak".
+        yield return new("PawnEditor.AllKeepXenotype".Translate(), () => RandomizeAll(pawn, keepXenotype: true));
         yield return new("Appearance".Translate(), () => RandomizeAppearance(pawn));
         // yield return new("PawnEditor.Shape".Translate(), () => RandomizeShape(pawn));
         yield return new("Relations".Translate(), () => RandomizeRelations(pawn));
@@ -25,17 +29,36 @@ public partial class TabWorker_Bio_Humanlike
         }
     }
 
-    public static void RandomizeAll(Pawn pawn)
+    public static void RandomizeAll(Pawn pawn, bool keepXenotype = false)
     {
         if (!PawnEditor.Pregame)
         {
+            // Capture the old pawn's xenotype BEFORE deleting it, if we're preserving species.
+            // Two cases (confirmed against pawn.genes API used elsewhere in this mod):
+            //  - a XenotypeDef (e.g. Sanguophage, or a modded species like Veldrak) -> genes.Xenotype
+            //  - a hand-built CustomXenotype (genes assembled by the user)            -> genes.CustomXenotype
+            XenotypeDef keptXenotype = null;
+            CustomXenotype keptCustom = null;
+            if (keepXenotype && ModsConfig.BiotechActive && pawn.genes != null)
+            {
+                keptCustom = pawn.genes.CustomXenotype;      // non-null only for custom xenotypes
+                if (keptCustom == null) keptXenotype = pawn.genes.Xenotype;  // otherwise the def
+            }
+
             // Delete
             var oldPawn = pawn;
             var position = oldPawn.Position;
             var map = oldPawn.Map;
             PawnEditor.PawnList.OnDelete(oldPawn);
-            // Replace
-            pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(pawn.kindDef, PawnEditor.selectedFaction));
+            // Replace. Force the def xenotype at generation time when we have one (the custom case
+            // is re-applied after generation, below, since it isn't a single def).
+            var request = new PawnGenerationRequest(pawn.kindDef, PawnEditor.selectedFaction);
+            if (keptXenotype != null) request.ForcedXenotype = keptXenotype;
+            pawn = PawnGenerator.GeneratePawn(request);
+
+            // Re-apply a CUSTOM xenotype after generation (it's a set of genes, not a single def).
+            if (keptCustom != null) ApplyCustomXenotypeTo(pawn, keptCustom);
+
             PawnEditor.AddPawn(pawn, PawnEditor.selectedCategory).HandleResult();
             if (!PawnEditor.Pregame && map != null)
             {
@@ -47,8 +70,39 @@ public partial class TabWorker_Bio_Humanlike
         }
         else
         {
+            // Pregame path uses vanilla's randomizer. It doesn't expose a keep-xenotype option, so
+            // for now keepXenotype has no effect here (the whole pawn including xenotype is rerolled).
             var index = StartingPawnUtility.PawnIndex(pawn);
             StartingPawnUtility.RandomizePawn(index);
+        }
+    }
+
+    /// <summary>
+    /// Applies a saved CustomXenotype to a freshly generated pawn, mirroring the guarded logic in
+    /// Dialog_AppearanceEditor.ApplyCustomXenotype (skip null genes from removed mods; never let a
+    /// bad gene abort the rest). Static so RandomizeAll can call it.
+    /// </summary>
+    private static void ApplyCustomXenotypeTo(Pawn pawn, CustomXenotype customXenotype)
+    {
+        if (pawn?.genes == null || customXenotype == null) return;
+        try
+        {
+            if (!pawn.IsBaseliner()) pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
+            pawn.genes.xenotypeName = customXenotype.name;
+            pawn.genes.iconDef = customXenotype.IconDef;
+            if (customXenotype.genes != null)
+            {
+                foreach (var geneDef in customXenotype.genes)
+                {
+                    if (geneDef == null) continue; // gene from a removed mod
+                    try { pawn.genes.AddGene(geneDef, !customXenotype.inheritable); }
+                    catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipped a gene re-applying xenotype '{customXenotype.name}': {ex.Message}"); }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Pawn Editor] Failed to re-apply custom xenotype '{customXenotype.name}': {ex.Message}");
         }
     }
 
@@ -124,8 +178,11 @@ public partial class TabWorker_Bio_Humanlike
         pawn.story.headType = headTypes.RandomElement();
         // Gender intentionally NOT randomized here — RandomizeShape is about body/head, not sex.
 
-        pawn.drawer.renderer.SetAllGraphicsDirty();
-        PortraitsCache.SetDirty(pawn);
+        // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
+        // NOTE: this path previously omitted GlobalTextureAtlasManager, so the pawn's MAP sprite
+        // could keep the old body/head after a randomize until something else refreshed it. The
+        // helper includes it, so the map sprite now updates too.
+        PawnEditor.RefreshPawnGraphics(pawn);
     }
 
     private static void RandomizeTraits(Pawn pawn)
