@@ -265,6 +265,10 @@
     <!-- Blueprint system -->
     <PawnEditor.SaveBlueprint>Save as blueprint (portable)</PawnEditor.SaveBlueprint>
 
+    <!-- Colony save (v3.1) -->
+    <PawnEditor.SaveColonyPawns>Save colony pawns (portable)</PawnEditor.SaveColonyPawns>
+    <PawnEditor.SavingColony>Saving colony...</PawnEditor.SavingColony>
+
     <!-- VAspirE Aspirations -->
     <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>
     <PawnEditor.ClickToUncomplete>Click to mark as incomplete</PawnEditor.ClickToUncomplete>

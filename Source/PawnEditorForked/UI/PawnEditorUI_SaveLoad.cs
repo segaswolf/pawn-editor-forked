@@ -128,6 +128,11 @@ public static partial class PawnEditor
         if (Pregame)
             yield return new SaveLoadItem<StartingThingsManager.StartingPreset>("PawnEditor.StartingPreset".Translate().CapitalizeFirst(), new());
         else
+        {
+            // v3.1 CAPA 1 — Save the colony as portable pawn blueprints (no map, no research).
+            // Kept alongside the legacy full-map Scribe save below until the load side (CAPA 2) lands.
+            yield return new SaveItem("PawnEditor.SaveColonyPawns".Translate(), ColonySaveUtility.SaveColony);
+
             yield return new SaveLoadItem<Map>("PawnEditor.Colony".Translate(), Find.CurrentMap, new()
             {
                 PrepareLoad = map =>
@@ -139,6 +144,7 @@ public static partial class PawnEditor
                 },
                 OnLoad = map => map.FinalizeLoading()
             });
+        }
 
         if (curTab != null)
             if (showFactionInfo)
