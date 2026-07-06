@@ -86,6 +86,11 @@ public static partial class PawnBlueprintSaveLoad
             LoadInventory(pawn, root);
             LoadRoyalTitles(pawn, root);
             LoadRecords(pawn, root);
+            LoadTraining(pawn, root);
+            LoadMaster(pawn, root);
+            LoadMechanitor(pawn, root);
+            LoadMechControl(pawn, root);
+            LoadMechUpgrades(pawn, root);
             FacialAnimCompat.LoadFacialData(pawn, root);
         });
 

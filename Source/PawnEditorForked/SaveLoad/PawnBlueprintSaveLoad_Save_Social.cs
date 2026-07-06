@@ -29,6 +29,11 @@ public static partial class PawnBlueprintSaveLoad
             {
                 if (rel.def == null || rel.otherPawn == null) continue;
                 if (rel.otherPawn == pawn) continue;
+                // The mechanitor<->mech Overseer link is a DirectRelation, but we do NOT save it here.
+                // Saving it on the mechanitor makes a same-game clone re-bind to the ORIGINAL's mech
+                // (phantom bandwidth). The overseer link is stored once, on the mech's side
+                // (<mechControl>), and re-established on load via LoadMechControl.
+                if (rel.def == PawnRelationDefOf.Overseer) continue;
                 w.WriteStartElement("li");
                 WriteDefWithSource(w, "def", rel.def);
                 w.WriteElementString("otherPawnID", rel.otherPawn.ThingID ?? "");

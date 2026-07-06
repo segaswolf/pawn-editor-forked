@@ -31,6 +31,9 @@ public static partial class PawnBlueprintSaveLoad
                 {
                     var relDef    = ResolveDef<PawnRelationDef>(li, "def");
                     if (relDef == null) continue;
+                    // Overseer is handled by LoadMechControl (mech side), never as a generic relation
+                    // — restoring it here would re-bind a clone to the original's mech (phantom).
+                    if (relDef == PawnRelationDefOf.Overseer) continue;
                     var otherPawnID = GetText(li, "otherPawnID");
                     var otherFirst  = GetText(li, "otherPawnFirst");
                     var otherNick   = GetText(li, "otherPawnNick");

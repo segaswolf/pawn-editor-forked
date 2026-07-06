@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using RimWorld;
@@ -17,11 +18,23 @@ public static partial class PawnBlueprintSaveLoad
     private static void WriteHediffs(XmlWriter w, Pawn pawn)
     {
         if (pawn.health?.hediffSet == null) return;
+
+        // Hediffs flagged duplicationAllowed=false are a DUPLICATION rule (the game blocks copying
+        // unique implants/quest markers onto a clone). The blueprint reuses this path for both
+        // duplicate and save, so it also skips them here. Rather than dropping them silently, we
+        // collect and log them per pawn — visible, auditable, no spam. (The mechanitor mechlink is
+        // one of these; its status is preserved separately via <mechanitor>, see WriteMechanitor.)
+        var skippedNonDuplicable = new List<string>();
+
         w.WriteStartElement("hediffs");
         foreach (var hediff in pawn.health.hediffSet.hediffs)
         {
             if (hediff?.def == null) continue;
-            if (!hediff.def.duplicationAllowed) continue;
+            if (!hediff.def.duplicationAllowed)
+            {
+                skippedNonDuplicable.Add(hediff.def.defName);
+                continue;
+            }
 
             w.WriteStartElement("li");
             w.WriteAttributeString("defName",  hediff.def.defName);
@@ -41,6 +54,10 @@ public static partial class PawnBlueprintSaveLoad
             w.WriteEndElement();
         }
         w.WriteEndElement();
+
+        if (skippedNonDuplicable.Count > 0)
+            Log.Message($"[Pawn Editor] {pawn.LabelShortCap}: skipped {skippedNonDuplicable.Count} " +
+                        $"non-duplicable hediff(s) per game rules: {string.Join(", ", skippedNonDuplicable)}");
     }
 
     // ── Save: Abilities ──

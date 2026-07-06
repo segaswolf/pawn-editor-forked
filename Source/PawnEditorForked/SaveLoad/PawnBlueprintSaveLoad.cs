@@ -85,6 +85,11 @@ public static partial class PawnBlueprintSaveLoad
         WriteInventory(writer, pawn);
         WriteRoyalTitles(writer, pawn);
         WriteRecords(writer, pawn);
+        WriteTraining(writer, pawn);
+        WriteMaster(writer, pawn);
+        WriteMechControl(writer, pawn);
+        WriteMechUpgrades(writer, pawn);
+        WriteMechanitor(writer, pawn);
         FacialAnimCompat.WriteFacialData(writer, pawn);
         WriteAspirations(writer, pawn);
         WriteExpertise(writer, pawn);
