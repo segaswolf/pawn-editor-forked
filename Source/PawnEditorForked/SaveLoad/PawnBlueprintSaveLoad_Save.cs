@@ -30,6 +30,11 @@ public static partial class PawnBlueprintSaveLoad
         else if (pawn.Name != null)
             WriteSimple(w, "name", pawn.Name.ToStringFull);
 
+        // The pawn's OWN ThingID. Not used for single-pawn load, but the colony loader needs it to
+        // build the remap (old saved ID -> new clone) so bonds/master/overseer resolve clone->clone
+        // instead of binding to the originals. ThingID is unique, unlike names (3 identical pawns).
+        WriteSimple(w, "savedThingID", pawn.ThingID);
+
         WriteSimple(w, "gender",          pawn.gender.ToString());
         WriteSimple(w, "biologicalAge",   pawn.ageTracker.AgeBiologicalYearsFloat.ToString("F2"));
         WriteSimple(w, "chronologicalAge",pawn.ageTracker.AgeChronologicalYearsFloat.ToString("F2"));

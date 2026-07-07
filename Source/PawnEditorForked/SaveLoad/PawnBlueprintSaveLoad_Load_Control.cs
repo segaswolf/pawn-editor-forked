@@ -153,20 +153,7 @@ public static partial class PawnBlueprintSaveLoad
         string idElem = "otherPawnID", string firstElem = "otherPawnFirst",
         string nickElem = "otherPawnNick", string lastElem = "otherPawnLast", string fullElem = "otherPawnName")
     {
-        var id    = GetText(node, idElem);
-        var first = GetText(node, firstElem);
-        var last  = GetText(node, lastElem);
-        var full  = GetText(node, fullElem);
-
-        var all = GetAllReachablePawns();
-
-        Pawn found = null;
-        if (!id.NullOrEmpty())
-            found = all.FirstOrDefault(p => p != self && p.ThingID == id);
-        if (found == null && !first.NullOrEmpty() && !last.NullOrEmpty())
-            found = all.FirstOrDefault(p => p != self && p.Name is NameTriple nt && nt.First == first && nt.Last == last);
-        if (found == null && !full.NullOrEmpty())
-            found = all.FirstOrDefault(p => p != self && p.Name?.ToStringFull == full);
-        return found;
+        return ResolvePawnRef(GetAllReachablePawns(), self,
+            GetText(node, idElem), GetText(node, firstElem), GetText(node, lastElem), GetText(node, fullElem));
     }
 }

@@ -129,21 +129,11 @@ public static partial class PawnEditor
             yield return new SaveLoadItem<StartingThingsManager.StartingPreset>("PawnEditor.StartingPreset".Translate().CapitalizeFirst(), new());
         else
         {
-            // v3.1 CAPA 1 — Save the colony as portable pawn blueprints (no map, no research).
-            // Kept alongside the legacy full-map Scribe save below until the load side (CAPA 2) lands.
+            // v3.1 — Portable colony save/load: pawns only (no map, no research), tolerant of missing
+            // mods/versions. Replaces the old full-map Scribe colony save/load (removed), which was
+            // frail across versions/mods and didn't pair with the portable save.
             yield return new SaveItem("PawnEditor.SaveColonyPawns".Translate(), ColonySaveUtility.SaveColony);
-
-            yield return new SaveLoadItem<Map>("PawnEditor.Colony".Translate(), Find.CurrentMap, new()
-            {
-                PrepareLoad = map =>
-                {
-                    MapDeiniter.DoQueuedPowerTasks(map);
-                    map.weatherManager.EndAllSustainers();
-                    Find.SoundRoot.sustainerManager.EndAllInMap(map);
-                    Find.TickManager.RemoveAllFromMap(map);
-                },
-                OnLoad = map => map.FinalizeLoading()
-            });
+            yield return new LoadItem("PawnEditor.LoadColonyPawns".Translate(), ShowLoadColonyMenu);
         }
 
         if (curTab != null)
@@ -153,6 +143,23 @@ public static partial class PawnEditor
             else
                 foreach (var item in curTab.GetSaveLoadItems(selectedPawn))
                     yield return item;
+    }
+
+    // v3.1 — Pick which saved colony to load. Lists each colony folder (faction / settlement) that
+    // holds blueprints; loading runs the two-pass remap orchestrator (ColonyLoadUtility).
+    private static void ShowLoadColonyMenu()
+    {
+        var colonies = ColonyLoadUtility.GetSavedColonies();
+        if (colonies.Count == 0)
+        {
+            Messages.Message("PawnEditor.NoSavedColonies".Translate(), MessageTypeDefOf.RejectInput, false);
+            return;
+        }
+
+        var options = colonies
+            .Select(c => new FloatMenuOption(c.label, () => ColonyLoadUtility.LoadColony(c.folderType)))
+            .ToList();
+        Find.WindowStack.Add(new FloatMenu(options));
     }
 
     private static IEnumerable<FloatMenuOption> GetRandomizationOptions()

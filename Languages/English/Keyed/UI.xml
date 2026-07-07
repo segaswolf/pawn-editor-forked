@@ -265,9 +265,12 @@
     <!-- Blueprint system -->
     <PawnEditor.SaveBlueprint>Save as blueprint (portable)</PawnEditor.SaveBlueprint>
 
-    <!-- Colony save (v3.1) -->
+    <!-- Colony save/load (v3.1) -->
     <PawnEditor.SaveColonyPawns>Save colony pawns (portable)</PawnEditor.SaveColonyPawns>
     <PawnEditor.SavingColony>Saving colony...</PawnEditor.SavingColony>
+    <PawnEditor.LoadColonyPawns>Load colony pawns (portable)</PawnEditor.LoadColonyPawns>
+    <PawnEditor.LoadingColony>Loading colony...</PawnEditor.LoadingColony>
+    <PawnEditor.NoSavedColonies>No saved colonies found.</PawnEditor.NoSavedColonies>
 
     <!-- VAspirE Aspirations -->
     <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>

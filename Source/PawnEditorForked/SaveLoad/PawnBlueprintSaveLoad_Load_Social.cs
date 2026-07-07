@@ -34,32 +34,37 @@ public static partial class PawnBlueprintSaveLoad
                     // Overseer is handled by LoadMechControl (mech side), never as a generic relation
                     // — restoring it here would re-bind a clone to the original's mech (phantom).
                     if (relDef == PawnRelationDefOf.Overseer) continue;
-                    var otherPawnID = GetText(li, "otherPawnID");
-                    var otherFirst  = GetText(li, "otherPawnFirst");
-                    var otherNick   = GetText(li, "otherPawnNick");
-                    var otherLast   = GetText(li, "otherPawnLast");
-                    var otherName   = GetText(li, "otherPawnName");
-
-                    bool isSelf = (!otherPawnID.NullOrEmpty() && otherPawnID == pawn.ThingID)
-                                || (!otherFirst.NullOrEmpty() && !otherLast.NullOrEmpty()
-                                    && pawn.Name is NameTriple selfNt
-                                    && selfNt.First == otherFirst && selfNt.Last == otherLast);
-                    if (isSelf) continue;
-
-                    Pawn otherPawn = null;
-                    if (!otherPawnID.NullOrEmpty())
-                        otherPawn = allPawns.FirstOrDefault(p => p != pawn && p.ThingID == otherPawnID);
-                    if (otherPawn == null && !otherFirst.NullOrEmpty())
-                        otherPawn = allPawns.FirstOrDefault(p =>
-                            p != pawn && p.Name is NameTriple nt &&
-                            nt.First == otherFirst && nt.Last == otherLast);
-                    if (otherPawn == null && !otherName.NullOrEmpty())
-                        otherPawn = allPawns.FirstOrDefault(p =>
-                            p != pawn && p.Name?.ToStringFull == otherName);
-
+                    var otherPawn = ResolvePawnRef(allPawns, pawn,
+                        GetText(li, "otherPawnID"), GetText(li, "otherPawnFirst"),
+                        GetText(li, "otherPawnLast"), GetText(li, "otherPawnName"));
                     if (otherPawn == null)
                     {
-                        Warn($"Relation '{relDef.defName}': could not find '{otherFirst} {otherLast}'");
+                        Warn($"Relation '{relDef.defName}': target not found or ambiguous");
+                        continue;
+                    }
+
+                    // Safeguard for exclusive relations that shouldn't be duplicated onto a shared
+                    // target when loading/cloning:
+                    //   - Love partner (spouse/lover/fiance): don't force polygamy onto someone who
+                    //     already has a partner (could break a monogamous ideology). Gated by the
+                    //     "Allow polygamy on load" setting for ideologies/mods that permit it.
+                    //   - Animal bond: an animal can only have ONE master (a human may bond many
+                    //     animals). Cloning the master would give the animal a second master, so skip
+                    //     when the target animal is already bonded. (Not ideology-dependent -> always.)
+                    bool wouldForcePolygamy =
+                        LovePartnerRelationUtility.IsLovePartnerRelation(relDef)
+                        && !(PawnEditorMod.Settings?.AllowPolygamyOnLoad ?? false)
+                        && LovePartnerRelationUtility.HasAnyLovePartner(otherPawn);
+
+                    bool wouldGiveAnimalSecondMaster =
+                        relDef == PawnRelationDefOf.Bond
+                        && otherPawn.RaceProps?.Animal == true
+                        && otherPawn.relations != null
+                        && otherPawn.relations.DirectRelations.Any(r => r.def == PawnRelationDefOf.Bond);
+
+                    if (wouldForcePolygamy || wouldGiveAnimalSecondMaster)
+                    {
+                        Warn($"Skipped exclusive relation '{relDef.defName}' with '{otherPawn.LabelShort}' — target already has one (partner/master).");
                         continue;
                     }
 

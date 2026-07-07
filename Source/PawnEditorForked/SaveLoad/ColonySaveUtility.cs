@@ -44,10 +44,36 @@ public static class ColonySaveUtility
 
         var folderType = BuildColonyFolderType();
 
-        // Run the loop inside a SYNCHRONOUS long event: a full colony can be 30+ pawns, each
-        // ~30 ms of XML write plus a portrait render. Without a long event the UI freezes with
-        // no feedback; with one the user sees a "Saving..." bar. doAsynchronously:false keeps the
-        // work on the main thread, which the portrait render (SavePawnTex) requires.
+        // If this colony folder already holds a save, warn before overwriting. Re-saving CLEARS the
+        // folder (fresh snapshot, no stale files), so the old colony save is deleted — make that an
+        // explicit, confirmed choice rather than a silent wipe.
+        if (ColonyFolderHasSave(folderType))
+        {
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                $"A colony save already exists at '{folderType}'.\n\nSaving will delete the old files and replace them with the current colony. Continue?",
+                () => RunColonySave(pawns, folderType),
+                destructive: true));
+            return;
+        }
+
+        RunColonySave(pawns, folderType);
+    }
+
+    /// <summary>True if this colony folder already contains at least one saved blueprint.</summary>
+    private static bool ColonyFolderHasSave(string folderType)
+    {
+        try { return SaveLoadUtility.SaveFolderForItemType(folderType).GetFiles().Any(f => f.Extension == ".xml"); }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Run the save loop inside a SYNCHRONOUS long event: a full colony can be 30+ pawns, each ~30 ms
+    /// of XML write plus a portrait render. Without a long event the UI freezes with no feedback;
+    /// with one the user sees a "Saving..." bar. doAsynchronously:false keeps the work on the main
+    /// thread, which the portrait render (SavePawnTex) requires.
+    /// </summary>
+    private static void RunColonySave(List<Pawn> pawns, string folderType)
+    {
         LongEventHandler.QueueLongEvent(
             () => PawnEditorProfiler.Measure("SaveLoad.SaveColony", PawnEditorProfiler.Cadence.PerAction,
                 () => SaveColonyPawns(pawns, folderType)),

@@ -21,6 +21,12 @@ public class PawnEditorSettings : ModSettings
     public float PointLimit = 100000f;
     public bool ShowOpenButton = true;
     public bool UseSilver;
+
+    // When a loaded/cloned pawn has an exclusive love-partner relation (spouse/lover/fiance) toward
+    // someone who already has a partner, we drop it by default so we never force polygamy against a
+    // monogamous ideology (which could trip precepts or mood). Players whose ideology/mods allow
+    // polygamy can opt in here to keep those relations.
+    public bool AllowPolygamyOnLoad;
     public KeyCode EditorHotkey = KeyCode.KeypadMinus;
 
     // Debug-only: when enabled, PawnEditorProfiler logs timing/allocation "flags" for editor
@@ -42,6 +48,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref HediffLocationLimit, nameof(HediffLocationLimit), HediffLocation.RecipeDef);
         Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
         Scribe_Values.Look(ref ProfilingEnabled, nameof(ProfilingEnabled));
+        Scribe_Values.Look(ref AllowPolygamyOnLoad, nameof(AllowPolygamyOnLoad));
 
         if (HARCompat.Active)
         {

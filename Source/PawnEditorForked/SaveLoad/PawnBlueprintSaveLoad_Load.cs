@@ -20,6 +20,11 @@ namespace PawnEditor;
 /// </summary>
 public static partial class PawnBlueprintSaveLoad
 {
+    // Colony-load remap: when non-null, cross-pawn references (bonds, master, overseer) resolve
+    // against this map (old saved ThingID -> the freshly created clone) FIRST, so a loaded colony
+    // links clone<->clone instead of binding to the originals. Null for single-pawn loads.
+    internal static Dictionary<string, Pawn> ColonyRemap;
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Core build pipeline (called from LoadBlueprint in the main file)
     // ─────────────────────────────────────────────────────────────────────────
@@ -81,15 +86,18 @@ public static partial class PawnBlueprintSaveLoad
             LoadHediffs(pawn, root);
             LoadAbilities(pawn, root);
             LoadApparel(pawn, root);
-            LoadRelations(pawn, root);
+            // Cross-pawn references (relations/bonds, master, overseer) are DEFERRED to a second pass
+            // in colony load (ColonyRemap != null) so they resolve clone<->clone via the remap. For a
+            // single-pawn load they run inline here as before. See ApplyRelationalSections.
+            if (ColonyRemap == null) LoadRelations(pawn, root);
             LoadWorkPriorities(pawn, root);
             LoadInventory(pawn, root);
             LoadRoyalTitles(pawn, root);
             LoadRecords(pawn, root);
             LoadTraining(pawn, root);
-            LoadMaster(pawn, root);
+            if (ColonyRemap == null) LoadMaster(pawn, root);
             LoadMechanitor(pawn, root);
-            LoadMechControl(pawn, root);
+            if (ColonyRemap == null) LoadMechControl(pawn, root);
             LoadMechUpgrades(pawn, root);
             FacialAnimCompat.LoadFacialData(pawn, root);
         });
@@ -194,6 +202,26 @@ public static partial class PawnBlueprintSaveLoad
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  Colony load support (two-pass orchestrator lives in ColonyLoadUtility)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Build one clone from a parsed blueprint root. With ColonyRemap set, cross-pawn
+    /// sections are deferred (second pass). First pass of the colony loader.</summary>
+    internal static Pawn BuildColonyPawnFromRoot(XmlNode root) => BuildPawnFromBlueprint(root);
+
+    /// <summary>Apply the deferred cross-pawn sections (relations/bonds, master, overseer). Second
+    /// pass of the colony loader, once every clone exists and ColonyRemap is populated.</summary>
+    internal static void ApplyRelationalSections(Pawn pawn, XmlNode root)
+    {
+        LoadRelations(pawn, root);
+        LoadMaster(pawn, root);
+        LoadMechControl(pawn, root);
+    }
+
+    /// <summary>Clear accumulated load warnings (the colony loader brackets its run with this).</summary>
+    internal static void ClearLoadWarnings() => loadWarnings.Clear();
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  Shared parse/resolve helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -222,6 +250,45 @@ public static partial class PawnBlueprintSaveLoad
         var def = DefDatabase<T>.GetNamedSilentFail(defName);
         if (def == null) Warn($"{typeof(T).Name} '{defName}' not found");
         return def;
+    }
+
+    /// <summary>
+    /// Resolve a saved pawn reference to an actual pawn. Order:
+    ///   1) Colony load: the remapped clone by saved ThingID (unique, unambiguous).
+    ///   2) Existing world pawn by ThingID.
+    ///   3) Existing world pawn by NameTriple, then full name — AMBIGUITY-SAFE: if more than one pawn
+    ///      matches the name (e.g. three pawns named "Alexandra"), we do NOT guess; skip with a warning.
+    ///      Names are not unique, only ThingIDs are.
+    /// Returns null when nothing resolves — the caller must skip the link and load the pawn anyway.
+    /// </summary>
+    private static Pawn ResolvePawnRef(List<Pawn> allPawns, Pawn self,
+        string id, string first, string last, string full)
+    {
+        if (ColonyRemap != null && !id.NullOrEmpty() && ColonyRemap.TryGetValue(id, out var clone))
+            return clone;
+
+        if (!id.NullOrEmpty())
+        {
+            var byId = allPawns.FirstOrDefault(p => p != self && p.ThingID == id);
+            if (byId != null) return byId;
+        }
+
+        if (!first.NullOrEmpty() && !last.NullOrEmpty())
+        {
+            var byName = allPawns.Where(p => p != self && p.Name is NameTriple nt
+                                          && nt.First == first && nt.Last == last).ToList();
+            if (byName.Count == 1) return byName[0];
+            if (byName.Count > 1) { Warn($"Reference '{first} {last}' is ambiguous ({byName.Count} matches) — skipped"); return null; }
+        }
+
+        if (!full.NullOrEmpty())
+        {
+            var byFull = allPawns.Where(p => p != self && p.Name?.ToStringFull == full).ToList();
+            if (byFull.Count == 1) return byFull[0];
+            if (byFull.Count > 1) { Warn($"Reference '{full}' is ambiguous — skipped"); return null; }
+        }
+
+        return null;
     }
 
     private static string GetText(XmlNode parent, string xpath)
