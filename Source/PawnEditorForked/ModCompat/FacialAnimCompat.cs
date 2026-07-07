@@ -244,50 +244,15 @@ public static class FacialAnimCompat
     /// <summary>Save all FA data to XML.</summary>
     public static void WriteFacialData(XmlWriter w, Pawn pawn)
     {
-        Log.Warning($"[Pawn Editor] FA WriteFacialData called for {pawn?.LabelShort ?? "null"}, Active={Active}");
         if (!Active) return;
 
         var controllerTypes = ControllerTypes;
         var hasAnyData = false;
-
-        // DEBUG: Dump all comps to find where FA data actually lives
-        var faComps = new System.Text.StringBuilder();
-        foreach (var comp in pawn.AllComps)
-        {
-            var typeName = comp.GetType().FullName ?? comp.GetType().Name;
-            if (typeName.Contains("Facial") || typeName.Contains("Face") || typeName.Contains("Controller")
-                || typeName.Contains("Eye") || typeName.Contains("Brow") || typeName.Contains("Lid")
-                || typeName.Contains("Mouth") || typeName.Contains("Skin") || typeName.Contains("Head")
-                || typeName.Contains("Draw"))
-                faComps.Append($" [{typeName}]");
-        }
-        if (faComps.Length > 0)
-            if (Verse.Prefs.DevMode)
-                Log.Message($"[Pawn Editor] FA comps on {pawn.LabelShort}:{faComps}");
-        else
-            Log.Warning($"[Pawn Editor] FA: No face-related comps found on {pawn.LabelShort}. Total comps: {pawn.AllComps.Count}");
-
-        // Pre-check: do we have any data?
-        var foundComps = new System.Text.StringBuilder();
         for (int i = 0; i < controllerTypes.Length; i++)
         {
             var comp = FindComp(pawn, controllerTypes[i]);
-            if (comp != null)
-            {
-                var ct = GetCurrentType(comp);
-                foundComps.Append($" {XmlNames[i]}={ct?.defName ?? "null"}");
-                if (ct != null) hasAnyData = true;
-            }
-            else
-            {
-                foundComps.Append($" {XmlNames[i]}=COMP_NOT_FOUND");
-            }
+            if (comp != null && GetCurrentType(comp) != null) { hasAnyData = true; break; }
         }
-        if (foundComps.Length > 0)
-            if (Verse.Prefs.DevMode)
-                Log.Message($"[Pawn Editor] FA data:{foundComps}");
-        else
-            Log.Warning($"[Pawn Editor] FA: No controller comps found via FindComp");
 
         if (!hasAnyData && GetFaceType(pawn) == null && !GetEyeballColor(pawn).HasValue)
             return; // Don't write empty element

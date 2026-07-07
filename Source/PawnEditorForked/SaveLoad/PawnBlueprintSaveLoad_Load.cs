@@ -218,8 +218,21 @@ public static partial class PawnBlueprintSaveLoad
         LoadMechControl(pawn, root);
     }
 
-    /// <summary>Clear accumulated load warnings (the colony loader brackets its run with this).</summary>
+    /// <summary>Clear accumulated load warnings (the colony loader resets before its run).</summary>
     internal static void ClearLoadWarnings() => loadWarnings.Clear();
+
+    /// <summary>Log any accumulated warnings as one summary (colony load doesn't pop a message per
+    /// pawn), then clear them. Keeps colony-load adjustments visible/auditable in the log.</summary>
+    internal static void FlushColonyWarnings(int pawnCount)
+    {
+        if (loadWarnings.Count > 0)
+        {
+            Log.Warning($"[Pawn Editor] Colony load: {loadWarnings.Count} adjustment(s) across {pawnCount} pawn(s):");
+            foreach (var warning in loadWarnings)
+                Log.Warning($"  → {warning}");
+        }
+        loadWarnings.Clear();
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Shared parse/resolve helpers

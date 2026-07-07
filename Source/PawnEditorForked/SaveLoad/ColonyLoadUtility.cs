@@ -135,7 +135,7 @@ public static class ColonyLoadUtility
         finally
         {
             PawnBlueprintSaveLoad.ColonyRemap = null;
-            PawnBlueprintSaveLoad.ClearLoadWarnings();
+            PawnBlueprintSaveLoad.FlushColonyWarnings(pairs.Count);
         }
 
         Messages.Message($"Pawn Editor: Loaded {pairs.Count} colony pawn(s) from {folderType}.",
