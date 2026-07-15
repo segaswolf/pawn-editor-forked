@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 
 
+## [v3.0] - 2026-07-13 — Portable Colonies, Performance & Quality of Life
+
+### Added — Portable colony & pawn save/load
+- New **Save colony pawns** / **Load colony pawns**: store a colony as portable pawn blueprints (no map, no research, no world state), replacing the old full-map save that was fragile across game versions and modlists.
+- Only the **pawns currently on the map** are saved (a note in the save dialog makes this explicit); anyone away in a caravan or traveling is intentionally left out.
+- **Category selection** on save and load: any combination of Humanlike / Animals / Mechs.
+- **Load modes**: *Load as new (clones)* or *Replace matching pawns by ID*, chosen in a single loader window (pick colony + mode + categories in one place). Replace is idempotent — pawns loaded from a save are stamped with their origin, so reloading a colony replaces those pawns instead of piling up duplicates.
+- **Overwrite vs Merge** when re-saving over an existing colony: *Overwrite* fully replaces the save (the folder is cleared first, so no stale pawns can survive); *Merge* updates only the selected categories and keeps the rest (re-saving just "Animals" no longer wipes the saved humans).
+
+### Added — Richer per-pawn data
+- **Animals**: training progress and the assigned master (handler) are saved and restored.
+- **Mechs**: overseer link, control-group assignment, **Mechanoid Upgrades** (gogatio) pieces, and mechanitor/mechlink status are all saved and re-applied on load.
+
+### Changed — Reference-safe loading
+- Cross-pawn links (bonds, master, overseer) are remapped by **ThingID**, so loading into a game that still has the originals links clone-to-clone — never back to the originals — even with identical-looking pawns.
+- **Safeguards**: never forces polygamy against a monogamous ideology (opt-in setting, off by default), never gives an animal a second master, and references that can't be resolved (e.g. a partner left out of the save) drop cleanly with a log note instead of leaving broken links.
+- **Transparency**: hediffs that can't be duplicated are listed in the log instead of being silently dropped.
+- Removed the legacy map-based (Scribe) colony save/load.
+
+### Added — Windows & quality of life
+- Every editor window can be **resized** (drag the bottom-right corner) and **moved** (drag it), covering the main editor, appearance editor, all pick lists and dialogs.
+- New **"Remember window position and size"** setting (off by default). Off: windows always reopen centered, so one left off-screen is always recoverable. On: they reopen where and how you left them.
+
+### Performance
+- **Appearance editor**: the hair, beard, tattoo, body/head and xenotype pickers no longer rebuild and re-filter their whole option list every frame (cached, rebuilt only on tab/filter/pawn change), and icon and gene grids now draw only the rows visible in the scroll viewport. No more framerate drop with 1000+ hairs or a large modded gene pool.
+- **Load freeze fixed**: loading no longer stalls on a forced garbage collection (~4.5s → ~250ms).
+- **Portrait fetch** no longer allocates every frame during normal play.
+- **Proficiency list caching** (Life Lessons): per-call allocation dropped from ~152 KB to ~20 KB.
+- Portrait texture churn fixed; graphics refresh centralized. Added an internal profiler for diagnostics.
+
+### Fixed
+- **"Randomize all — keep xenotype"** no longer loses genes and name on baseliner-named xenotypes (e.g. custom "Veldrak"-style xenotypes); endogenes, xenogenes, xenotype name and icon are preserved.
+- **Mechanitor "phantom" bandwidth**: cloning/loading a pawn no longer binds the clone to the *original's* mech.
+- **Black screen on load** (portrait cache was being fully cleared instead of marked dirty).
+- Surgical fix for a `PioneeringComp` null-reference on certain pawns.
+- Proficiency list now refreshes correctly after add/remove, with a sanitizer for malformed data.
+- Trait **Mute** handling and a Refill/Fulfillment desync.
+- Structural gene classifier for more reliable cosmetic/endogene/xenogene handling.
+
+
 ## [v2.4.6] - 2026-05-28
 
 ### Fixed — Life Lessons Compatibility

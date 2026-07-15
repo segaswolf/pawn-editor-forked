@@ -145,8 +145,9 @@ public static partial class PawnEditor
                     yield return item;
     }
 
-    // v3.1 — Pick which saved colony to load. Lists each colony folder (faction / settlement) that
-    // holds blueprints; loading runs the two-pass remap orchestrator (ColonyLoadUtility).
+    // v3.1 — Open the colony loader window (pick colony + mode + categories in one window). Must be a
+    // Window, not a FloatMenu: a FloatMenu opened from another FloatMenu option is closed on the same
+    // frame by RimWorld, so the old nested-menu version silently did nothing.
     private static void ShowLoadColonyMenu()
     {
         var colonies = ColonyLoadUtility.GetSavedColonies();
@@ -156,10 +157,7 @@ public static partial class PawnEditor
             return;
         }
 
-        var options = colonies
-            .Select(c => new FloatMenuOption(c.label, () => ColonyLoadUtility.LoadColony(c.folderType)))
-            .ToList();
-        Find.WindowStack.Add(new FloatMenu(options));
+        Find.WindowStack.Add(new Dialog_LoadColony(colonies));
     }
 
     private static IEnumerable<FloatMenuOption> GetRandomizationOptions()

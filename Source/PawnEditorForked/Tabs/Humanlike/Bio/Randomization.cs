@@ -33,16 +33,23 @@ public partial class TabWorker_Bio_Humanlike
     {
         if (!PawnEditor.Pregame)
         {
-            // Capture the old pawn's xenotype BEFORE deleting it, if we're preserving species.
-            // Two cases (confirmed against pawn.genes API used elsewhere in this mod):
-            //  - a XenotypeDef (e.g. Sanguophage, or a modded species like Veldrak) -> genes.Xenotype
-            //  - a hand-built CustomXenotype (genes assembled by the user)            -> genes.CustomXenotype
+            // Capture the old pawn's FULL xenotype identity before deleting it. Capturing only the
+            // XenotypeDef loses named/modded xenotypes whose def is Baseliner (e.g. "Veldrak" =
+            // Baseliner + a xenotypeName + Saurid genes) — those need their actual genes + name + icon,
+            // not just the def, or the reroll drops back to a plain baseliner.
             XenotypeDef keptXenotype = null;
             CustomXenotype keptCustom = null;
+            List<GeneDef> keptEndogenes = null, keptXenogenes = null;
+            string keptXenoName = null;
+            XenotypeIconDef keptIcon = null;
             if (keepXenotype && ModsConfig.BiotechActive && pawn.genes != null)
             {
-                keptCustom = pawn.genes.CustomXenotype;      // non-null only for custom xenotypes
-                if (keptCustom == null) keptXenotype = pawn.genes.Xenotype;  // otherwise the def
+                keptCustom    = pawn.genes.CustomXenotype;
+                keptXenotype  = pawn.genes.Xenotype;
+                keptXenoName  = pawn.genes.xenotypeName;
+                keptIcon      = pawn.genes.iconDef;
+                keptEndogenes = pawn.genes.Endogenes.Select(g => g.def).Where(d => d != null).ToList();
+                keptXenogenes = pawn.genes.Xenogenes.Select(g => g.def).Where(d => d != null).ToList();
             }
 
             // Delete
@@ -50,14 +57,28 @@ public partial class TabWorker_Bio_Humanlike
             var position = oldPawn.Position;
             var map = oldPawn.Map;
             PawnEditor.PawnList.OnDelete(oldPawn);
-            // Replace. Force the def xenotype at generation time when we have one (the custom case
-            // is re-applied after generation, below, since it isn't a single def).
+
+            // Replace. Force a REAL XenotypeDef at generation (Sanguophage, a modded species...) so it
+            // comes back with the right def + genes. The Baseliner-named case (Veldrak) and the custom
+            // case are rebuilt after generation instead, since their identity is a set of genes.
+            bool realDef = keptXenotype != null && keptXenotype != XenotypeDefOf.Baseliner && keptCustom == null;
             var request = new PawnGenerationRequest(pawn.kindDef, PawnEditor.selectedFaction);
-            if (keptXenotype != null) request.ForcedXenotype = keptXenotype;
+            if (realDef) request.ForcedXenotype = keptXenotype;
             pawn = PawnGenerator.GeneratePawn(request);
 
-            // Re-apply a CUSTOM xenotype after generation (it's a set of genes, not a single def).
-            if (keptCustom != null) ApplyCustomXenotypeTo(pawn, keptCustom);
+            if (keepXenotype && ModsConfig.BiotechActive && pawn.genes != null)
+            {
+                if (keptCustom != null)
+                    ApplyCustomXenotypeTo(pawn, keptCustom);                       // user-built custom
+                else if (realDef)
+                {
+                    // Def already forced; restore the display name/icon (named variants of a real def).
+                    if (!keptXenoName.NullOrEmpty()) pawn.genes.xenotypeName = keptXenoName;
+                    if (keptIcon != null) pawn.genes.iconDef = keptIcon;
+                }
+                else
+                    ApplyKeptGenes(pawn, keptEndogenes, keptXenogenes, keptXenoName, keptIcon); // baseliner-named
+            }
 
             PawnEditor.AddPawn(pawn, PawnEditor.selectedCategory).HandleResult();
             if (!PawnEditor.Pregame && map != null)
@@ -103,6 +124,46 @@ public partial class TabWorker_Bio_Humanlike
         catch (Exception ex)
         {
             Log.Error($"[Pawn Editor] Failed to re-apply custom xenotype '{customXenotype.name}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Rebuild a captured xenotype from its actual GENES (+ name + icon) onto a freshly generated
+    /// pawn. For "named baseliner" xenotypes (e.g. a VRE "Veldrak": genes.Xenotype == Baseliner but
+    /// with a xenotypeName and specific genes) the def alone is meaningless, so we reset to baseliner
+    /// and re-add the exact endo/xenogenes the original had. Mirrors the guarded logic in
+    /// ApplyCustomXenotypeTo (skip null genes from removed mods; never let one bad gene abort the rest).
+    /// </summary>
+    private static void ApplyKeptGenes(Pawn pawn, List<GeneDef> endogenes, List<GeneDef> xenogenes,
+        string xenotypeName, XenotypeIconDef iconDef)
+    {
+        if (pawn?.genes == null) return;
+        try
+        {
+            pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
+
+            if (endogenes != null)
+                foreach (var geneDef in endogenes)
+                {
+                    if (geneDef == null) continue;
+                    try { pawn.genes.AddGene(geneDef, xenogene: false); }
+                    catch (Exception ex) { Log.Warning($"[Pawn Editor] keep-xenotype endogene skip: {ex.Message}"); }
+                }
+
+            if (xenogenes != null)
+                foreach (var geneDef in xenogenes)
+                {
+                    if (geneDef == null) continue;
+                    try { pawn.genes.AddGene(geneDef, xenogene: true); }
+                    catch (Exception ex) { Log.Warning($"[Pawn Editor] keep-xenotype xenogene skip: {ex.Message}"); }
+                }
+
+            if (!xenotypeName.NullOrEmpty()) pawn.genes.xenotypeName = xenotypeName;
+            if (iconDef != null) pawn.genes.iconDef = iconDef;
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Pawn Editor] keep-xenotype gene rebuild failed: {ex.Message}");
         }
     }
 

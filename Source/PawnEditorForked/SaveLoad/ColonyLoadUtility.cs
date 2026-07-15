@@ -24,12 +24,18 @@ namespace PawnEditor;
 /// </summary>
 public static class ColonyLoadUtility
 {
-    /// <summary>Load an entire colony folder (e.g. "Colony/&lt;faction&gt;/&lt;settlement&gt;").</summary>
-    public static void LoadColony(string folderType)
+    /// <summary>
+    /// Load an entire colony folder (e.g. "Colony/&lt;faction&gt;/&lt;settlement&gt;").
+    /// <paramref name="replace"/> = REPLACE mode: a loaded pawn that matches an existing one by its
+    /// saved ThingID replaces that original (removed) instead of adding a duplicate clone; pawns with
+    /// no match are added as new. Off = always add as new clones.
+    /// </summary>
+    public static void LoadColony(string folderType, bool replace = false,
+        bool humans = true, bool animals = true, bool mechs = true)
     {
         LongEventHandler.QueueLongEvent(
             () => PawnEditorProfiler.Measure("SaveLoad.LoadColony", PawnEditorProfiler.Cadence.PerAction,
-                () => LoadColonyInner(folderType)),
+                () => LoadColonyInner(folderType, replace, humans, animals, mechs)),
             "PawnEditor.LoadingColony", doAsynchronously: false, null);
     }
 
@@ -49,15 +55,20 @@ public static class ColonyLoadUtility
 
             foreach (var dir in root.GetDirectories("*", SearchOption.AllDirectories))
             {
-                if (!dir.GetFiles("*.xml").Any()) continue;
+                var xmls = dir.GetFiles("*.xml");
+                if (xmls.Length == 0) continue;
 
                 var rel = dir.FullName.Substring(baseDir.FullName.Length)
                     .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                var label = rel.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
-                if (label.StartsWith("Colony/", StringComparison.OrdinalIgnoreCase))
-                    label = label.Substring("Colony/".Length);
-                label = label.Replace("/", " / ");
+                var name = rel.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
+                if (name.StartsWith("Colony/", StringComparison.OrdinalIgnoreCase))
+                    name = name.Substring("Colony/".Length);
+                name = name.Replace("/", " / ");
+
+                // Richer menu label: "faction / settlement  (N pawns, date)".
+                var date = xmls.Max(f => f.LastWriteTime).ToString("g");
+                var label = "PawnEditor.ColonyEntryLabel".Translate(name, xmls.Length, date).ToString();
 
                 result.Add((rel, label));
             }
@@ -66,7 +77,7 @@ public static class ColonyLoadUtility
         return result;
     }
 
-    private static void LoadColonyInner(string folderType)
+    private static void LoadColonyInner(string folderType, bool replace, bool humans, bool animals, bool mechs)
     {
         List<FileInfo> files;
         try
@@ -102,6 +113,7 @@ public static class ColonyLoadUtility
                     doc.Load(file.FullName);
                     var root = doc.DocumentElement;
                     if (root == null || root.Name != "PawnBlueprint") continue;
+                    if (!FileCategoryEnabled(root, humans, animals, mechs)) continue;
 
                     var clone = PawnBlueprintSaveLoad.BuildColonyPawnFromRoot(root);
                     if (clone == null) continue;
@@ -118,11 +130,28 @@ public static class ColonyLoadUtility
                 }
             }
 
-            // ── Pass 2: add every clone to the colony ──
-            foreach (var (clone, _, cat) in pairs)
+            // ── Pass 2: add every clone to the colony. REPLACE removes the matching pawn first — either
+            // the true original (its ThingID still equals the savedThingID) OR a pawn previously loaded
+            // from the same save (recognized via the origin stamp), so reloading replaces instead of
+            // duplicating. Every loaded pawn is then stamped with its origin so a later Replace finds it
+            // too. ──
+            var origins = Current.Game?.GetComponent<GameComponent_ColonyOrigins>();
+            foreach (var (clone, root, cat) in pairs)
             {
-                try { PawnEditor.AddPawn(clone, cat).HandleResult(); }
-                catch (Exception ex) { Log.Warning($"[Pawn Editor] Colony load: add '{clone?.LabelShortCap}': {ex.Message}"); }
+                var savedId = root.SelectSingleNode("savedThingID")?.InnerText?.Trim();
+                try
+                {
+                    if (replace && !savedId.NullOrEmpty())
+                    {
+                        var existing = PawnBlueprintSaveLoad.GetAllReachablePawnsPublic()
+                            .FirstOrDefault(p => p != null && p != clone
+                                && (p.ThingID == savedId || (origins?.CameFrom(p, savedId) ?? false)));
+                        if (existing != null) RemoveExisting(existing);
+                    }
+                    PawnEditor.AddPawn(clone, cat).HandleResult();
+                    if (!savedId.NullOrEmpty()) origins?.Record(clone, savedId);
+                }
+                catch (Exception ex) { Log.Warning($"[Pawn Editor] Colony load: add/replace '{clone?.LabelShortCap}': {ex.Message}"); }
             }
 
             // ── Pass 3: resolve cross-pawn references through the remap (clone <-> clone) ──
@@ -142,6 +171,35 @@ public static class ColonyLoadUtility
             MessageTypeDefOf.TaskCompletion, false);
 
         try { PawnEditor.Notify_PointsUsed(); } catch { }
+    }
+
+    /// <summary>Remove an existing pawn so a loaded one can replace it (REPLACE mode). Uses the mod's
+    /// canonical delete, which despawns and discards it and drops it from the editor list.</summary>
+    private static void RemoveExisting(Pawn pawn)
+    {
+        try { PawnEditor.PawnList.OnDelete(pawn); }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] Colony replace: remove existing '{pawn?.LabelShortCap}': {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Whether a saved blueprint's category (from its kindDef's race) is one the user chose to load.
+    /// Resolves the kindDef WITHOUT building the pawn, so filtered-out files are skipped cheaply. A
+    /// missing kindDef (mod removed) is kept, to be safe.
+    /// </summary>
+    private static bool FileCategoryEnabled(XmlNode root, bool humans, bool animals, bool mechs)
+    {
+        if (humans && animals && mechs) return true; // nothing filtered out
+        try
+        {
+            var kindName = root.SelectSingleNode("kindDef")?.Attributes?["defName"]?.Value;
+            var race = kindName.NullOrEmpty() ? null
+                : DefDatabase<PawnKindDef>.GetNamedSilentFail(kindName)?.race?.race;
+            if (race == null) return true;
+            if (race.IsMechanoid) return mechs;
+            if (race.Animal)      return animals;
+            return humans;
+        }
+        catch { return true; }
     }
 
     /// <summary>Which editor category a loaded pawn belongs to (drives how AddPawn integrates it).</summary>

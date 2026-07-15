@@ -42,6 +42,11 @@ public sealed class PawnEditorHarmony
             AccessTools.Method(typeof(Pawn_RelationsTracker), nameof(Pawn_RelationsTracker.CompatibilityWith)),
             transpiler: new HarmonyMethod(typeof(SaveLoadUtility), nameof(SaveLoadUtility.UseCompatibilitySeedInCompatibilityWith)));
 
+        // Make every Pawn Editor window user-resizable (drag the bottom-right corner). See Patch_ResizableWindows.
+        _harmony.Patch(
+            AccessTools.Method(typeof(Window), nameof(Window.WindowOnGUI)),
+            postfix: new HarmonyMethod(typeof(Patch_ResizableWindows), nameof(Patch_ResizableWindows.SetResizable)));
+
         ApplySettingsPatches(PawnEditorMod.Settings);
     }
 

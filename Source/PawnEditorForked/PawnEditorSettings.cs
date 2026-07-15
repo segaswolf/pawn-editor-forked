@@ -33,6 +33,11 @@ public class PawnEditorSettings : ModSettings
     // events. Off by default so it never costs anything during normal play.
     public bool ProfilingEnabled;
 
+    // When off (default), every editor window opens centered, so a window left in an awkward or
+    // off-screen spot always comes back reachable. When on, windows remember their last position and
+    // size between opens.
+    public bool RememberWindowPositions;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -49,6 +54,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
         Scribe_Values.Look(ref ProfilingEnabled, nameof(ProfilingEnabled));
         Scribe_Values.Look(ref AllowPolygamyOnLoad, nameof(AllowPolygamyOnLoad));
+        Scribe_Values.Look(ref RememberWindowPositions, nameof(RememberWindowPositions));
 
         if (HARCompat.Active)
         {

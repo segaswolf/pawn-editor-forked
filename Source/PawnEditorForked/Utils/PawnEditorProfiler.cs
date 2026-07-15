@@ -32,8 +32,9 @@ namespace PawnEditor;
 /// </summary>
 public static class PawnEditorProfiler
 {
-    /// <summary>Master switch. Reads the mod setting; defaults to false if settings aren't ready.</summary>
-    public static bool Enabled => PawnEditorMod.Settings?.ProfilingEnabled ?? false;
+    /// <summary>Master switch. Requires BOTH Dev Mode and the opt-in setting, so it can never run for
+    /// regular players (the setting UI is Dev-Mode-only too). Defaults to false if settings aren't ready.</summary>
+    public static bool Enabled => Prefs.DevMode && (PawnEditorMod.Settings?.ProfilingEnabled ?? false);
 
     /// <summary>How often an event is expected to fire. Drives interpretation of the numbers.</summary>
     public enum Cadence

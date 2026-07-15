@@ -35,6 +35,15 @@ public class Dialog_AppearanceEditor : Window
     private ShapeTab shapeTab;
     private ModContentPack sourceFilter;
 
+    // Appearance lists used to be rebuilt (LINQ Where + ToList) every single frame; with 1000+
+    // hairs/tattoos that re-filtered and allocated constantly (GC churn + CPU). Only ONE icon grid
+    // and ONE color strip render per frame, so a single cache slot each is enough: rebuild only when
+    // the key (tab / source filter / pawn state) changes.
+    private object optionsCacheKey;
+    private object optionsCacheVal;
+    private object colorsCacheKey;
+    private List<Color> colorsCacheVal;
+
     public Dialog_AppearanceEditor(Pawn pawn)
     {
         this.pawn = pawn;
@@ -105,24 +114,26 @@ public class Dialog_AppearanceEditor : Window
                     switch (shapeTab)
                     {
                         case ShapeTab.Body:
-                            var bodyTypes = DefDatabase<BodyTypeDef>.AllDefs.Where(h => MatchesSource(h) && IsAllowed(h, pawn))
-                                .Where(bodyType =>
-                                    pawn.DevelopmentalStage switch
-                                    {
-                                        DevelopmentalStage.Baby or DevelopmentalStage.Newborn => bodyType == BodyTypeDefOf.Baby,
-                                        DevelopmentalStage.Child => bodyType == BodyTypeDefOf.Child,
-                                        DevelopmentalStage.Adult => bodyType != BodyTypeDefOf.Baby && bodyType != BodyTypeDefOf.Child,
-                                        _ => true
-                                    });
-
-                            if (HARCompat.Active)
+                            var bodyTypes = CachedOptions(("body", sourceFilter, pawn.DevelopmentalStage, HARCompat.Active), () =>
                             {
-                                var allowedBodyTypes = HARCompat.AllowedBodyTypes(pawn);
-                                if (!allowedBodyTypes.NullOrEmpty()) bodyTypes = bodyTypes.Intersect(allowedBodyTypes);
-                            }
+                                IEnumerable<BodyTypeDef> q = DefDatabase<BodyTypeDef>.AllDefs.Where(h => MatchesSource(h) && IsAllowed(h, pawn))
+                                    .Where(bodyType =>
+                                        pawn.DevelopmentalStage switch
+                                        {
+                                            DevelopmentalStage.Baby or DevelopmentalStage.Newborn => bodyType == BodyTypeDefOf.Baby,
+                                            DevelopmentalStage.Child => bodyType == BodyTypeDefOf.Child,
+                                            DevelopmentalStage.Adult => bodyType != BodyTypeDefOf.Baby && bodyType != BodyTypeDefOf.Child,
+                                            _ => true
+                                        });
+                                if (HARCompat.Active)
+                                {
+                                    var allowedBodyTypes = HARCompat.AllowedBodyTypes(pawn);
+                                    if (!allowedBodyTypes.NullOrEmpty()) q = q.Intersect(allowedBodyTypes);
+                                }
+                                return q;
+                            });
 
-                            DoIconOptions(inRect.ContractedBy(5), bodyTypes
-                                    .ToList(), def =>
+                            DoIconOptions(inRect.ContractedBy(5), bodyTypes, def =>
                                 {
                                     pawn.story.bodyType = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -132,18 +143,22 @@ public class Dialog_AppearanceEditor : Window
                                     pawn.story.skinColorOverride = color;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
                                 }, ColorType.Misc,
-                                DefDatabase<ColorDef>.AllDefs.Select(static def => def.color).ToList());
+                                CachedColors("colMisc", () => DefDatabase<ColorDef>.AllDefs.Select(static def => def.color)));
                             break;
                         case ShapeTab.Head:
-                            var headTypes = DefDatabase<HeadTypeDef>.AllDefs.Where(h => MatchesSource(h) && IsAllowed(h, pawn));
-                            if (HARCompat.Active)
+                            var headTypes = CachedOptions(("head", sourceFilter, pawn.gender, HARCompat.Active), () =>
                             {
-                                headTypes = HARCompat.FilterHeadTypes(headTypes, pawn);
-                                // HAR doesn't like head types not matching genders
-                                headTypes = headTypes.Where(type => type.gender == Gender.None || type.gender == pawn.gender);
-                            }
+                                IEnumerable<HeadTypeDef> q = DefDatabase<HeadTypeDef>.AllDefs.Where(h => MatchesSource(h) && IsAllowed(h, pawn));
+                                if (HARCompat.Active)
+                                {
+                                    q = HARCompat.FilterHeadTypes(q, pawn);
+                                    // HAR doesn't like head types not matching genders
+                                    q = q.Where(type => type.gender == Gender.None || type.gender == pawn.gender);
+                                }
+                                return q;
+                            });
 
-                            DoIconOptions(inRect.ContractedBy(5), headTypes.ToList(), def =>
+                            DoIconOptions(inRect.ContractedBy(5), headTypes, def =>
                                 {
                                     pawn.story.headType = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -154,7 +169,7 @@ public class Dialog_AppearanceEditor : Window
                                     pawn.story.skinColorOverride = color;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
                                 }, ColorType.Misc,
-                                DefDatabase<ColorDef>.AllDefs.Select(static def => def.color).ToList());
+                                CachedColors("colMisc", () => DefDatabase<ColorDef>.AllDefs.Select(static def => def.color)));
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -170,9 +185,14 @@ public class Dialog_AppearanceEditor : Window
                     switch (shapeTab)
                     {
                         case ShapeTab.Head:
-                            var hairTypes = DefDatabase<HairDef>.AllDefs.Where(MatchesSource);
-                            if (HARCompat.Active && HARCompat.EnforceRestrictions) hairTypes = hairTypes.Where(hair => HARCompat.AllowStyleItem(hair, pawn));
-                            DoIconOptions(inRect.ContractedBy(5), hairTypes.ToList(), def =>
+                            var hairEnforce = HARCompat.Active && HARCompat.EnforceRestrictions;
+                            var hairTypes = CachedOptions(("hair", sourceFilter, hairEnforce), () =>
+                            {
+                                IEnumerable<HairDef> q = DefDatabase<HairDef>.AllDefs.Where(MatchesSource);
+                                if (hairEnforce) q = q.Where(hair => HARCompat.AllowStyleItem(hair, pawn));
+                                return q;
+                            });
+                            DoIconOptions(inRect.ContractedBy(5), hairTypes, def =>
                                 {
                                     pawn.story.hairDef = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -183,12 +203,17 @@ public class Dialog_AppearanceEditor : Window
                                     pawn.story.HairColor = color;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
                                 }, ColorType.Hair,
-                                DefDatabase<ColorDef>.AllDefs.Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color).ToList());
+                                CachedColors("colHair", () => DefDatabase<ColorDef>.AllDefs.Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color)));
                             break;
                         case ShapeTab.Body:
-                            var beardTypes = DefDatabase<BeardDef>.AllDefs.Where(MatchesSource);
-                            if (HARCompat.Active && HARCompat.EnforceRestrictions) beardTypes = beardTypes.Where(hair => HARCompat.AllowStyleItem(hair, pawn));
-                            DoIconOptions(inRect.ContractedBy(5), beardTypes.ToList(), def =>
+                            var beardEnforce = HARCompat.Active && HARCompat.EnforceRestrictions;
+                            var beardTypes = CachedOptions(("beard", sourceFilter, beardEnforce), () =>
+                            {
+                                IEnumerable<BeardDef> q = DefDatabase<BeardDef>.AllDefs.Where(MatchesSource);
+                                if (beardEnforce) q = q.Where(hair => HARCompat.AllowStyleItem(hair, pawn));
+                                return q;
+                            });
+                            DoIconOptions(inRect.ContractedBy(5), beardTypes, def =>
                                 {
                                     pawn.style.beardDef = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -199,7 +224,7 @@ public class Dialog_AppearanceEditor : Window
                                     pawn.story.HairColor = color;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
                                 }, ColorType.Hair,
-                                DefDatabase<ColorDef>.AllDefs.Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color).ToList());
+                                CachedColors("colHair", () => DefDatabase<ColorDef>.AllDefs.Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color)));
                             break;
                     }
 
@@ -210,12 +235,17 @@ public class Dialog_AppearanceEditor : Window
                     shapeTabs.Add(new("PawnEditor.Head".Translate().CapitalizeFirst(), () => shapeTab = ShapeTab.Head, shapeTab == ShapeTab.Head));
                     Widgets.DrawMenuSection(inRect);
                     TabDrawer.DrawTabs(inRect, shapeTabs);
-                    var tattoos = DefDatabase<TattooDef>.AllDefs.Where(MatchesSource);
-                    if (HARCompat.Active && HARCompat.EnforceRestrictions) tattoos = tattoos.Where(td => HARCompat.AllowStyleItem(td, pawn));
+                    var tattooEnforce = HARCompat.Active && HARCompat.EnforceRestrictions;
                     switch (shapeTab)
                     {
                         case ShapeTab.Body:
-                            DoIconOptions(inRect.ContractedBy(5), tattoos.Where(static td => td.tattooType == TattooType.Body).ToList(), def =>
+                            var bodyTattoos = CachedOptions(("tattooBody", sourceFilter, tattooEnforce), () =>
+                            {
+                                IEnumerable<TattooDef> q = DefDatabase<TattooDef>.AllDefs.Where(MatchesSource);
+                                if (tattooEnforce) q = q.Where(td => HARCompat.AllowStyleItem(td, pawn));
+                                return q.Where(static td => td.tattooType == TattooType.Body);
+                            });
+                            DoIconOptions(inRect.ContractedBy(5), bodyTattoos, def =>
                                 {
                                     pawn.style.BodyTattoo = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -223,8 +253,13 @@ public class Dialog_AppearanceEditor : Window
                                 def => pawn.style.BodyTattoo == def, 0, Array.Empty<Color>(), null, ColorType.Misc, null);
                             break;
                         case ShapeTab.Head:
-                            DoIconOptions(inRect.ContractedBy(5),
-                                tattoos.Where(static td => td.tattooType == TattooType.Face).ToList(), def =>
+                            var faceTattoos = CachedOptions(("tattooFace", sourceFilter, tattooEnforce), () =>
+                            {
+                                IEnumerable<TattooDef> q = DefDatabase<TattooDef>.AllDefs.Where(MatchesSource);
+                                if (tattooEnforce) q = q.Where(td => HARCompat.AllowStyleItem(td, pawn));
+                                return q.Where(static td => td.tattooType == TattooType.Face);
+                            });
+                            DoIconOptions(inRect.ContractedBy(5), faceTattoos, def =>
                                 {
                                     pawn.style.FaceTattoo = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -251,6 +286,26 @@ public class Dialog_AppearanceEditor : Window
         }
 
         Widgets.EndGroup();
+    }
+
+    // Return the cached option list for the current key, rebuilding only when the key changed.
+    private List<T> CachedOptions<T>(object key, Func<IEnumerable<T>> build)
+    {
+        if (optionsCacheVal is List<T> cached && Equals(optionsCacheKey, key)) return cached;
+        // Only fires on a cache miss (tab/source/pawn change), so PerAction cadence stays cheap.
+        var list = PawnEditorProfiler.Measure("AppearanceEditor.RebuildOptions", PawnEditorProfiler.Cadence.PerAction, () => build().ToList());
+        optionsCacheVal = list;
+        optionsCacheKey = key;
+        return list;
+    }
+
+    // Color strips don't change during the dialog, so cache them by a simple identity key.
+    private List<Color> CachedColors(object key, Func<IEnumerable<Color>> build)
+    {
+        if (colorsCacheVal != null && Equals(colorsCacheKey, key)) return colorsCacheVal;
+        colorsCacheVal = build().ToList();
+        colorsCacheKey = key;
+        return colorsCacheVal;
     }
 
     private void DoIconOptions<T>(Rect inRect, List<T> options, Action<T> onSelected, Func<T, Texture> getIcon, Func<T, bool> isSelected, int colorCount,
@@ -294,7 +349,14 @@ public class Dialog_AppearanceEditor : Window
         var viewRect = new Rect(0, 0, inRect.width - 20, Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
 
-        for (var i = 0; i < options.Count; i++)
+        // Only draw the rows visible in the viewport (plus one row of margin each side). Without this,
+        // 1000+ items meant 1000+ DrawTexture/Button/Tooltip calls per frame even though ~20 show.
+        var firstRow = Mathf.Max(0, Mathf.FloorToInt(scrollPos.y / itemSize) - 1);
+        var lastRow = Mathf.FloorToInt((scrollPos.y + inRect.height) / itemSize) + 1;
+        var firstIndex = firstRow * itemsPerRow;
+        var lastIndex = Mathf.Min(options.Count, (lastRow + 1) * itemsPerRow);
+
+        for (var i = firstIndex; i < lastIndex; i++)
         {
             var option = options[i];
             var rect = new Rect(i % itemsPerRow * itemSize, Mathf.Floor((float)i / itemsPerRow) * itemSize, itemSize, itemSize).ContractedBy(6);
@@ -321,13 +383,16 @@ public class Dialog_AppearanceEditor : Window
     {
         if (Event.current.type == EventType.Layout) lastXenotypeHeight = 9999;
         var viewRect = new Rect(0, 0, inRect.width - 20, lastXenotypeHeight);
+        // Visible content band, passed to DoGeneOptions so it can cull off-screen gene rows/groups.
+        var visMin = scrollPos.y;
+        var visMax = scrollPos.y + inRect.height;
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
-        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++) DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], CosmeticGeneDiscovery.GroupGenes[i]);
+        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++) DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], CosmeticGeneDiscovery.GroupGenes[i], visMin, visMax);
         if (Event.current.type == EventType.Layout) lastXenotypeHeight -= viewRect.height;
         Widgets.EndScrollView();
     }
 
-    private void DoGeneOptions(ref Rect inRect, string label, List<GeneDef> options)
+    private void DoGeneOptions(ref Rect inRect, string label, List<GeneDef> options, float visMin, float visMax)
     {
         Widgets.Label(inRect.TakeTopPart(Text.LineHeight), label);
         if (options.Count == 0)
@@ -350,8 +415,17 @@ public class Dialog_AppearanceEditor : Window
             itemSize = (inRect.width - 20) / itemsPerRow;
         }
 
-        Widgets.BeginGroup(inRect.TakeTopPart(Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize));
-        for (var i = 0; i < options.Count; i++)
+        var gridHeight = Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize;
+        var groupTop = inRect.yMin;
+        Widgets.BeginGroup(inRect.TakeTopPart(gridHeight));
+
+        // Cull gene rows outside the visible band (also skips whole groups scrolled off-screen). The
+        // layout above still consumes the full height, so scrolling stays correct.
+        var firstRow = Mathf.Max(0, Mathf.FloorToInt((visMin - groupTop) / itemSize) - 1);
+        var lastRow = Mathf.FloorToInt((visMax - groupTop) / itemSize) + 1;
+        var start = firstRow * itemsPerRow;
+        var end = Mathf.Min(options.Count, (lastRow + 1) * itemsPerRow);
+        for (var i = start; i < end; i++)
         {
             var option = options[i];
             var rect = new Rect(i % itemsPerRow * itemSize, Mathf.Floor((float)i / itemsPerRow) * itemSize, itemSize, itemSize).ContractedBy(2);

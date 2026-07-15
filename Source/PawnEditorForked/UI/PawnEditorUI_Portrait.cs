@@ -10,19 +10,25 @@ namespace PawnEditor;
 // Partial — Portrait rendering and graphics helpers.
 public static partial class PawnEditor
 {
-    public static RenderTexture GetPawnTex(Pawn pawn, Vector2 portraitSize, Rot4 dir, Vector3 cameraOffset = default, float cameraZoom = 1f) =>
-        // [BANDERITA] Portrait fetch. PortraitsCache.Get returns a CACHED RenderTexture for a given
-        // (pawn, size, dir, ...) or renders a new one on a miss. Profiling (4 consecutive dumps,
-        // 2026-06-20) confirmed this is healthy now: peak stays flat at ~23 MB (a one-off spike
-        // when new pawns are loaded and their portraits first render), total barely grows as calls
-        // climb, and KB/call trends DOWN (3.9 -> 1.5) — i.e. later calls hit the cache for ~free.
-        // It's flagged PER-FRAME only because it's called per visible pawn per frame; the calls
-        // themselves are cheap cache hits, not churn. (The old churn came from PortraitsCache.Clear
-        // in RecachePawnList + a wobbling rect.size — both fixed; see PawnEditorUI_PawnManagement
-        // and DrawPawnPortrait.)
-        PawnEditorProfiler.Measure("Portrait.GetPawnTex", PawnEditorProfiler.Cadence.PerFrame, () =>
+    public static RenderTexture GetPawnTex(Pawn pawn, Vector2 portraitSize, Rot4 dir, Vector3 cameraOffset = default, float cameraZoom = 1f)
+    {
+        // PortraitsCache.Get returns a CACHED RenderTexture for a given (pawn, size, dir, ...) or
+        // renders one on a miss — the fetch itself is a cheap cache hit, not churn.
+        //
+        // The "PER-FRAME ALLOCATOR" flag was the profiler wrapper, NOT the fetch: writing
+        // Measure(..., () => Get(...)) builds a closure + delegate on EVERY call (the lambda captures
+        // the 5 args), and that happens even when profiling is OFF because the lambda is constructed
+        // as an argument before Measure can early-out. Called per visible pawn per frame, that closure
+        // was the entire per-frame allocation. Fast-path around it: when profiling is off we call the
+        // cache directly and allocate nothing here. When it's on we keep the measured path.
+        if (!PawnEditorProfiler.Enabled)
+            return PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
+                renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true);
+
+        return PawnEditorProfiler.Measure("Portrait.GetPawnTex", PawnEditorProfiler.Cadence.PerFrame, () =>
             PortraitsCache.Get(pawn, portraitSize, dir, cameraOffset, cameraZoom,
                 renderHeadgear: RenderHeadgear, renderClothes: RenderClothes, stylingStation: true));
+    }
 
     public static void SavePawnTex(Pawn pawn, string path, Rot4 dir)
     {

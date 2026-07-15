@@ -75,26 +75,40 @@ public sealed class PawnEditorSettingsDrawer
             ref settings.HideFactions,
             "PawnEditor.HideRandomFactions.Desc".Translate());
 
+        listing.CheckboxLabeled(
+            "PawnEditor.AllowPolygamyOnLoad".Translate(),
+            ref settings.AllowPolygamyOnLoad,
+            "PawnEditor.AllowPolygamyOnLoad.Desc".Translate());
+
+        listing.CheckboxLabeled(
+            "PawnEditor.RememberWindowPositions".Translate(),
+            ref settings.RememberWindowPositions,
+            "PawnEditor.RememberWindowPositions.Desc".Translate());
+
         _hotkeyService.DrawHotkeyPicker(listing, settings);
 
         // ── Debug: profiler ("banderitas") ──
-        // Opt-in instrumentation for diagnosing memory/GC pressure. Off by default. Plain text
-        // labels (no translation keys) since this is a developer/diagnostic tool, not player UI.
-        listing.GapLine();
-        listing.CheckboxLabeled(
-            "Enable performance profiler (debug)",
-            ref settings.ProfilingEnabled,
-            "Logs timing and memory-allocation 'flags' for editor events to help diagnose lag and " +
-            "black-screen issues. Leave off during normal play. Use the buttons below to reset and " +
-            "dump the collected stats while diagnosing.");
-
-        if (settings.ProfilingEnabled)
+        // Opt-in instrumentation for diagnosing memory/GC pressure. Gated behind Dev Mode so regular
+        // players never see it (and it never runs for them — see PawnEditorProfiler.Enabled). Plain
+        // text labels (no translation keys) since this is a developer/diagnostic tool, not player UI.
+        if (Prefs.DevMode)
         {
-            var profRow = listing.GetRect(Text.LineHeight + 4f);
-            if (Widgets.ButtonText(profRow.LeftHalf().ContractedBy(2f, 0f), "Reset profiler stats"))
-                PawnEditorProfiler.Reset();
-            if (Widgets.ButtonText(profRow.RightHalf().ContractedBy(2f, 0f), "Dump profiler summary to log"))
-                PawnEditorProfiler.DumpSummary();
+            listing.GapLine();
+            listing.CheckboxLabeled(
+                "Enable performance profiler (debug)",
+                ref settings.ProfilingEnabled,
+                "Logs timing and memory-allocation 'flags' for editor events to help diagnose lag and " +
+                "black-screen issues. Dev-Mode only. Use the buttons below to reset and dump the " +
+                "collected stats while diagnosing.");
+
+            if (settings.ProfilingEnabled)
+            {
+                var profRow = listing.GetRect(Text.LineHeight + 4f);
+                if (Widgets.ButtonText(profRow.LeftHalf().ContractedBy(2f, 0f), "Reset profiler stats"))
+                    PawnEditorProfiler.Reset();
+                if (Widgets.ButtonText(profRow.RightHalf().ContractedBy(2f, 0f), "Dump profiler summary to log"))
+                    PawnEditorProfiler.DumpSummary();
+            }
         }
 
         listing.End();

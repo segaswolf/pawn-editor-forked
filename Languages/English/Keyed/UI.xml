@@ -266,11 +266,23 @@
     <PawnEditor.SaveBlueprint>Save as blueprint (portable)</PawnEditor.SaveBlueprint>
 
     <!-- Colony save/load (v3.1) -->
-    <PawnEditor.SaveColonyPawns>Save colony pawns (portable)</PawnEditor.SaveColonyPawns>
+    <PawnEditor.SaveColonyPawns>Save colony pawns</PawnEditor.SaveColonyPawns>
     <PawnEditor.SavingColony>Saving colony...</PawnEditor.SavingColony>
-    <PawnEditor.LoadColonyPawns>Load colony pawns (portable)</PawnEditor.LoadColonyPawns>
+    <PawnEditor.LoadColonyPawns>Load colony pawns</PawnEditor.LoadColonyPawns>
     <PawnEditor.LoadingColony>Loading colony...</PawnEditor.LoadingColony>
     <PawnEditor.NoSavedColonies>No saved colonies found.</PawnEditor.NoSavedColonies>
+    <PawnEditor.AllowPolygamyOnLoad>Allow polygamy on load</PawnEditor.AllowPolygamyOnLoad>
+    <PawnEditor.AllowPolygamyOnLoad.Desc>When loading or cloning a pawn whose spouse, lover or fiance already has a partner, keep the relation instead of dropping it. Off by default so it never forces polygamy against a monogamous ideology.</PawnEditor.AllowPolygamyOnLoad.Desc>
+    <PawnEditor.ColonyEntryLabel>{0}  ({1} pawns, {2})</PawnEditor.ColonyEntryLabel>
+    <PawnEditor.PickColony>Choose a colony to load:</PawnEditor.PickColony>
+    <PawnEditor.ColonyLoadNew>Load as new (clones)</PawnEditor.ColonyLoadNew>
+    <PawnEditor.ColonyLoadReplace>Replace matching pawns (by ID)</PawnEditor.ColonyLoadReplace>
+    <PawnEditor.PickAtLeastOneCategory>Pick at least one category.</PawnEditor.PickAtLeastOneCategory>
+    <PawnEditor.ColonyOverwriteAll>Overwrite everything</PawnEditor.ColonyOverwriteAll>
+    <PawnEditor.ColonyMerge>Merge (keep other categories)</PawnEditor.ColonyMerge>
+    <PawnEditor.ColonySaveScopeNote>Only colonists, animals and mechs currently on this map are saved. Anyone away from the map (caravans, travelers) is not included.</PawnEditor.ColonySaveScopeNote>
+    <PawnEditor.RememberWindowPositions>Remember window position and size</PawnEditor.RememberWindowPositions>
+    <PawnEditor.RememberWindowPositions.Desc>When on, editor windows reopen at the position and size you last left them. When off (default), they open centered, so a window left off-screen always comes back reachable.</PawnEditor.RememberWindowPositions.Desc>
 
     <!-- VAspirE Aspirations -->
     <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>
