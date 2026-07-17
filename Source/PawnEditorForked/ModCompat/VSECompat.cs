@@ -35,6 +35,7 @@ public static class VSECompat
     private static PropertyInfo iconProperty;
     private static FieldInfo labelField;
     private static FieldInfo indexField;
+    private static FieldInfo hediffToAddField;
 
     // ── Reflection fields: Expertise system ──
     private static Type expertiseTrackersType;
@@ -70,6 +71,7 @@ public static class VSECompat
         iconProperty = AccessTools.Property(passionDefType, "Icon");
         labelField = AccessTools.Field(passionDefType, "label");
         indexField = AccessTools.Field(passionDefType, "index");
+        hediffToAddField = AccessTools.Field(passionDefType, "hediffToAdd");
 
         // Expertise system
         expertiseTrackersType = AccessTools.TypeByName("VSE.ExpertiseTrackers");
@@ -128,7 +130,7 @@ public static class VSECompat
     /// Each option shows the passion icon and label. Selecting one applies it immediately.
     /// Much better UX than cycling through 30+ passions one click at a time.
     /// </summary>
-    public static List<FloatMenuOption> GetPassionFloatMenuOptions(SkillRecord skill)
+    public static List<FloatMenuOption> GetPassionFloatMenuOptions(SkillRecord skill, Pawn pawn)
     {
         var options = new List<FloatMenuOption>();
         var passionDefs = passionDefArray.GetValue(null) as Array;
@@ -147,11 +149,60 @@ public static class VSECompat
                 {
                     ClearCacheFor(skill, passion);
                     skill.passion = passion;
+                    // Keep VSE's passion hediffs (e.g. traumatic mood penalty) in sync with the change.
+                    SyncPassionHediffs(pawn);
                 },
                 icon, Color.white));
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// Reconciles VSE "passion hediffs" with the pawn's CURRENT passions. Several VSE / Alpha Skills
+    /// passions carry a <c>hediffToAdd</c> that implements their effect (e.g. the traumatic passion's
+    /// mood penalty). Assigning skill.passion directly — as the editor does — bypasses VSE's own hediff
+    /// bookkeeping, which left orphan hediffs when a passion was removed (the traumatic penalty then hit
+    /// ALL work) and missing hediffs when one was added (the passion did nothing). This adds the wanted
+    /// hediffs and removes the stale ones. It only ever touches hediffs that some PassionDef declares,
+    /// so unrelated hediffs are never affected.
+    /// </summary>
+    public static void SyncPassionHediffs(Pawn pawn)
+    {
+        if (!Active || hediffToAddField == null || pawn?.skills == null || pawn.health == null) return;
+        try
+        {
+            if (passionDefArray.GetValue(null) is not Array passionDefs) return;
+
+            // Every hediff any passion is responsible for — the only set we may add or remove.
+            var managed = new HashSet<HediffDef>();
+            foreach (var pd in passionDefs)
+                if (hediffToAddField.GetValue(pd) is HediffDef h) managed.Add(h);
+            if (managed.Count == 0) return;
+
+            // The hediffs the pawn's current passions want.
+            var wanted = new HashSet<HediffDef>();
+            foreach (var sr in pawn.skills.skills)
+            {
+                var pd = passionToDef(sr.passion);
+                if (pd != null && hediffToAddField.GetValue(pd) is HediffDef h) wanted.Add(h);
+            }
+
+            foreach (var def in managed)
+            {
+                var has = pawn.health.hediffSet.HasHediff(def);
+                if (wanted.Contains(def))
+                {
+                    if (!has) pawn.health.AddHediff(def);
+                }
+                else if (has)
+                {
+                    var hd = pawn.health.hediffSet.GetFirstHediffOfDef(def);
+                    if (hd != null) pawn.health.RemoveHediff(hd);
+                }
+            }
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] VSE SyncPassionHediffs: {ex.Message}"); }
     }
 
     // ── Expertise API ──

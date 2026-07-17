@@ -210,6 +210,9 @@ public static partial class PawnBlueprintSaveLoad
                     xpSinceLastLevel = ParseFloat(li.Attributes?["xpSinceLastLevel"]?.Value, 0f)
                 });
             }
+
+            // Loaded passions can include VSE/Alpha Skills ones; sync their hediffs (add wanted, drop orphans).
+            if (VSECompat.Active) VSECompat.SyncPassionHediffs(pawn);
         }
         catch (Exception ex) { Warn($"Skills: {ex.Message}"); }
     }

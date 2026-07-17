@@ -169,6 +169,9 @@ public static partial class PawnEditor
                 xpSinceMidnight  = skill.xpSinceMidnight
             });
         }
+
+        // Copied passions may be VSE/Alpha Skills ones; give the duplicate their passion hediffs.
+        if (VSECompat.Active) VSECompat.SyncPassionHediffs(dst);
     }
 
     // ─────────────────────────────────────────────────────────────────────

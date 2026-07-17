@@ -44,6 +44,11 @@ public class Dialog_AppearanceEditor : Window
     private object colorsCacheKey;
     private List<Color> colorsCacheVal;
 
+    // v3.1: user-resizable preview panel. Drag the splitter to grow/shrink the pawn; the option grid
+    // on the right reflows to fill the rest.
+    private float leftPanelWidth = 170f;
+    private bool draggingSplitter;
+
     public Dialog_AppearanceEditor(Pawn pawn)
     {
         this.pawn = pawn;
@@ -87,7 +92,15 @@ public class Dialog_AppearanceEditor : Window
         using (new TextBlock(GameFont.Small))
         {
             DrawBottomButtons(inRect.TakeBottomPart(50));
-            DoLeftSection(inRect.TakeLeftPart(170).ContractedBy(6, 0));
+
+            // v3.1: resizable preview panel. The splitter lets the user grow/shrink the pawn preview;
+            // the option grid on the right reflows to fill the remaining width.
+            var contentWidth = inRect.width;
+            var maxLeft = Mathf.Max(150f, contentWidth - 300f);
+            leftPanelWidth = Mathf.Clamp(leftPanelWidth, 150f, maxLeft);
+            var leftRect = inRect.TakeLeftPart(leftPanelWidth);
+            HandleLeftSplitter(inRect.TakeLeftPart(8f), contentWidth);
+            DoLeftSection(leftRect.ContractedBy(6, 0));
 
             mainTabs.Clear();
             mainTabs.Add(new("PawnEditor.Shape".Translate(), () => mainTab = MainTab.Shape, mainTab == MainTab.Shape));
@@ -505,10 +518,42 @@ public class Dialog_AppearanceEditor : Window
         return false;
     }
 
+    // v3.1: draggable splitter that resizes the preview panel. mousePosition is group-relative, so its
+    // x is the distance from the content's left edge = the new panel width.
+    private void HandleLeftSplitter(Rect bar, float contentWidth)
+    {
+        if (Mouse.IsOver(bar) || draggingSplitter) Widgets.DrawHighlight(bar);
+        Widgets.DrawLineVertical(bar.center.x, bar.y + 6f, bar.height - 12f);
+
+        var ev = Event.current;
+        if (ev.type == EventType.MouseDown && ev.button == 0 && Mouse.IsOver(bar))
+        {
+            draggingSplitter = true;
+            ev.Use();
+        }
+        else if (draggingSplitter && ev.type == EventType.MouseDrag)
+        {
+            leftPanelWidth = Mathf.Clamp(ev.mousePosition.x, 150f, Mathf.Max(150f, contentWidth - 300f));
+            ev.Use();
+        }
+        else if (draggingSplitter && ev.rawType == EventType.MouseUp)
+        {
+            draggingSplitter = false;
+        }
+    }
+
     private void DoLeftSection(Rect inRect)
     {
         inRect.yMin -= 30f;
-        PawnEditor.DrawPawnPortrait(inRect.TakeTopPart(170));
+        // v3.1: preview scales with the panel width (drag the splitter to grow it), capped so the
+        // controls below still fit. Square + centered to avoid stretching the pawn.
+        var previewSide = Mathf.Clamp(inRect.width, 150f, inRect.height * 0.55f);
+        // Snap to 24px steps so dragging the splitter doesn't render a NEW portrait texture every pixel
+        // (PortraitsCache keys by size; unrounded sizes = per-frame RenderTexture churn = the old GC/
+        // black-screen problem). The portrait only re-renders when it crosses a step.
+        previewSide = Mathf.Round(previewSide / 24f) * 24f;
+        var slot = inRect.TakeTopPart(previewSide);
+        PawnEditor.DrawPawnPortrait(new Rect(slot.x + (slot.width - previewSide) / 2f, slot.y, previewSide, previewSide));
         inRect.yMin += 8f;
         var buttonsRect = inRect.TakeTopPart(110);
         Widgets.DrawHighlight(buttonsRect);

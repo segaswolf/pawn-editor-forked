@@ -90,6 +90,13 @@ public class ListingMenu_Hediffs : ListingMenu<HediffDef>
 
         AddResult result = new SuccessInfo(() =>
         {
+            // For a prosthetic/bionic (an "added part"), clear the target part FIRST, exactly like
+            // vanilla surgery does. Otherwise AddHediff just stacks a second added part on the same
+            // slot, producing the illegal bionic combinations users reported. RestorePart removes any
+            // existing added/missing-part hediffs on the part (and its children), then we install the
+            // new one cleanly — replacing instead of stacking.
+            if (part != null && typeof(Hediff_AddedPart).IsAssignableFrom(hediffDef.hediffClass))
+                pawn.health.RestorePart(part);
             pawn.health.AddHediff(hediffDef, part);
             pawn.needs?.mood?.thoughts?.situational?.Notify_SituationalThoughtsDirty();
             TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Needs>();

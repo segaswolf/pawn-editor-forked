@@ -197,6 +197,7 @@ public partial class TabWorker_Bio_Humanlike
                 if (sr?.def != null && savedLevels.TryGetValue(sr.def, out var level))
                     sr.levelInt = level;
             }
+            if (VSECompat.Active) VSECompat.SyncPassionHediffs(pawn);
         }
     }
 
@@ -290,5 +291,7 @@ public partial class TabWorker_Bio_Humanlike
     {
         foreach (var skillRecord in pawn.skills.skills) skillRecord.passion = Passion.None;
         PawnGenerator.GenerateSkills(pawn, new(pawn.kindDef, pawn.Faction));
+        // GenerateSkills assigns vanilla passions; clear any orphan VSE passion hediffs left over.
+        if (VSECompat.Active) VSECompat.SyncPassionHediffs(pawn);
     }
 }

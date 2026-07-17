@@ -101,7 +101,7 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                     if (Widgets.ButtonImage(rect.TakeLeftPart(30), VSECompat.GetPassionIcon(skill.passion)))
                     {
                         // With VSE: open a dropdown with ALL passions instead of cycling
-                        var passionOptions = VSECompat.GetPassionFloatMenuOptions(skill);
+                        var passionOptions = VSECompat.GetPassionFloatMenuOptions(skill, pawn);
                         Find.WindowStack.Add(new FloatMenu(passionOptions));
                     }
                 } else {
@@ -160,6 +160,10 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                     skillRecord.passion = (Passion)value;
                 else
                     skillRecord.Level = value;
+
+            // Bulk passion change: reconcile VSE passion hediffs (traumatic penalty, etc.) so removed
+            // passions don't leave orphan hediffs and added ones actually work.
+            if (passions && VSECompat.Active) VSECompat.SyncPassionHediffs(pawn);
 
             PawnEditor.Notify_PointsUsed();
         };
