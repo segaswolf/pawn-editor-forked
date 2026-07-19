@@ -37,6 +37,32 @@ public class ListingMenu_Hediffs : ListingMenu<HediffDef>
                 AddDefaultBodyParts(hediff, new List<BodyPartDef> { hediff.defaultInstallPart }, null);
         }
 
+        // Fallback for parts whose install recipe doesn't declare addsHediff (some mods install via a
+        // custom recipe worker), which left them with no target body part — e.g. "Archotech arm
+        // (modular)" asked "can't find valid part to mount" while the plain Archotech arm worked.
+        // Link such a hediff through the ITEM it drops when removed: any recipe that consumes that item
+        // and installs on fixed body parts tells us where it goes.
+        var partsByItem = new Dictionary<ThingDef, (List<BodyPartDef>, List<BodyPartGroupDef>)>();
+        foreach (var recipe in DefDatabase<RecipeDef>.AllDefs)
+        {
+            if (recipe.appliedOnFixedBodyParts.NullOrEmpty() && recipe.appliedOnFixedBodyPartGroups.NullOrEmpty()) continue;
+            if (recipe.ingredients == null) continue;
+            foreach (var ing in recipe.ingredients)
+            {
+                if (ing?.filter == null) continue;
+                foreach (var td in ing.filter.AllowedThingDefs)
+                    if (td != null && !partsByItem.ContainsKey(td))
+                        partsByItem[td] = (recipe.appliedOnFixedBodyParts, recipe.appliedOnFixedBodyPartGroups);
+            }
+        }
+
+        foreach (var hediff in DefDatabase<HediffDef>.AllDefsListForReading)
+        {
+            if (hediff.spawnThingOnRemoved == null || defaultBodyParts.ContainsKey(hediff)) continue;
+            if (partsByItem.TryGetValue(hediff.spawnThingOnRemoved, out var fromItem))
+                AddDefaultBodyParts(hediff, fromItem.Item1, fromItem.Item2);
+        }
+
 
         items = DefDatabase<HediffDef>.AllDefsListForReading;
         filters = GetFilters();

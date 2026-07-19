@@ -206,6 +206,99 @@ public static partial class PawnEditor
             }
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_RoyalTitles: {ex.Message}"); }
+
+        // Psylink LEVEL is copied above, but Vanilla Psycasts Expanded stores the actual psycasts
+        // (paths/foci/points/abilities) separately — mirror those too.
+        CopyDup_Psycasts(src, dst);
+    }
+
+    private static ThingComp GetCompByTypeName(Pawn p, string simpleName)
+    {
+        if (p?.AllComps == null) return null;
+        foreach (var c in p.AllComps)
+            if (c.GetType().Name == simpleName) return c;
+        return null;
+    }
+
+    /// <summary>Best-effort copy of learned psycast abilities from src to dst via the (VEF) CompAbilities
+    /// comp. Resolves the comp by type name and calls its GiveAbility method by reflection, so it works
+    /// without a hard dependency on VEF. No-op if the comp/method isn't found.</summary>
+    private static void CopyLearnedAbilities(Pawn src, Pawn dst)
+    {
+        var srcComp = GetCompByTypeName(src, "CompAbilities");
+        var dstComp = GetCompByTypeName(dst, "CompAbilities");
+        if (srcComp == null || dstComp == null) return;
+
+        var learned = HarmonyLib.AccessTools.Property(srcComp.GetType(), "LearnedAbilities")?.GetValue(srcComp)
+                   ?? HarmonyLib.AccessTools.Field(srcComp.GetType(), "LearnedAbilities")?.GetValue(srcComp);
+        if (learned is not System.Collections.IEnumerable list) return;
+
+        var give = HarmonyLib.AccessTools.Method(dstComp.GetType(), "GiveAbility");
+        var giveParams = give?.GetParameters();
+        if (give == null || giveParams == null || giveParams.Length != 1) return;
+        var pType = giveParams[0].ParameterType;
+
+        foreach (var ability in list)
+        {
+            if (ability == null) continue;
+            var def = HarmonyLib.AccessTools.Field(ability.GetType(), "def")?.GetValue(ability);
+            object arg = pType.IsInstanceOfType(def) ? def : (pType.IsInstanceOfType(ability) ? ability : null);
+            if (arg != null) give.Invoke(dstComp, new[] { arg });
+        }
+    }
+
+    private static object FindPsycastHediff(Pawn pawn, Type type)
+    {
+        if (pawn?.health?.hediffSet?.hediffs == null) return null;
+        foreach (var h in pawn.health.hediffSet.hediffs)
+            if (type.IsInstanceOfType(h)) return h;
+        return null;
+    }
+
+    /// <summary>
+    /// Copies Vanilla Psycasts Expanded psycasts from src to dst. VPE keeps its state on a
+    /// Hediff_PsycastAbilities (unlocked paths, meditation foci, points, and the learned psycast
+    /// abilities in CompAbilities) — none of which vanilla duplication copies, so the clone kept the
+    /// RANDOM psycasts PawnGenerator/ChangePsylinkLevel gave it. This resets the clone's psycasts
+    /// (keeping the psylink level) and re-applies the source's paths, which re-grants the right
+    /// abilities. All via reflection; no-op if VPE isn't installed or the pawn isn't a psycaster.
+    /// </summary>
+    private static void CopyDup_Psycasts(Pawn src, Pawn dst)
+    {
+        var type = HarmonyLib.AccessTools.TypeByName("VanillaPsycastsExpanded.Hediff_PsycastAbilities");
+        if (type == null) return;
+        try
+        {
+            var srcH = FindPsycastHediff(src, type);
+            var dstH = FindPsycastHediff(dst, type);
+            if (srcH == null || dstH == null) return;
+
+            // Clear the clone's random psycasts (Reset keeps the psylink level).
+            HarmonyLib.AccessTools.Method(type, "Reset")?.Invoke(dstH, null);
+
+            var unlockPath  = HarmonyLib.AccessTools.Method(type, "UnlockPath");
+            var unlockFocus = HarmonyLib.AccessTools.Method(type, "UnlockMeditationFocus");
+
+            if (HarmonyLib.AccessTools.Field(type, "unlockedPaths")?.GetValue(srcH) is System.Collections.IEnumerable paths && unlockPath != null)
+                foreach (var p in paths) unlockPath.Invoke(dstH, new[] { p });
+            if (HarmonyLib.AccessTools.Field(type, "unlockedMeditationFoci")?.GetValue(srcH) is System.Collections.IEnumerable foci && unlockFocus != null)
+                foreach (var f in foci) unlockFocus.Invoke(dstH, new[] { f });
+
+            // Mirror the point pools (UnlockPath may have spent some).
+            var pointsF = HarmonyLib.AccessTools.Field(type, "points");
+            if (pointsF != null) pointsF.SetValue(dstH, pointsF.GetValue(srcH));
+            var statF = HarmonyLib.AccessTools.Field(type, "statPoints");
+            if (statF != null) statF.SetValue(dstH, statF.GetValue(srcH));
+            var expF = HarmonyLib.AccessTools.Field(type, "experience");
+            if (expF != null) expF.SetValue(dstH, expF.GetValue(srcH));
+
+            // UnlockPath only makes a path available; the abilities the pawn actually LEARNED live on a
+            // (VEF) CompAbilities comp. Copy those too, best-effort by reflection.
+            CopyLearnedAbilities(src, dst);
+
+            HarmonyLib.AccessTools.Method(type, "RecacheCurStage")?.Invoke(dstH, null);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup_Psycasts (VPE): {ex.Message}"); }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

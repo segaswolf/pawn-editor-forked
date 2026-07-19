@@ -14,8 +14,11 @@ namespace PawnEditor;
 /// </summary>
 [StaticConstructorOnStartup]
 [HotSwappable]
-public class Dialog_AppearanceEditor : Window
+public class Dialog_AppearanceEditor : Window, IDragLockable
 {
+    private bool windowLocked = true; // locked by default so the preview splitter is draggable
+    public bool DragLocked => windowLocked;
+
     static Dialog_AppearanceEditor()
     {
         CosmeticGeneDiscovery.Initialize();
@@ -46,7 +49,7 @@ public class Dialog_AppearanceEditor : Window
 
     // v3.1: user-resizable preview panel. Drag the splitter to grow/shrink the pawn; the option grid
     // on the right reflows to fill the rest.
-    private float leftPanelWidth = 170f;
+    private float leftPanelWidth = 280f; // bigger default so the pawn preview is clearly visible
     private bool draggingSplitter;
 
     public Dialog_AppearanceEditor(Pawn pawn)
@@ -99,7 +102,7 @@ public class Dialog_AppearanceEditor : Window
             var maxLeft = Mathf.Max(150f, contentWidth - 300f);
             leftPanelWidth = Mathf.Clamp(leftPanelWidth, 150f, maxLeft);
             var leftRect = inRect.TakeLeftPart(leftPanelWidth);
-            HandleLeftSplitter(inRect.TakeLeftPart(8f), contentWidth);
+            HandleLeftSplitter(inRect.TakeLeftPart(14f), contentWidth);
             DoLeftSection(leftRect.ContractedBy(6, 0));
 
             mainTabs.Clear();
@@ -522,8 +525,16 @@ public class Dialog_AppearanceEditor : Window
     // x is the distance from the content's left edge = the new panel width.
     private void HandleLeftSplitter(Rect bar, float contentWidth)
     {
-        if (Mouse.IsOver(bar) || draggingSplitter) Widgets.DrawHighlight(bar);
-        Widgets.DrawLineVertical(bar.center.x, bar.y + 6f, bar.height - 12f);
+        // Always show a subtle handle so it's obviously draggable; brighten on hover/drag. Draw a small
+        // vertical "grip" (two short lines) in the middle.
+        var hot = Mouse.IsOver(bar) || draggingSplitter;
+        Widgets.DrawBoxSolid(bar, new Color(1f, 1f, 1f, hot ? 0.18f : 0.06f));
+        GUI.color = new Color(1f, 1f, 1f, hot ? 0.85f : 0.45f);
+        var midY = bar.y + bar.height / 2f - 12f;
+        Widgets.DrawLineVertical(bar.center.x - 2f, midY, 24f);
+        Widgets.DrawLineVertical(bar.center.x + 2f, midY, 24f);
+        GUI.color = Color.white;
+        if (hot) Widgets.DrawHighlight(bar);
 
         var ev = Event.current;
         if (ev.type == EventType.MouseDown && ev.button == 0 && Mouse.IsOver(bar))
@@ -545,6 +556,13 @@ public class Dialog_AppearanceEditor : Window
     private void DoLeftSection(Rect inRect)
     {
         inRect.yMin -= 30f;
+
+        // v3.1: lock toggle, kept at the TOP of the panel. Locked (default) keeps the window still so
+        // you can drag the splitter to resize the preview; unlock to move the window around.
+        if (Widgets.ButtonText(inRect.TakeTopPart(24f), windowLocked ? "Unlock window (move)" : "Lock window (resize)"))
+            windowLocked = !windowLocked;
+        inRect.yMin += 4f;
+
         // v3.1: preview scales with the panel width (drag the splitter to grow it), capped so the
         // controls below still fit. Square + centered to avoid stretching the pawn.
         var previewSide = Mathf.Clamp(inRect.width, 150f, inRect.height * 0.55f);
@@ -554,6 +572,16 @@ public class Dialog_AppearanceEditor : Window
         previewSide = Mathf.Round(previewSide / 24f) * 24f;
         var slot = inRect.TakeTopPart(previewSide);
         PawnEditor.DrawPawnPortrait(new Rect(slot.x + (slot.width - previewSide) / 2f, slot.y, previewSide, previewSide));
+
+        // v3.1: open NL Facial Animation's own face editor for this pawn, if that mod is present.
+        if (FacialAnimCompat.CanEditFace(pawn))
+        {
+            inRect.yMin += 2f;
+            // Opens on a higher window layer, so it sits in FRONT of this window and the main editor
+            // (both can stay open behind it).
+            if (Widgets.ButtonText(inRect.TakeTopPart(28f), "Customize face"))
+                FacialAnimCompat.OpenFaceEditor(pawn);
+        }
         inRect.yMin += 8f;
         var buttonsRect = inRect.TakeTopPart(110);
         Widgets.DrawHighlight(buttonsRect);

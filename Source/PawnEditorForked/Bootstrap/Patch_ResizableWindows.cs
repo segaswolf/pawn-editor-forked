@@ -19,6 +19,14 @@ namespace PawnEditor;
 /// layouts are drawn relative to the window rect, so they adapt to the new size. Setting the flags in
 /// the postfix means the resize handle appears one frame after the window opens (imperceptible).
 /// </summary>
+/// <summary>A Pawn Editor window that can lock itself in place (so an inner splitter can be dragged
+/// without the whole window moving). When DragLocked is true, the resizable-windows patch leaves it
+/// non-draggable.</summary>
+public interface IDragLockable
+{
+    bool DragLocked { get; }
+}
+
 public static class Patch_ResizableWindows
 {
     // Last known rect per window type, so "remember position" can restore it on the next open.
@@ -34,7 +42,9 @@ public static class Patch_ResizableWindows
         if (ns == null || !ns.StartsWith("PawnEditor", StringComparison.Ordinal)) return;
 
         __instance.resizeable = true;
-        __instance.draggable = true;
+        // A window can opt out of dragging (e.g. the appearance editor, so its inner splitter can be
+        // dragged without moving the whole window). Locked windows resize via the corner handle only.
+        __instance.draggable = !(__instance is IDragLockable dl && dl.DragLocked);
 
         // Default (setting off): do nothing else. Each window is a fresh instance opened centered, so
         // one left off-screen always comes back reachable next open. That IS the safeguard.

@@ -33,7 +33,13 @@ public static partial class PawnEditor
 
         foreach (var hediff in src.health.hediffSet.hediffs)
         {
-            if (!hediff.def.duplicationAllowed) continue;
+            // duplicationAllowed=false is meant to stop RANDOM generation of a hediff, not to stop
+            // duplicating a pawn that already has it. So still skip non-duplicable WHOLE-BODY/temporary
+            // hediffs, but KEEP installed parts (attached to a body part and behaving like a prosthetic/
+            // implant), so e.g. an "advanced bionic jaw" with duplicationAllowed=false transfers.
+            var installedPart = hediff.Part != null
+                && (hediff.def.countsAsAddedPartOrImplant || hediff.def.spawnThingOnRemoved != null || hediff.def.addedPartProps != null);
+            if (!hediff.def.duplicationAllowed && !installedPart) continue;
             if (hediff.def == null || !DefDatabase<HediffDef>.AllDefsListForReading.Contains(hediff.def))
             {
                 Log.Warning($"[Pawn Editor] Skipping missing hediff: {hediff.def?.defName ?? "null"}");
@@ -66,10 +72,12 @@ public static partial class PawnEditor
         {
             try
             {
-                // Only RestorePart if no implant was already added to this exact part
-                bool alreadyHasImplant = dst.health.hediffSet.hediffs.Any(h =>
-                    h.Part == hediff.Part && (h is Hediff_AddedPart || h is Hediff_Implant));
-                if (!alreadyHasImplant)
+                // Don't RestorePart if this part OR ANY OF ITS CHILD parts already has a placed implant.
+                // RestorePart wipes child parts too, so restoring a parent (e.g. the neck's neural stack)
+                // was silently deleting an already-added child implant (e.g. the bionic jaw on the head).
+                bool wouldClobber = dst.health.hediffSet.hediffs.Any(h =>
+                    (h is Hediff_AddedPart || h is Hediff_Implant) && h.Part != null && PartIsAtOrUnder(h.Part, hediff.Part));
+                if (!wouldClobber)
                     dst.health.RestorePart(hediff.Part, null, checkStateChange: false);
 
                 var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
@@ -81,6 +89,15 @@ public static partial class PawnEditor
                 Log.Warning($"[Pawn Editor] Failed to copy implant {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>True if <paramref name="part"/> is <paramref name="ancestor"/> or a descendant of it —
+    /// i.e. a RestorePart(ancestor) would remove <paramref name="part"/>'s hediffs.</summary>
+    private static bool PartIsAtOrUnder(BodyPartRecord part, BodyPartRecord ancestor)
+    {
+        for (var p = part; p != null; p = p.parent)
+            if (p == ancestor) return true;
+        return false;
     }
 
     /// <summary>

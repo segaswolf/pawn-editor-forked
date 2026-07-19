@@ -18,6 +18,42 @@ public static class FacialAnimCompat
     private static Type faceTypeDef;
     public static List<Def> FaceTypeDefs;
 
+    // v3.1: NL FA ships its own full face-editor window. Opening it (with the pawn set on its static
+    // field) reuses the entire facial-animation UI instead of us rebuilding it.
+    private static Type faceEditorWindowType;
+    private static bool faceEditorResolved;
+
+    private static Type FaceEditorWindowType()
+    {
+        if (!faceEditorResolved)
+        {
+            faceEditorWindowType = AccessTools.TypeByName("FacialAnimation.NL_SelectPartWindow");
+            faceEditorResolved = true;
+        }
+        return faceEditorWindowType;
+    }
+
+    /// <summary>True if NL Facial Animation is present and its face editor can be opened.</summary>
+    public static bool CanEditFace(Pawn pawn) => pawn != null && Active && FaceEditorWindowType() != null;
+
+    /// <summary>Opens NL Facial Animation's own face editor window for this pawn (sets its static
+    /// selectedPawn field, then adds the window to the stack).</summary>
+    public static void OpenFaceEditor(Pawn pawn)
+    {
+        var t = FaceEditorWindowType();
+        if (t == null || pawn == null) return;
+        try
+        {
+            AccessTools.Field(t, "selectedPawn").SetValue(null, pawn);
+            var win = (Window)Activator.CreateInstance(t);
+            // Put it on the topmost layer so it opens IN FRONT of the appearance editor and the main
+            // pawn editor (which can both stay open behind it) instead of getting stuck underneath.
+            AccessTools.Field(typeof(Window), "layer")?.SetValue(win, WindowLayer.Super);
+            Find.WindowStack.Add(win);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] Open face editor failed: {ex.Message}"); }
+    }
+
     // Controller comp types — each is a separate ThingComp on the pawn
     private static Type eyeballControllerType;
     private static Type browControllerType;
