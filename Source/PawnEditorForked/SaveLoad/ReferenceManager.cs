@@ -172,7 +172,10 @@ public static partial class SaveLoadUtility
             {
                 if (data == "__PlayerFaction") return Faction.OfPlayer;
                 var arr = data.Split('.');
-                var def = DefDatabase<FactionDef>.GetNamed(arr[0]);
+                // SilentFail + our own message: a missing def here almost always means the player
+                // removed a mod, which is not an error worth a red wall in their log.
+                var def = DefDatabase<FactionDef>.GetNamedSilentFail(arr[0]);
+                if (def == null) Log.Warning($"[Pawn Editor] Saved faction '{arr[0]}' no longer exists (mod removed?).");
                 if (def != null)
                 {
                     var list = Find.FactionManager.AllFactions.Where(f => f.def == def).ToList();
@@ -210,7 +213,13 @@ public static partial class SaveLoadUtility
             if (typeof(Thing).IsAssignableFrom(type))
             {
                 var arr = data.Split('.');
-                var def = DefDatabase<ThingDef>.GetNamed(arr[0]);
+                var def = DefDatabase<ThingDef>.GetNamedSilentFail(arr[0]);
+                if (def == null)
+                {
+                    Log.Warning($"[Pawn Editor] Saved thing '{arr[0]}' no longer exists (mod removed?), skipping it.");
+                    return null;
+                }
+
                 var stuff = arr[1].NullOrEmpty() ? null : DefDatabase<ThingDef>.GetNamedSilentFail(arr[1]);
                 var count = int.Parse(arr[2]);
                 foreach (var obj in Scribe.loader.crossRefs.loadedObjectDirectory.allObjectsByLoadID.Values)
@@ -227,7 +236,17 @@ public static partial class SaveLoadUtility
                 var arr1 = data.Split(':');
                 var arr2 = arr1[1].Split('.');
                 var arr3 = arr2[0].Split(',');
-                var job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed(arr1[0]));
+                // GetNamed logs an error and returns NULL when the def is gone (typically because the
+                // player removed the mod that added it). The other branches here already null-check;
+                // this one fed the null straight into MakeJob and blew up on the next line.
+                var jobDef = DefDatabase<JobDef>.GetNamedSilentFail(arr1[0]);
+                if (jobDef == null)
+                {
+                    Log.Warning($"[Pawn Editor] Saved job '{arr1[0]}' no longer exists (mod removed?), skipping it.");
+                    return null;
+                }
+
+                var job = JobMaker.MakeJob(jobDef);
                 job.count = int.Parse(arr2[1]);
                 job.targetA = LocalTargetInfoFromString(arr3[0]);
                 job.targetB = LocalTargetInfoFromString(arr3[1]);
@@ -238,8 +257,12 @@ public static partial class SaveLoadUtility
             if (typeof(Ability).IsAssignableFrom(type))
             {
                 var arr = data.Split(',');
-                var def = DefDatabase<AbilityDef>.GetNamed(arr[0]);
-                if (def == null) return null;
+                var def = DefDatabase<AbilityDef>.GetNamedSilentFail(arr[0]);
+                if (def == null)
+                {
+                    Log.Warning($"[Pawn Editor] Saved ability '{arr[0]}' no longer exists (mod removed?), skipping it.");
+                    return null;
+                }
                 var pawn = (Pawn)LoadReferenceData(arr[1], typeof(Pawn));
                 if (pawn == null) return null;
                 if (arr.Length == 2)
@@ -251,8 +274,12 @@ public static partial class SaveLoadUtility
             if (typeof(Gene).IsAssignableFrom(type))
             {
                 var arr = data.Split(',');
-                var def = DefDatabase<GeneDef>.GetNamed(arr[0]);
-                if (def == null) return null;
+                var def = DefDatabase<GeneDef>.GetNamedSilentFail(arr[0]);
+                if (def == null)
+                {
+                    Log.Warning($"[Pawn Editor] Saved gene '{arr[0]}' no longer exists (mod removed?), skipping it.");
+                    return null;
+                }
                 var pawn = (Pawn)LoadReferenceData(arr[1], typeof(Pawn));
                 if (pawn == null) return null;
                 return GeneMaker.MakeGene(def, pawn);

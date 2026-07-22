@@ -201,11 +201,17 @@ public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
     {
         var list = new List<Filter<TraitInfo>>();
 
-        var modSourceDict =
-            LoadedModManager.runningMods
-               .Where(m => m.AllDefs.OfType<TraitDef>().Any())
-               .ToDictionary<ModContentPack, string, Func<TraitInfo, bool>>(m => m.Name, m => traitInfo =>
-                    traitInfo.Trait.def.modContentPack?.Name == m.Name);
+        // Same guard as Filter_ModSource: two mods can share a display name, and ToDictionary throws on
+        // a duplicate key, which would kill the trait picker over a cosmetic dropdown.
+        var modSourceDict = new Dictionary<string, Func<TraitInfo, bool>>();
+        foreach (var mod in LoadedModManager.runningMods)
+        {
+            if (mod == null || mod.Name.NullOrEmpty() || modSourceDict.ContainsKey(mod.Name)) continue;
+            if (!mod.AllDefs.OfType<TraitDef>().Any()) continue;
+
+            var name = mod.Name;
+            modSourceDict[name] = traitInfo => traitInfo.Trait.def.modContentPack?.Name == name;
+        }
         list.Add(new Filter_Dropdown<TraitInfo>("Source".Translate(), modSourceDict, false, "PawnEditor.SourceDesc".Translate()));
 
         return list;

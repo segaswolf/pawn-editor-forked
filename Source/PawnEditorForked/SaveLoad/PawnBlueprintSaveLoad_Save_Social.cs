@@ -197,6 +197,26 @@ public static partial class PawnBlueprintSaveLoad
 
     // ── Save: Royal Titles (Royalty DLC) ──
 
+    /// <summary>
+    /// Psylink level and Vanilla Psycasts Expanded state. Deliberately SEPARATE from WriteRoyalTitles:
+    /// that method returns early when the pawn has no royal title, and a psycaster very often has none.
+    /// While psylinkLevel lived inside it, every title-less psycaster was saved without their level, and
+    /// on load ChangePsylinkLevel handed them a fresh random set of psycasts.
+    /// The psylink hediff in the hediffs block does NOT cover this: it stores severity, not level.
+    /// </summary>
+    private static void WritePsycasterState(XmlWriter w, Pawn pawn)
+    {
+        try
+        {
+            var psylinkLevel = pawn.GetPsylinkLevel();
+            if (psylinkLevel > 0)
+                w.WriteElementString("psylinkLevel", psylinkLevel.ToString());
+
+            VPEPsycastsCompat.Write(w, pawn);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] WritePsycasterState: {ex.Message}"); }
+    }
+
     private static void WriteRoyalTitles(XmlWriter w, Pawn pawn)
     {
         if (!ModsConfig.RoyaltyActive || pawn.royalty == null) return;
@@ -216,9 +236,6 @@ public static partial class PawnBlueprintSaveLoad
             }
             w.WriteEndElement();
 
-            var psylinkLevel = pawn.GetPsylinkLevel();
-            if (psylinkLevel > 0)
-                w.WriteElementString("psylinkLevel", psylinkLevel.ToString());
 
             w.WriteStartElement("favor");
             foreach (var faction in Find.FactionManager.AllFactions)

@@ -87,7 +87,7 @@ public class Listing_Thing<T> : Listing_Tree
 
         bool HideThingDueToSearch(T thing) => SearchFilter.filter.Active && !SearchFilter.filter.Matches(LabelGetter(thing));
 
-        bool HideThingDueToFilter(T thing) => !ActiveFilters.All(lf => lf.Matches(thing));
+        bool HideThingDueToFilter(T thing) => !ActiveFilters.All(lf => lf == null || lf.Matches(thing));
     }
 
     protected void DoThing(T thing, int nestLevel, int i)
@@ -146,8 +146,9 @@ public class Listing_Thing<T> : Listing_Tree
     protected virtual bool Visible(T td)
     {
         var output = _itemsSet.Contains(td); // O(1) instead of O(n)
+        // Skip null entries instead of throwing: one bad entry used to break filtering for the whole list.
         if (ActiveFilters.Any())
-            output = output && ActiveFilters.All(lf => lf.Matches(td));
+            output = output && ActiveFilters.All(lf => lf == null || lf.Matches(td));
 
         return output;
     }

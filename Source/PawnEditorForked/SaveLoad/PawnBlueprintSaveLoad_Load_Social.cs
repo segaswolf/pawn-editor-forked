@@ -234,12 +234,13 @@ public static partial class PawnBlueprintSaveLoad
         catch (Exception ex) { Warn($"Inventory: {ex.Message}"); }
     }
 
-    // ── Load: Royal Titles (Royalty DLC) ──
-
-    private static void LoadRoyalTitles(Pawn pawn, XmlNode root)
+    /// <summary>
+    /// Psylink level + Vanilla Psycasts Expanded state. Kept OUT of LoadRoyalTitles on purpose: that one
+    /// returns early for a pawn with no royal title, and most psycasters have none, so this never ran
+    /// for them. See WritePsycasterState for the saving half.
+    /// </summary>
+    private static void LoadPsycasterState(Pawn pawn, XmlNode root)
     {
-        if (!ModsConfig.RoyaltyActive || pawn.royalty == null) return;
-        var titlesNode = root.SelectSingleNode("royalTitles");
         var psylinkStr = GetText(root, "psylinkLevel");
         try
         {
@@ -251,6 +252,20 @@ public static partial class PawnBlueprintSaveLoad
                     pawn.ChangePsylinkLevel(1);
             }
 
+            // Strictly AFTER the psylink level: that is what creates the VPE hediff we restore onto.
+            VPEPsycastsCompat.Read(root, pawn);
+        }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] LoadPsycasterState: {ex.Message}"); }
+    }
+
+    // ── Load: Royal Titles (Royalty DLC) ──
+
+    private static void LoadRoyalTitles(Pawn pawn, XmlNode root)
+    {
+        if (!ModsConfig.RoyaltyActive || pawn.royalty == null) return;
+        var titlesNode = root.SelectSingleNode("royalTitles");
+        try
+        {
             if (titlesNode != null)
             {
                 foreach (XmlNode li in titlesNode.SelectNodes("li"))

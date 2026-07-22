@@ -202,6 +202,8 @@ public static partial class PawnEditor
             catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup ideo certainty: {ex.Message}"); }
         }
 
+        AuditDuplicatedHediffs(source, newPawn);
+
         return newPawn;
     }
 

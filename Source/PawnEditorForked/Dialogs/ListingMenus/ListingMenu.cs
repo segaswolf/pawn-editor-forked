@@ -8,8 +8,12 @@ using Verse;
 
 namespace PawnEditor;
 
-public class ListingMenu<T> : Window
+public class ListingMenu<T> : Window, IMinWindowSize
 {
+    // Enforced by the resizer itself (see IMinWindowSize): below this the header, the list and the
+    // filter panel start overlapping. Growing was always fine; it was shrinking that broke.
+    public Vector2 MinWindowSize => new(InitialSize.x, 400f);
+
     protected readonly Pawn Pawn;
     private readonly Func<T, AddResult> _action;
     private readonly bool _allowMultiSelect;
@@ -79,7 +83,12 @@ public class ListingMenu<T> : Window
     public override void PreOpen()
     {
         base.PreOpen();
-        Listing.ActiveFilters = cachedActiveFilters.TryGetValue(_menuTitle, fallback: new());
+        // Only restore a cache that actually EXISTS. The old unconditional fallback to an empty list
+        // wiped the filters marked EnabledByDefault (Listing_Thing had just turned them on), so a
+        // default filter could never take effect on the first open. Once the user edits the filters,
+        // PostClose caches their choice and it is honoured from then on — including "I deleted it".
+        if (cachedActiveFilters.TryGetValue(_menuTitle, out var cached))
+            Listing.ActiveFilters = cached;
     }
 
     public override void PostClose()
@@ -96,10 +105,22 @@ public class ListingMenu<T> : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        // These menus are user-resizable now, so keep a floor: below this the list and the filter panel
+        // collapse into an unusable mess.
+        if (windowRect.width < InitialSize.x || windowRect.height < 400f)
+        {
+            windowRect.width = Mathf.Max(windowRect.width, InitialSize.x);
+            windowRect.height = Mathf.Max(windowRect.height, 400f);
+        }
+
         DrawHeader(inRect.TakeTopPart(Text.LineHeightOf(GameFont.Medium)));
         inRect.yMin += 16f;
 
-        var leftRect = inRect.TakeLeftPart(InitialSize.x - StandardMargin * 2);
+        // Size the list from the CURRENT width, not InitialSize. Hardcoding the original width left the
+        // list stuck at its starting size after a resize (dead space on the right, or clipped content).
+        // The filter panel keeps its fixed width; everything else the user gains goes to the list.
+        var filterWidth = Listing.Filters != null && _showFilters ? WideSize.x - InitialSize.x : 0f;
+        var leftRect = inRect.TakeLeftPart(Mathf.Max(200f, inRect.width - filterWidth));
         var bottomButRect = leftRect.TakeBottomPart(UIUtility.BottomButtonSize.y);
         DrawBottomButtons(bottomButRect);
         DrawFooter(ref leftRect);
@@ -273,7 +294,17 @@ public class ListingMenu<T> : Window
                 var maxFilterCount = allFilters.Count(f => f.Label == filter.Label);
 
                 if (activeFilters.Count(f => f.Label == filter.Label) < maxFilterCount)
-                    activeFilters.Add(allFilters.FirstOrDefault(f => f.Label == filter.Label && !activeFilters.Contains(f)));
+                {
+                    // FirstOrDefault could return NULL here and the old code added it blindly, which
+                    // poisons the list: every later Matches() call throws and the listing stops
+                    // filtering. Re-adding a filter after deleting it is exactly the path that hits it.
+                    var toAdd = allFilters.FirstOrDefault(f => f.Label == filter.Label && !activeFilters.Contains(f));
+                    if (toAdd != null)
+                    {
+                        toAdd.Inverted = false; // re-added filters start in their normal (non-inverted) state
+                        activeFilters.Add(toAdd);
+                    }
+                }
                 else
                     Messages.Message(new("Reached limit of this specific filter count", MessageTypeDefOf.RejectInput));
             }));
@@ -320,18 +351,19 @@ public class ListingMenu<T> : Window
             }
     }
 
+    private bool _appliedShowFilters;
+
     private void UpdateWindowRect()
     {
-        if (_showFilters && windowRect.width != WideSize.x)
-        {
-            windowRect.width = WideSize.x;
-            windowRect.height = WideSize.y;
-        }
-        else if (!_showFilters && windowRect.width != InitialSize.x)
-        {
-            windowRect.width = InitialSize.x;
-            windowRect.height = InitialSize.y;
-        }
+        // Only widen/narrow when the FILTERS PANEL is actually toggled. The old version slammed the
+        // window back to a fixed size on every frame whenever the width didn't match, which fought the
+        // resizer and made these menus impossible to resize (they'd snap back instantly).
+        if (_showFilters == _appliedShowFilters) return;
+
+        var filterWidth = WideSize.x - InitialSize.x;
+        windowRect.width = Mathf.Max(InitialSize.x, windowRect.width + (_showFilters ? filterWidth : -filterWidth));
+        windowRect.height = Mathf.Max(InitialSize.y, windowRect.height);
+        _appliedShowFilters = _showFilters;
     }
 
     private void CloseIfNotSelected()

@@ -247,6 +247,18 @@
     <PawnEditor.Resurrect>Resurrect</PawnEditor.Resurrect>
     <PawnEditor.MechsSection>Mechs</PawnEditor.MechsSection>
     <PawnEditor.SelectedLocation>Selected location</PawnEditor.SelectedLocation>
+    <PawnEditor.SelectedSide>Side</PawnEditor.SelectedSide>
+    <PawnEditor.RemoveFilter>Remove this filter</PawnEditor.RemoveFilter>
+    <PawnEditor.FilterInverted>(inverted)</PawnEditor.FilterInverted>
+    <PawnEditor.BmModuleNeedsPart>{0} goes into a modular {1}. This pawn doesn't have one installed there yet, so install the modular part first and then add the module to it.</PawnEditor.BmModuleNeedsPart>
+    <PawnEditor.BmModuleNeedsHost>{0} is a module: it needs a modular prosthetic to be installed into. Install one (a modular arm, leg, eye and so on) first, then add the module to that part.</PawnEditor.BmModuleNeedsHost>
+    <PawnEditor.AllowIllegalPlacements>Allow illegal placements</PawnEditor.AllowIllegalPlacements>
+    <PawnEditor.AllowIllegalPlacements.Desc>Off by default: adding a prosthetic clears the target part first, like vanilla surgery, and a module refuses to go anywhere without a modular part to slot into. Turn this on to stack implants and place pieces wherever you want. Expect odd results.</PawnEditor.AllowIllegalPlacements.Desc>
+    <PawnEditor.FitsThisPawn>Fits this pawn</PawnEditor.FitsThisPawn>
+    <PawnEditor.FitsThisPawnDesc>Only shows hediffs that some surgery can install on this pawn's body, so an animal's prosthetics don't clutter a human's list (and the other way around). Hediffs with no surgery at all (injuries, diseases, conditions, modules) are always shown. Delete this filter to see everything.</PawnEditor.FitsThisPawnDesc>
+    <PawnEditor.ModuleRequires>This is a module: it slots into an already installed modular part ({0}).</PawnEditor.ModuleRequires>
+    <PawnEditor.ModuleNeedsHost>{0} is a module and needs a modular part to slot into. Install one of these first, then add the module: {1}</PawnEditor.ModuleNeedsHost>
+    <PawnEditor.ModuleConflict>{0} cannot be combined with {1}, already installed on the {2}. Remove it first.</PawnEditor.ModuleConflict>
     <PawnEditor.Optional>optional</PawnEditor.Optional>
 
     <!-- Quick Actions -->  

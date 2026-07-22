@@ -41,22 +41,31 @@ public abstract class Filter<T>
         var topRowRect = filterRect.TakeTopPart(Text.LineHeightOf(GameFont.Small));
         using (new TextBlock(TextAnchor.MiddleLeft))
         {
-            var buttonRect = topRowRect.TakeRightPart(topRowRect.height);
-            if (Widgets.ButtonImage(buttonRect, TexButton.Delete))
+            // Delete and invert used to sit flush against each other, and invert's hitbox was expanded
+            // by 4px on top of that, so they were easy to confuse: hitting invert instead of delete
+            // silently shows the OPPOSITE of what the filter means, which reads like the filter broke.
+            // Now they have a real gap, both have tooltips, and an inverted filter says so in its label.
+            var deleteRect = topRowRect.TakeRightPart(topRowRect.height);
+            TooltipHandler.TipRegion(deleteRect, "PawnEditor.RemoveFilter".Translate());
+            if (Widgets.ButtonImage(deleteRect, TexButton.Delete))
             {
                 Inverted = false;
                 return true;
             }
 
-            buttonRect = topRowRect.TakeRightPart(topRowRect.height).ExpandedBy(4f);
-            buttonRect.x -= 4f;
-
-            TooltipHandler.TipRegion(buttonRect, "PawnEditor.InvertFilter".Translate());
+            topRowRect.xMax -= 8f;
+            var invertRect = topRowRect.TakeRightPart(topRowRect.height);
+            TooltipHandler.TipRegion(invertRect, "PawnEditor.InvertFilter".Translate());
 
             var filter = Inverted ? TexPawnEditor.InvertFilterActive : TexPawnEditor.InvertFilter;
-            if (Widgets.ButtonImage(buttonRect, filter)) Inverted = !Inverted;
+            if (Widgets.ButtonImage(invertRect, filter)) Inverted = !Inverted;
 
-            Widgets.Label(topRowRect, Label);
+            topRowRect.xMax -= 4f;
+            // Typed as string on purpose: a string/TaggedString ternary makes the Widgets.Label call
+            // ambiguous between its string and TaggedString overloads.
+            string displayLabel = Label;
+            if (Inverted) displayLabel = Label + " " + "PawnEditor.FilterInverted".Translate().ToString();
+            Widgets.Label(topRowRect, displayLabel);
             if (Mouse.IsOver(topRowRect) && Description != "")
                 TooltipHandler.TipRegion(topRowRect, $"{Label.Colorize(ColoredText.TipSectionTitleColor)}\n\n{Description}");
         }

@@ -85,6 +85,11 @@ public sealed class PawnEditorSettingsDrawer
             ref settings.RememberWindowPositions,
             "PawnEditor.RememberWindowPositions.Desc".Translate());
 
+        listing.CheckboxLabeled(
+            "PawnEditor.AllowIllegalPlacements".Translate(),
+            ref settings.AllowIllegalPlacements,
+            "PawnEditor.AllowIllegalPlacements.Desc".Translate());
+
         _hotkeyService.DrawHotkeyPicker(listing, settings);
 
         // ── Debug: profiler ("banderitas") ──

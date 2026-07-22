@@ -27,8 +27,23 @@ public interface IDragLockable
     bool DragLocked { get; }
 }
 
+/// <summary>
+/// A Pawn Editor window that must not be shrunk below a given size. Clamping inside DoWindowContents
+/// was a frame TOO LATE: that frame had already been laid out with the tiny rect, which is why shrinking
+/// a listing menu made the header and the panels overlap before snapping back. Verse.WindowResizer
+/// already enforces a floor (minWindowSize) BEFORE committing the new rect, so we feed it ours instead.
+/// </summary>
+public interface IMinWindowSize
+{
+    Vector2 MinWindowSize { get; }
+}
+
 public static class Patch_ResizableWindows
 {
+    // Window.resizer is private and created lazily, the first frame after resizeable turns true.
+    private static readonly System.Reflection.FieldInfo ResizerField =
+        typeof(Window).GetField("resizer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
     // Last known rect per window type, so "remember position" can restore it on the next open.
     private static readonly Dictionary<Type, Rect> LastRects = new();
     // Instances already positioned this open (first-frame restore). Weak so closed windows are GC'd.
@@ -45,6 +60,11 @@ public static class Patch_ResizableWindows
         // A window can opt out of dragging (e.g. the appearance editor, so its inner splitter can be
         // dragged without moving the whole window). Locked windows resize via the corner handle only.
         __instance.draggable = !(__instance is IDragLockable dl && dl.DragLocked);
+
+        // Hand the window's own floor to the resizer, so the game itself refuses to shrink it further
+        // instead of us correcting it after the fact. Windows that don't declare one are left alone.
+        if (__instance is IMinWindowSize minSized && ResizerField?.GetValue(__instance) is WindowResizer resizer)
+            resizer.minWindowSize = minSized.MinWindowSize;
 
         // Default (setting off): do nothing else. Each window is a fresh instance opened centered, so
         // one left off-screen always comes back reachable next open. That IS the safeguard.

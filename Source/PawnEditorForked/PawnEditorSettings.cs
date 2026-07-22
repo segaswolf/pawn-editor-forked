@@ -38,6 +38,11 @@ public class PawnEditorSettings : ModSettings
     // size between opens.
     public bool RememberWindowPositions;
 
+    // Off by default: the editor normally behaves like vanilla surgery (replaces the part instead of
+    // stacking implants, and refuses to put a module where there is no modular part to hold it). Turn
+    // it on to place anything anywhere on purpose, warnings included.
+    public bool AllowIllegalPlacements;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -55,6 +60,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref ProfilingEnabled, nameof(ProfilingEnabled));
         Scribe_Values.Look(ref AllowPolygamyOnLoad, nameof(AllowPolygamyOnLoad));
         Scribe_Values.Look(ref RememberWindowPositions, nameof(RememberWindowPositions));
+        Scribe_Values.Look(ref AllowIllegalPlacements, nameof(AllowIllegalPlacements));
 
         if (HARCompat.Active)
         {

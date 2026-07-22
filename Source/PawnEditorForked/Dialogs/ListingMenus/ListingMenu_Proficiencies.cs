@@ -170,6 +170,10 @@ public class ListingMenu_Proficiencies : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        // Resizable now: keep a floor so the two columns don't collapse into an unusable mess.
+        windowRect.width = Mathf.Max(windowRect.width, InitialSize.x);
+        windowRect.height = Mathf.Max(windowRect.height, 480f);
+
         // [BANDERITA] The whole per-frame render of this window. If this shows up as a per-frame
         // allocator in the profiler summary, the list rebuilds below are the cause.
         PawnEditorProfiler.Measure("Proficiencies.DoWindowContents", PawnEditorProfiler.Cadence.PerFrame, () =>

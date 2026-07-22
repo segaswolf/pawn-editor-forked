@@ -25,6 +25,13 @@ public static partial class PawnBlueprintSaveLoad
     // links clone<->clone instead of binding to the originals. Null for single-pawn loads.
     internal static Dictionary<string, Pawn> ColonyRemap;
 
+    /// <summary>
+    /// The hediffs the pawn generator gave the fresh body, captured BEFORE any blueprint section runs.
+    /// Used by StripGeneratorHediffs to drop generator noise without ever touching hediffs that genes
+    /// (ours or another mod's) add later during the load.
+    /// </summary>
+    internal static List<Hediff> GeneratorHediffs = new();
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Core build pipeline (called from LoadBlueprint in the main file)
     // ─────────────────────────────────────────────────────────────────────────
@@ -73,6 +80,13 @@ public static partial class PawnBlueprintSaveLoad
         // PawnGenerator may ignore fixedGender for some xenotypes — force it back
         if (pawn.gender != gender) pawn.gender = gender;
 
+        // SAFEGUARD: snapshot what the GENERATOR gave this body, before we touch anything. A blueprint
+        // is a full description of a pawn, so anything here that the blueprint doesn't declare is noise
+        // the generator invented (age injuries, addictions, scars) and must not survive the load.
+        // Taken BEFORE LoadGenes on purpose: hediffs that genes add during the load are NOT in this
+        // snapshot, so they are never touched. That's what makes it safe against other mods' genes.
+        GeneratorHediffs = pawn.health?.hediffSet?.hediffs?.ToList() ?? new List<Hediff>();
+
         // ── 3. Apply all blueprint sections ──
         PawnEditorProfiler.Measure("Load.ApplySections", PawnEditorProfiler.Cadence.PerAction, () =>
         {
@@ -93,6 +107,7 @@ public static partial class PawnBlueprintSaveLoad
             LoadWorkPriorities(pawn, root);
             LoadInventory(pawn, root);
             LoadRoyalTitles(pawn, root);
+            LoadPsycasterState(pawn, root);
             LoadRecords(pawn, root);
             LoadTraining(pawn, root);
             if (ColonyRemap == null) LoadMaster(pawn, root);
@@ -101,6 +116,9 @@ public static partial class PawnBlueprintSaveLoad
             LoadMechUpgrades(pawn, root);
             FacialAnimCompat.LoadFacialData(pawn, root);
         });
+
+        AuditLoadedHediffs(pawn, root);
+        GeneratorHediffs = new List<Hediff>();
 
         // Biotech extras not covered by LoadGenes
         if (ModsConfig.BiotechActive && pawn.genes != null)

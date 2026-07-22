@@ -18,6 +18,51 @@ public static partial class PawnEditor
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// SAFEGUARD, run after every duplication: compares the clone's health against the original's and
+    /// reports both directions.
+    ///
+    /// Why this exists: duplication and blueprint save/load are two SEPARATE implementations of the
+    /// same idea, kept in sync BY HAND (see the design rule at the top of PawnDuplicationUtility). Every
+    /// time we fixed one side, the other quietly stayed behind: psycasts worked on duplicate but not on
+    /// load, hediff clearing existed on duplicate but not on load, the bionic jaw bug was duplicate-only.
+    /// This is the counterpart of AuditLoadedHediffs, so a divergence between the two paths shows up in
+    /// the log by itself instead of arriving as a bug report about a clone with a destroyed arm.
+    ///
+    /// Purely informational: it never modifies either pawn.
+    /// </summary>
+    private static void AuditDuplicatedHediffs(Pawn source, Pawn clone)
+    {
+        try
+        {
+            if (source?.health?.hediffSet?.hediffs == null || clone?.health?.hediffSet?.hediffs == null) return;
+
+            var expected = source.health.hediffSet.hediffs
+                .Where(h => h?.def != null).Select(h => h.def.defName).ToList();
+            var actual = clone.health.hediffSet.hediffs
+                .Where(h => h?.def != null).Select(h => h.def.defName).ToList();
+
+            // Count-aware on both sides: five missing fingers must not collapse into one entry.
+            var pool = new List<string>(actual);
+            var missing = expected.Where(defName => !pool.Remove(defName)).ToList();
+
+            var expectedPool = new List<string>(expected);
+            var extra = actual.Where(defName => !expectedPool.Remove(defName)).ToList();
+
+            if (missing.Count > 0)
+                Log.Warning($"[Pawn Editor] Duplicating '{source.LabelShortCap}': {missing.Count} hediff(s) did "
+                            + $"NOT make it to the clone: {string.Join(", ", missing)}");
+
+            if (extra.Count > 0)
+                Log.Warning($"[Pawn Editor] Duplicating '{source.LabelShortCap}': the clone has {extra.Count} "
+                            + $"hediff(s) the original does not: {string.Join(", ", extra)}");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] AuditDuplicatedHediffs: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Copies hediffs that vanilla marks as safe to duplicate
     /// (hediff.def.duplicationAllowed == true).
     ///
@@ -30,6 +75,11 @@ public static partial class PawnEditor
         if (src.health?.hediffSet == null || dst.health?.hediffSet == null) return;
 
         dst.health.hediffSet.hediffs.Clear();
+
+        // Modules (arm blade, analyzer...) sit ON a modular prosthetic and are NOT implants, so they'd
+        // be copied in this first loop and then wiped by the implants' RestorePart below. Defer them to
+        // a third pass, after the host part exists. Same fix as the blueprint load path.
+        var deferredModules = new List<Hediff>();
 
         foreach (var hediff in src.health.hediffSet.hediffs)
         {
@@ -49,6 +99,12 @@ public static partial class PawnEditor
             if (hediff.Part != null && !dst.health.hediffSet.HasBodyPart(hediff.Part)) continue;
             // Non-organic implants are restored below via RestorePart
             if ((hediff is Hediff_AddedPart || hediff is Hediff_Implant) && !hediff.def.organicAddedBodypart) continue;
+
+            if (BionicModularityCompat.IsModule(hediff.def) || ModularModulesCompat.GetModule(hediff.def) != null)
+            {
+                deferredModules.Add(hediff);
+                continue;
+            }
 
             try
             {
@@ -87,6 +143,22 @@ public static partial class PawnEditor
             catch (Exception ex)
             {
                 Log.Warning($"[Pawn Editor] Failed to copy implant {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
+            }
+        }
+
+        // Third pass: modules, now that their host prosthetic exists and its RestorePart has run.
+        foreach (var hediff in deferredModules)
+        {
+            try
+            {
+                if (hediff.Part != null && !dst.health.hediffSet.HasBodyPart(hediff.Part)) continue;
+                var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
+                copy.CopyFrom(hediff);
+                dst.health.hediffSet.AddDirect(copy);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[Pawn Editor] Failed to copy module {hediff.def?.defName} on {hediff.Part?.Label}: {ex.Message}");
             }
         }
     }

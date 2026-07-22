@@ -14,8 +14,11 @@ namespace PawnEditor;
 /// </summary>
 [StaticConstructorOnStartup]
 [HotSwappable]
-public class Dialog_AppearanceEditor : Window, IDragLockable
+public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 {
+    // Enforced by the resizer, so the panels never get laid out at an impossible size for one frame.
+    public Vector2 MinWindowSize => new(900f, 620f);
+
     private bool windowLocked = true; // locked by default so the preview splitter is draggable
     public bool DragLocked => windowLocked;
 
@@ -76,6 +79,14 @@ public class Dialog_AppearanceEditor : Window, IDragLockable
 
     public override void DoWindowContents(Rect inRect)
     {
+        // Enforce a minimum size: below this the left panel's controls and the option grid start
+        // overlapping into a mess (the resizer would otherwise let you shrink it to nothing).
+        if (windowRect.width < 900f || windowRect.height < 620f)
+        {
+            windowRect.width = Mathf.Max(windowRect.width, 900f);
+            windowRect.height = Mathf.Max(windowRect.height, 620f);
+        }
+
         Widgets.BeginGroup(inRect);
         using (new TextBlock(GameFont.Medium))
         {
@@ -153,7 +164,7 @@ public class Dialog_AppearanceEditor : Window, IDragLockable
                                 {
                                     pawn.story.bodyType = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
-                                }, def => TexPawnEditor.BodyTypeIcons[def], def => pawn.story.bodyType == def, 1, new[] { pawn.story.SkinColor },
+                                }, def => TexPawnEditor.GetBodyTypeIcon(def), def => pawn.story.bodyType == def, 1, new[] { pawn.story.SkinColor },
                                 (color, i) =>
                                 {
                                     pawn.story.skinColorOverride = color;
@@ -565,7 +576,18 @@ public class Dialog_AppearanceEditor : Window, IDragLockable
 
         // v3.1: preview scales with the panel width (drag the splitter to grow it), capped so the
         // controls below still fit. Square + centered to avoid stretching the pawn.
-        var previewSide = Mathf.Clamp(inRect.width, 150f, inRect.height * 0.55f);
+        // Reserve the WHOLE bottom block (Source + the three checkboxes) before sizing anything else.
+        // This is the real fix for "Source lands on top of Show headgear": the preview grows with the
+        // panel WIDTH, so widening the window made it taller and ate every pixel below it. Reserving
+        // afterwards was useless, because by then the space was already gone.
+        var bottomBlock = inRect.TakeBottomPart(Mathf.Min(
+            Text.LineHeight + 34f + 60f + (ModsConfig.BiotechActive ? 50f : 0f),
+            inRect.height * 0.5f));
+
+        // Cap the preview by what is ACTUALLY free below it (face button + the sex/age/xenotype block)
+        // instead of a blind 55% of the height, which didn't account for those.
+        var neededBelow = 8f + 110f + 6f + (FacialAnimCompat.CanEditFace(pawn) ? 30f : 0f);
+        var previewSide = Mathf.Clamp(inRect.width, 150f, Mathf.Max(150f, inRect.height - neededBelow));
         // Snap to 24px steps so dragging the splitter doesn't render a NEW portrait texture every pixel
         // (PortraitsCache keys by size; unrounded sizes = per-frame RenderTexture churn = the old GC/
         // black-screen problem). The portrait only re-renders when it crosses a step.
@@ -711,9 +733,14 @@ public class Dialog_AppearanceEditor : Window, IDragLockable
         inRect.yMin += 4;
 
         */
-        using (new TextBlock(GameFont.Tiny)) Widgets.Label(inRect.TakeTopPart(Text.LineHeight), "Source".Translate().CapitalizeFirst());
+        // Draw into the block reserved at the top of this method, never into whatever happens to be
+        // left over: that is what guarantees these can't collide no matter how the window is resized.
+        var bottomRect = bottomBlock.TakeBottomPart(60f + (ModsConfig.BiotechActive ? 50f : 0f));
 
-        if (mainTab != MainTab.HAR && Widgets.ButtonText(inRect.TakeTopPart(30).ContractedBy(3), sourceFilter?.Name ?? "PawnEditor.All".Translate().CapitalizeFirst()))
+        using (new TextBlock(GameFont.Tiny)) Widgets.Label(bottomBlock.TakeTopPart(Text.LineHeight), "Source".Translate().CapitalizeFirst());
+
+        if (mainTab != MainTab.HAR && bottomBlock.height >= 30f
+            && Widgets.ButtonText(bottomBlock.TakeTopPart(30).ContractedBy(3), sourceFilter?.Name ?? "PawnEditor.All".Translate().CapitalizeFirst()))
         {
             var allDefs = GetAllDefsForTab(mainTab, shapeTab);
             var options = LoadedModManager.RunningMods.Intersect(allDefs.Select(def => def.modContentPack).Distinct())
@@ -726,9 +753,9 @@ public class Dialog_AppearanceEditor : Window, IDragLockable
         }
 
         if (ModsConfig.BiotechActive)
-            Widgets.CheckboxLabeled(inRect.TakeBottomPart(50), "PawnEditor.IgnoreXenotype".Translate(), ref ignoreXenotype);
-        Widgets.CheckboxLabeled(inRect.TakeBottomPart(30), "PawnEditor.ShowApparel".Translate(), ref PawnEditor.RenderClothes);
-        Widgets.CheckboxLabeled(inRect.TakeBottomPart(30), "PawnEditor.ShowHeadgear".Translate(), ref PawnEditor.RenderHeadgear);
+            Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(50), "PawnEditor.IgnoreXenotype".Translate(), ref ignoreXenotype);
+        Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(30), "PawnEditor.ShowApparel".Translate(), ref PawnEditor.RenderClothes);
+        Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(30), "PawnEditor.ShowHeadgear".Translate(), ref PawnEditor.RenderHeadgear);
     }
 
     private void SetXenotype(XenotypeDef xenotype)

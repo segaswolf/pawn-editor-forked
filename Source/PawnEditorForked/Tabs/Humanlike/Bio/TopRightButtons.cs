@@ -101,7 +101,7 @@ public partial class TabWorker_Bio_Humanlike
             Find.WindowStack.Add(new FloatMenu(list));
         }
 
-        if (listing.ButtonImageLabeledVStack("PawnEditor.Shape".Translate(), TexPawnEditor.BodyTypeIcons[pawn.story.bodyType], 6))
+        if (listing.ButtonImageLabeledVStack("PawnEditor.Shape".Translate(), TexPawnEditor.GetBodyTypeIcon(pawn.story.bodyType), 6))
             Find.WindowStack.Add(new FloatMenu(DefDatabase<BodyTypeDef>.AllDefs.Where(bodyType => pawn.DevelopmentalStage switch
                 {
                     DevelopmentalStage.Baby or DevelopmentalStage.Newborn => bodyType == BodyTypeDefOf.Baby,
@@ -113,7 +113,7 @@ public partial class TabWorker_Bio_Humanlike
                 {
                     pawn.story.bodyType = bodyType;
                     RecacheGraphics(pawn);
-                }, TexPawnEditor.BodyTypeIcons[bodyType], Color.white))
+                }, TexPawnEditor.GetBodyTypeIcon(bodyType), Color.white))
                 .ToList()));
 
         if (listing.ButtonText("PawnEditor.EditAppearance".Translate(), 6))

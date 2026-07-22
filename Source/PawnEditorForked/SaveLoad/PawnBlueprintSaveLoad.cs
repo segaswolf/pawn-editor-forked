@@ -84,6 +84,7 @@ public static partial class PawnBlueprintSaveLoad
         WriteWorkPriorities(writer, pawn);
         WriteInventory(writer, pawn);
         WriteRoyalTitles(writer, pawn);
+        WritePsycasterState(writer, pawn);
         WriteRecords(writer, pawn);
         WriteTraining(writer, pawn);
         WriteMaster(writer, pawn);

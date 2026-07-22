@@ -12,8 +12,10 @@ namespace PawnEditor;
 /// Provides search, icons, tooltips — same experience as the main xenotype listing.
 /// Refreshes automatically when new customs are created via the Xenotype Editor.
 /// </summary>
-public class ListingMenu_CustomXenotypes : Window
+public class ListingMenu_CustomXenotypes : Window, IMinWindowSize
 {
+    public Vector2 MinWindowSize => new(InitialSize.x, 380f);
+
     private readonly Pawn _pawn;
     private Vector2 _scrollPos;
     private string _searchText = "";
@@ -68,6 +70,10 @@ public class ListingMenu_CustomXenotypes : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        // Resizable now: keep a floor so the rows/search don't collapse into an unusable mess.
+        windowRect.width = Mathf.Max(windowRect.width, InitialSize.x);
+        windowRect.height = Mathf.Max(windowRect.height, 380f);
+
         // Header
         using (new TextBlock(GameFont.Medium))
             Widgets.Label(inRect.TakeTopPart(Text.LineHeight + 4f), "PawnEditor.CustomXenotypes".Translate());
