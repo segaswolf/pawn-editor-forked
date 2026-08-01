@@ -17,6 +17,9 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         Apparel,
         Equipment,
         Possessions,
+        RangedWeapons,
+        MeleeWeapons,
+        Items,
         Starting
     }
 
@@ -25,6 +28,9 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
     private static List<ThingDef> kidApparel;
     private static List<ThingDef> equipment;
     private static List<ThingDef> items;
+    private static List<ThingDef> rangedWeapons;
+    private static List<ThingDef> meleeWeapons;
+    private static List<ThingDef> nonWeaponItems;
     private static List<ThingDef> starting;
     private static List<ThingDef> all;
 
@@ -34,6 +40,24 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
 
     public static readonly HashSet<ThingStyle> ThingStyles = new();
     private static IEnumerable<BodyPartGroupDef> occupiableGroupsDefs;
+
+    private enum FallbackGroup
+    {
+        HeadFace,
+        Hands,
+        LegsFeet,
+        UtilityApparel,
+        BodyApparel,
+        OtherApparel,
+        OtherRangedWeapons,
+        OtherMeleeWeapons,
+        Food,
+        Medicine,
+        Drugs,
+        ResourcesMaterials,
+        UtilityItems,
+        OtherItems
+    }
 
     static ListingMenu_Items()
     {
@@ -72,7 +96,20 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
     {
         TreeNodeThingCategory = treeNodeThingCategory ?? ThingCategoryNodeDatabase.RootNode;
         type = itemType;
-        Listing = new Listing_TreeThing(GetItemList(itemType, pawn), labelGetter, iconDrawer, descGetter);
+        InitializeListing(itemType, pawn);
+
+        occupiableGroupsDefs = pawn.def.race.body.cachedAllParts.SelectMany(p => p.groups)
+            .Distinct()
+            .Where(bp => apparel.Select(td => td.apparel.bodyPartGroups)
+                .Any(bpg => bpg.Contains(bp)));
+    }
+
+    public ListingMenu_Items(ItemType itemType, Pawn pawn, Action<ThingDef> onSelected, TreeNode_ThingCategory treeNodeThingCategory = null) : base(t => new SuccessInfo(() => onSelected(t)),
+        GetMenuTitle(itemType), pawn)
+    {
+        TreeNodeThingCategory = treeNodeThingCategory ?? ThingCategoryNodeDatabase.RootNode;
+        type = itemType;
+        InitializeListing(itemType, pawn);
 
         occupiableGroupsDefs = pawn.def.race.body.cachedAllParts.SelectMany(p => p.groups)
             .Distinct()
@@ -85,14 +122,22 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
     {
         TreeNodeThingCategory = ThingCategoryNodeDatabase.RootNode;
         type = itemType;
-        Listing = new Listing_TreeThing(GetItemList(itemType), labelGetter, iconDrawer, descGetter);
+        InitializeListing(itemType);
     }
 
     public ListingMenu_Items(Func<Thing, AddResult> adder, ItemType itemType, string menuTitle = null) : base(t => TryAdd(t, adder), menuTitle)
     {
         TreeNodeThingCategory = ThingCategoryNodeDatabase.RootNode;
         type = itemType;
-        Listing = new Listing_TreeThing(GetItemList(itemType), labelGetter, iconDrawer, descGetter);
+        InitializeListing(itemType);
+    }
+
+    private void InitializeListing(ItemType itemType, Pawn pawn = null)
+    {
+        var candidates = GetItemList(itemType, pawn);
+        var listing = new Listing_TreeThing(candidates, labelGetter, iconDrawer, descGetter);
+        listing.SetManualGroups(BuildFallbackGroups(candidates, TreeNodeThingCategory, itemType));
+        Listing = listing;
     }
 
     public override void PreOpen()
@@ -124,6 +169,82 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         var typeLabel = "PawnEditor.ItemType." + itemType;
         return "PawnEditor.Choose".Translate() + " " + typeLabel.Translate().ToLower();
     }
+
+    private static IEnumerable<Listing_TreeThing.ManualGroup> BuildFallbackGroups(
+        IEnumerable<ThingDef> candidates,
+        TreeNode_ThingCategory rootNode,
+        ItemType itemType)
+    {
+        var reachableDefs = rootNode?.catDef?.DescendantThingDefs.ToHashSet() ?? new();
+        return candidates
+            .Where(thingDef => thingDef != null && !reachableDefs.Contains(thingDef))
+            .Distinct()
+            .GroupBy(thingDef => GetFallbackGroup(thingDef, itemType))
+            .OrderBy(group => group.Key)
+            .Select(group => new Listing_TreeThing.ManualGroup(GetFallbackLabel(group.Key), group));
+    }
+
+    private static FallbackGroup GetFallbackGroup(ThingDef thingDef, ItemType itemType)
+    {
+        if (thingDef.IsApparel)
+            return GetApparelFallbackGroup(thingDef);
+
+        if (itemType == ItemType.RangedWeapons || thingDef.IsRangedWeapon)
+            return FallbackGroup.OtherRangedWeapons;
+
+        if (itemType == ItemType.MeleeWeapons || thingDef.IsMeleeWeapon)
+            return FallbackGroup.OtherMeleeWeapons;
+
+        if (thingDef.IsMedicine)
+            return FallbackGroup.Medicine;
+
+        if (thingDef.IsDrug)
+            return FallbackGroup.Drugs;
+
+        if (thingDef.IsNutritionGivingIngestible)
+            return FallbackGroup.Food;
+
+        if (thingDef.IsStuff || thingDef.stuffProps != null)
+            return FallbackGroup.ResourcesMaterials;
+
+        if (thingDef.HasComp(typeof(CompUsable)))
+            return FallbackGroup.UtilityItems;
+
+        return FallbackGroup.OtherItems;
+    }
+
+    private static FallbackGroup GetApparelFallbackGroup(ThingDef thingDef)
+    {
+        var apparel = thingDef.apparel;
+        var layers = apparel.layers;
+        var bodyPartGroups = apparel.bodyPartGroups;
+
+        if (layers.Contains(ApparelLayerDefOf.Belt))
+            return FallbackGroup.UtilityApparel;
+
+        if (layers.Contains(ApparelLayerDefOf.Overhead) || layers.Contains(ApparelLayerDefOf.EyeCover) ||
+            bodyPartGroups.Contains(BodyPartGroupDefOf.FullHead) || bodyPartGroups.Contains(BodyPartGroupDefOf.UpperHead) ||
+            bodyPartGroups.Contains(BodyPartGroupDefOf.Eyes))
+            return FallbackGroup.HeadFace;
+
+        if (ContainsBodyPartGroup(bodyPartGroups, "hand", "paw", "claw"))
+            return FallbackGroup.Hands;
+
+        if (bodyPartGroups.Contains(BodyPartGroupDefOf.Legs) || ContainsBodyPartGroup(bodyPartGroups, "foot", "hoof"))
+            return FallbackGroup.LegsFeet;
+
+        if (bodyPartGroups.Contains(BodyPartGroupDefOf.Torso))
+            return FallbackGroup.BodyApparel;
+
+        return FallbackGroup.OtherApparel;
+    }
+
+    private static bool ContainsBodyPartGroup(IEnumerable<BodyPartGroupDef> groups, params string[] terms)
+    {
+        return groups.Any(group => terms.Any(term => group.defName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0));
+    }
+
+    private static string GetFallbackLabel(FallbackGroup group) => ("PawnEditor.Fallback." + group).Translate();
 
     private static void CheckCapacity(Pawn pawn, Thing newItem)
     {
@@ -289,10 +410,16 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         kidApparel = DefDatabase<ThingDef>.AllDefs
             .Where(td => td != null && td.IsApparel && td.apparel != null
                 && td.apparel.developmentalStageFilter.Has(DevelopmentalStage.Child)).ToList();
+        // Some modded consumables/resources incorrectly carry equipmentType=Primary. A primary
+        // slot flag alone does not make a def a usable weapon; require RimWorld's normal weapon
+        // test so food, drugs, and materials remain available from the Items picker.
         equipment = DefDatabase<ThingDef>.AllDefs
-            .Where(td => td != null && td.equipmentType == EquipmentType.Primary).ToList();
+            .Where(IsPrimaryWeapon).ToList();
         items = DefDatabase<ThingDef>.AllDefs
             .Where(td => td != null && td.category == ThingCategory.Item).ToList();
+        rangedWeapons = equipment.Where(td => td.IsRangedWeapon).ToList();
+        meleeWeapons = equipment.Where(td => td.IsMeleeWeapon).ToList();
+        nonWeaponItems = items.Where(td => !td.IsApparel && !IsPrimaryWeapon(td)).ToList();
         starting = DefDatabase<ThingDef>.AllDefs.Where(td =>
                 td != null &&
                 ((td.category == ThingCategory.Item && td.scatterableOnMapGen && !td.destroyOnDrop)
@@ -300,6 +427,18 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 || (td.category == ThingCategory.Building && td.scatterableOnMapGen)))
             .ToList();
         all = DefDatabase<ThingDef>.AllDefs.Where(td => td != null).ToList();
+    }
+
+    private static bool IsPrimaryWeapon(ThingDef thingDef)
+    {
+        if (thingDef == null || thingDef.equipmentType != EquipmentType.Primary || !thingDef.IsWeapon)
+            return false;
+
+        // A few loaded mods flag consumables and resources as primary equipment. Treat the
+        // established Weapons category as authoritative, while keeping truly uncategorized
+        // mod weapons available through the existing fallback group.
+        return ThingCategoryDefOf.Weapons.ContainedInThisOrDescendant(thingDef)
+               || thingDef.thingCategories.NullOrEmpty();
     }
 
     private static List<ThingDef> GetItemList(ItemType itemType2, Pawn pawn = null)
@@ -314,6 +453,12 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                 return equipment;
             case ItemType.Possessions:
                 return items;
+            case ItemType.RangedWeapons:
+                return rangedWeapons;
+            case ItemType.MeleeWeapons:
+                return meleeWeapons;
+            case ItemType.Items:
+                return nonWeaponItems;
             case ItemType.Starting:
                 return starting;
             default:

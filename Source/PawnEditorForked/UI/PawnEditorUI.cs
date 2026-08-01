@@ -143,9 +143,19 @@ public static partial class PawnEditor
         if (Widgets.ButtonText(inRect.TakeRightPart(Page.BottomButSize.x), Pregame ? "Start".Translate() : "PawnEditor.Teleport".Translate())
             && CanExit()) onRightButton();
 
-        var randomRect = new Rect(Vector2.zero, Page.BottomButSize).CenteredOnXIn(inRect).CenteredOnYIn(inRect);
-
-        var buttonRect = new Rect(randomRect);
+        var standardWidth = Page.BottomButSize.x;
+        var spacing = Mathf.Min(5f, inRect.width / 20f);
+        var randomWidth = Mathf.Min(standardWidth, Mathf.Max(1f, inRect.width / 5f));
+        var buttonY = inRect.y + (inRect.height - Page.BottomButSize.y) / 2f;
+        var randomRect = new Rect(inRect.center.x - randomWidth / 2f, buttonY, randomWidth, Page.BottomButSize.y);
+        var sideRegionWidth = Mathf.Max(0f, (inRect.width - randomWidth) / 2f);
+        var deleteMargin = Mathf.Min(40f, sideRegionWidth * 0.2f);
+        var deleteWidth = Mathf.Min(standardWidth, Mathf.Max(1f, sideRegionWidth - deleteMargin * 2f));
+        var deleteRect = new Rect(inRect.x + (sideRegionWidth - deleteWidth) / 2f, buttonY, deleteWidth, Page.BottomButSize.y);
+        var saveLoadWidth = Mathf.Min(standardWidth, Mathf.Max(1f, (sideRegionWidth - spacing) / 2f));
+        var saveLoadGroupWidth = saveLoadWidth * 2f + spacing;
+        var saveRect = new Rect(inRect.xMax - saveLoadGroupWidth, buttonY, saveLoadWidth, Page.BottomButSize.y);
+        var loadRect = new Rect(saveRect.xMax + spacing, buttonY, saveLoadWidth, Page.BottomButSize.y);
         var options = GetRandomizationOptions().ToList();
 
         // Add randomize options for factions
@@ -184,7 +194,8 @@ public static partial class PawnEditor
             }
         }
 
-        if (lastRandomization != null && Widgets.ButtonImageWithBG(randomRect.TakeRightPart(20), TexUI.RotRightTex, new Vector2(12, 12)))
+        if (lastRandomization != null && randomRect.width > 24f
+                                      && Widgets.ButtonImageWithBG(randomRect.TakeRightPart(20), TexUI.RotRightTex, new Vector2(12, 12)))
         {
             var label = lastRandomization.Label.ToLower();
             var matched = options.FirstOrDefault(op => op.Label.Contains(label));
@@ -202,17 +213,17 @@ public static partial class PawnEditor
                 Find.WindowStack.Add(new FloatMenu(options));
             }
 
-        buttonRect.x -= 5 + buttonRect.width;
+        var canDelete = !showFactionInfo && selectedPawn != null;
+        if (Widgets.ButtonText(deleteRect, "Delete".Translate(), active: canDelete))
+            ConfirmDeletePawn(selectedPawn);
 
-        if (Widgets.ButtonText(buttonRect, "Save".Translate()))
+        if (Widgets.ButtonText(saveRect, "Save".Translate()))
             Find.WindowStack.Add(new FloatMenu(GetSaveLoadItems()
                 .Select(static item => item.MakeSaveOption())
                 .Where(static option => option != null)
                 .ToList()));
 
-        buttonRect.x = randomRect.xMax + 5;
-
-        if (Widgets.ButtonText(buttonRect, "Load".Translate()))
+        if (Widgets.ButtonText(loadRect, "Load".Translate()))
             Find.WindowStack.Add(new FloatMenu(GetSaveLoadItems()
                 .Select(static item => item.MakeLoadOption())
                 .Where(static option => option != null)

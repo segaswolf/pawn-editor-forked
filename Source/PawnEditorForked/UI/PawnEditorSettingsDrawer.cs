@@ -53,6 +53,11 @@ public sealed class PawnEditorSettingsDrawer
             ref settings.ShowOpenButton,
             "PawnEditor.ShowEditButton.Desc".Translate());
 
+        listing.CheckboxLabeled(
+            "PawnEditor.PauseWhileEditorOpen".Translate(),
+            ref settings.PauseWhileEditorOpen,
+            "PawnEditor.PauseWhileEditorOpen.Desc".Translate());
+
         if (listing.ButtonTextLabeled(
                 "PawnEditor.HediffLocation".Translate(),
                 ("PawnEditor.HediffLocation." + settings.HediffLocationLimit).Translate()))

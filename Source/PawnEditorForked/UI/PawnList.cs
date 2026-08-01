@@ -12,8 +12,7 @@ public static partial class PawnEditor
     private static Vector2 pawnListScrollPos;
     private static int reorderableGroupID;
 
-    private static void DoPawnList(Rect inRect, List<Pawn> pawns, List<string> sections, int sectionCount, Action<Pawn, int, int> onReorder,
-        Action<Pawn> onDelete)
+    private static void DoPawnList(Rect inRect, List<Pawn> pawns, List<string> sections, int sectionCount, Action<Pawn, int, int> onReorder)
     {
         sectionCount = sections.Count(s => s != null) + 1;
         var height = pawns.Count * 59f + sectionCount * 20f;
@@ -82,15 +81,7 @@ public static partial class PawnEditor
                 var deleteRect = rect.RightPartPixels(16f).TopPartPixels(16f);
                 if (Widgets.ButtonImage(deleteRect, TexButton.CloseXSmall, Color.red))
                 {
-                    var index = i;
-                    Find.WindowStack.Add(new Dialog_Confirm("PawnEditor.ReallyDelete".Translate(pawn.NameShortColored), "ConfirmDeletePawn",
-                        () =>
-                        {
-                            onDelete(pawn);
-                            if (!Pregame)
-                                pawns.RemoveAt(index);
-                            sections.RemoveAt(index);
-                        }, true));
+                    ConfirmDeletePawn(pawn);
                 }
                 else if (Event.current.type == EventType.MouseDown)
                 {

@@ -31,6 +31,18 @@
         <type>Pawn</type>
     </PawnEditor.TabDef>
     <PawnEditor.TabDef>
+        <defName>Development</defName>
+        <label>development</label>
+        <workerClass>PawnEditor.TabWorker_Development</workerClass>
+        <type>Pawn</type>
+    </PawnEditor.TabDef>
+    <PawnEditor.TabDef>
+        <defName>Royalty</defName>
+        <label>royalty</label>
+        <workerClass>PawnEditor.TabWorker_Royalty</workerClass>
+        <type>Pawn</type>
+    </PawnEditor.TabDef>
+    <PawnEditor.TabDef>
         <defName>Bio_AnimalMech</defName>
         <label>bio</label>
         <workerClass>PawnEditor.TabWorker_Bio_AnimalMech</workerClass>

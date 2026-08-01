@@ -499,6 +499,7 @@ public class ListingMenu_Hediffs : ListingMenu<HediffDef>
                 pawn.health.RestorePart(part);
             pawn.health.AddHediff(hediffDef, part);
             pawn.needs?.mood?.thoughts?.situational?.Notify_SituationalThoughtsDirty();
+            PawnEditor.RefreshPawnGraphics(pawn);
             TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Needs>();
             PawnEditor.Notify_PointsUsed();
             uiTable.ClearCache();

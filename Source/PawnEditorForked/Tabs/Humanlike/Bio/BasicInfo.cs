@@ -39,7 +39,8 @@ public partial class TabWorker_Bio_Humanlike
         var age = "PawnEditor.Age".Translate();
         var childhood = "Childhood".Translate();
         var adulthood = "Adulthood".Translate();
-        var leftWidth = UIUtility.ColumnWidth(3, name, age, childhood, adulthood) + 32f;
+        var sexuality = "PawnEditor.RJW.Sexuality".Translate();
+        var leftWidth = UIUtility.ColumnWidth(3, name, age, childhood, adulthood, sexuality) + 32f;
 
         DrawNameFields(inRect.TakeTopPart(30), pawn, leftWidth);
 
@@ -47,6 +48,7 @@ public partial class TabWorker_Bio_Humanlike
         DrawAgeFields(inRect.TakeTopPart(50), pawn, leftWidth);
 
         DrawBackstoryButtons(ref inRect, pawn, leftWidth, childhood, adulthood);
+        DrawSexuality(ref inRect, pawn, leftWidth);
     }
 
     /// <summary>
@@ -197,5 +199,26 @@ public partial class TabWorker_Bio_Humanlike
             TooltipHandler.TipRegion(adultRect.LeftPart(0.6f),
                 (TipSignal)pawn.story.adulthood.FullDescriptionFor(pawn).Resolve());
         }
+    }
+
+    private static void DrawSexuality(ref Rect inRect, Pawn pawn, float leftWidth)
+    {
+        if (!RJWCompat.IsAvailableForPawn(pawn))
+            return;
+
+        inRect.yMin += 3f;
+        var row = inRect.TakeTopPart(30f);
+        using (new TextBlock(TextAnchor.MiddleLeft))
+            Widgets.Label(row.TakeLeftPart(leftWidth), "PawnEditor.RJW.Sexuality".Translate());
+
+        if (!Widgets.ButtonText(row.LeftPart(0.6f), RJWCompat.GetOrientation(pawn)))
+            return;
+
+        var options = RJWCompat.OrientationNames()
+            .Select(name => new FloatMenuOption(name, () => RJWCompat.SetOrientation(pawn, name)))
+            .ToList();
+        if (options.Count == 0)
+            options.Add(new FloatMenuOption("PawnEditor.NoOptions".Translate(), null));
+        Find.WindowStack.Add(new FloatMenu(options));
     }
 }

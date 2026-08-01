@@ -107,13 +107,23 @@ public static partial class PawnEditor
 
     private static void SetTabGroup(TabGroupDef def)
     {
+        var previousTab = curTab;
         tabGroup = def;
-        curTab = def?.tabs?.FirstOrDefault();
-        tabs = def?.tabs?.Select(static tab => new TabRecord(tab.LabelCap, () => curTab = tab, () => curTab == tab)).ToList() ?? new List<TabRecord>();
+        var visibleTabs = def?.tabs?.Where(TabIsVisible).ToList() ?? new List<TabDef>();
+        curTab = visibleTabs.Contains(previousTab) ? previousTab : visibleTabs.FirstOrDefault();
+        tabs = visibleTabs.Select(static tab => new TabRecord(tab.LabelCap, () => curTab = tab, () => curTab == tab)).ToList();
+    }
+
+    private static bool TabIsVisible(TabDef def)
+    {
+        if (def.type == TabDef.TabType.Faction)
+            return selectedFaction != null && def.ShowOn(selectedFaction);
+        return selectedPawn != null && def.ShowOn(selectedPawn);
     }
 
     public static void CheckChangeTabGroup()
     {
+        var wasWidgetTab = curTab == widgetTab;
         TabGroupDef desiredTabGroup;
 
         if (showFactionInfo && selectedFaction != null)
@@ -124,10 +134,10 @@ public static partial class PawnEditor
             desiredTabGroup = selectedCategory == PawnCategory.Humans ? TabGroupDefOf.Humanlike : TabGroupDefOf.AnimalMech;
         else desiredTabGroup = null;
 
-        if (desiredTabGroup != tabGroup)
-            SetTabGroup(desiredTabGroup);
-
+        SetTabGroup(desiredTabGroup);
         RecacheWidgets();
+        if (wasWidgetTab && cachedWidgetTab != null)
+            curTab = widgetTab;
     }
 
     private static void RecacheWidgets()
@@ -182,9 +192,10 @@ public static partial class PawnEditor
             recache = true;
         }
 
-        if (recache || tabGroup == TabGroupDefOf.PlayerFaction || tabGroup == TabGroupDefOf.NPCFaction)
+        var needsRecache = recache || tabGroup == TabGroupDefOf.PlayerFaction || tabGroup == TabGroupDefOf.NPCFaction;
+        CheckChangeTabGroup();
+        if (needsRecache)
         {
-            CheckChangeTabGroup();
             DoRecache();
         }
     }

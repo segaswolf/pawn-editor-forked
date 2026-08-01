@@ -9,25 +9,59 @@ namespace PawnEditor;
 [HotSwappable]
 public class TabWorker_Health : TabWorker_Table<Pawn>
 {
+    private bool draggingPreview;
     private readonly List<Hediff> hediffs = new();
+    private Vector3 previewCameraOffset = new(0f, 0f, 0.12f);
+    private Pawn previewPawn;
+    private Rot4 previewRotation = Rot4.South;
+    private float previewZoom = 1.35f;
     private Vector2 scrollPos;
 
     public override void DrawTabContents(Rect rect, Pawn pawn)
     {
-        var headerRect = rect.TakeTopPart(170);
-        var portraitRect = headerRect.TakeLeftPart(170);
-        PawnEditor.DrawPawnPortrait(portraitRect);
-        headerRect.xMin += 10;
-        DoCapacities(headerRect, pawn);
+        if (previewPawn != pawn)
+        {
+            draggingPreview = false;
+            previewCameraOffset = new Vector3(0f, 0f, 0.12f);
+            previewPawn = pawn;
+            previewRotation = Rot4.South;
+            previewZoom = 1.35f;
+        }
+
         DoBottomOptions(rect.TakeBottomPart(UIUtility.RegularButtonHeight), pawn);
-        DoHediffs(rect.ContractedBy(4f), pawn);
+
+        var contentRect = rect.ContractedBy(4f);
+        if (contentRect.width <= 0f || contentRect.height <= 0f)
+            return;
+
+        var maximumHeaderHeight = Mathf.Max(0f, contentRect.height - 120f);
+        var headerHeight = Mathf.Min(Mathf.Clamp(contentRect.height * 0.52f, 210f, 320f), maximumHeaderHeight);
+        var headerRect = contentRect.TakeTopPart(headerHeight);
+        var previewWidth = Mathf.Min(headerRect.height, Mathf.Clamp(headerRect.width * 0.42f, 190f, 320f));
+        previewWidth = Mathf.Min(previewWidth, Mathf.Max(0f, headerRect.width - 260f));
+        var previewRect = headerRect.TakeLeftPart(previewWidth).ContractedBy(4f);
+        if (previewWidth > 0f)
+            headerRect.xMin = Mathf.Min(headerRect.xMax, headerRect.xMin + 8f);
+
+        DrawPreview(previewRect, pawn);
+        var capacitiesRect = headerRect.ContractedBy(4f);
+        if (capacitiesRect.width > 0f && capacitiesRect.height > 0f)
+            DoCapacities(capacitiesRect, pawn);
+
+        contentRect.yMin = Mathf.Min(contentRect.yMax, contentRect.yMin + 8f);
+        if (contentRect.width > 0f && contentRect.height > 0f)
+            DoHediffs(contentRect, pawn);
     }
 
     public override IEnumerable<SaveLoadItem> GetSaveLoadItems(Pawn pawn)
     {
         yield return new SaveLoadItem<HediffSet>("PawnEditor.Hediffs".Translate(), pawn.health.hediffSet, new()
         {
-            OnLoad = _ => pawn.health.CheckForStateChange(null, null)
+            OnLoad = _ =>
+            {
+                pawn.health.CheckForStateChange(null, null);
+                PawnEditor.RefreshPawnGraphics(pawn);
+            }
         });
     }
 
@@ -48,6 +82,7 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                 {
                     var i = 0;
                     foreach (var hediff in pawn.health.hediffSet.GetHediffsTendable()) hediff.Tended(1, 1, ++i);
+                    PawnEditor.RefreshPawnGraphics(pawn);
                     table.ClearCache();
                 }),
                 new("PawnEditor.RemoveNegative.Hediffs".Translate(),
@@ -55,11 +90,16 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                     {
                         var bad = pawn.health.hediffSet.hediffs.Where(hediff => hediff.def.isBad).ToList();
                         foreach (var hediff in bad) pawn.health.RemoveHediff(hediff);
+                        PawnEditor.RefreshPawnGraphics(pawn);
                         table.ClearCache();
                     })
             };
             if (pawn.Dead)
-                list.Add(new("PawnEditor.Resurrect".Translate(), () => { ResurrectionUtility.TryResurrect(pawn); }));
+                list.Add(new("PawnEditor.Resurrect".Translate(), () =>
+                {
+                    ResurrectionUtility.TryResurrect(pawn);
+                    PawnEditor.RefreshPawnGraphics(pawn);
+                }));
             Find.WindowStack.Add(new FloatMenu(list));
         }
 
@@ -71,6 +111,20 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
 
         Widgets.CheckboxLabeled(inRect, "PawnEditor.ShowHidden.Hediffs".Translate(), ref HealthCardUtility.showAllHediffs,
             placeCheckboxNearText: true);
+    }
+
+    private void DrawPreview(Rect inRect, Pawn pawn)
+    {
+        if (inRect.width <= 0f || inRect.height <= 0f)
+            return;
+
+        Widgets.DrawMenuSection(inRect);
+        var portraitRect = inRect.ContractedBy(4f);
+        if (portraitRect.width <= 0f || portraitRect.height <= 0f)
+            return;
+
+        PawnEditor.DrawInteractivePawnPreview(portraitRect, pawn, ref draggingPreview, ref previewRotation,
+            ref previewCameraOffset, ref previewZoom);
     }
 
     private void DoHediffs(Rect inRect, Pawn pawn)
@@ -205,6 +259,7 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
             {
                 pawn.health.RemoveHediff(hediff);
                 pawn.needs?.mood?.thoughts?.situational?.Notify_SituationalThoughtsDirty();
+                PawnEditor.RefreshPawnGraphics(pawn);
                 ClearCacheFor<TabWorker_Needs>();
                 PawnEditor.Notify_PointsUsed();
                 table.ClearCache();

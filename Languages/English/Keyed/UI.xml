@@ -111,6 +111,31 @@
     <!-- Abilities and Quick Actions -->
     <PawnEditor.Ability>Ability</PawnEditor.Ability>
     <PawnEditor.QuickActions>Quick actions</PawnEditor.QuickActions>
+    <PawnEditor.AlreadyHas>This pawn already has the {0} {1}.</PawnEditor.AlreadyHas>
+    <PawnEditor.AddApparel>Add apparel</PawnEditor.AddApparel>
+    <PawnEditor.AddRanged>Add ranged</PawnEditor.AddRanged>
+    <PawnEditor.AddMelee>Add melee</PawnEditor.AddMelee>
+    <PawnEditor.AddItem>Add item</PawnEditor.AddItem>
+    <PawnEditor.Change>Change...</PawnEditor.Change>
+    <PawnEditor.Condition>Condition</PawnEditor.Condition>
+    <PawnEditor.Editing>Editing</PawnEditor.Editing>
+    <PawnEditor.ItemType.RangedWeapons>Ranged weapons</PawnEditor.ItemType.RangedWeapons>
+    <PawnEditor.ItemType.MeleeWeapons>Melee weapons</PawnEditor.ItemType.MeleeWeapons>
+    <PawnEditor.ItemType.Items>Items</PawnEditor.ItemType.Items>
+    <PawnEditor.Fallback.HeadFace>Head and face</PawnEditor.Fallback.HeadFace>
+    <PawnEditor.Fallback.Hands>Hands</PawnEditor.Fallback.Hands>
+    <PawnEditor.Fallback.LegsFeet>Legs and feet</PawnEditor.Fallback.LegsFeet>
+    <PawnEditor.Fallback.UtilityApparel>Utility apparel</PawnEditor.Fallback.UtilityApparel>
+    <PawnEditor.Fallback.BodyApparel>Body apparel</PawnEditor.Fallback.BodyApparel>
+    <PawnEditor.Fallback.OtherApparel>Other apparel</PawnEditor.Fallback.OtherApparel>
+    <PawnEditor.Fallback.OtherRangedWeapons>Other ranged weapons</PawnEditor.Fallback.OtherRangedWeapons>
+    <PawnEditor.Fallback.OtherMeleeWeapons>Other melee weapons</PawnEditor.Fallback.OtherMeleeWeapons>
+    <PawnEditor.Fallback.Food>Food</PawnEditor.Fallback.Food>
+    <PawnEditor.Fallback.Medicine>Medicine</PawnEditor.Fallback.Medicine>
+    <PawnEditor.Fallback.Drugs>Drugs</PawnEditor.Fallback.Drugs>
+    <PawnEditor.Fallback.ResourcesMaterials>Resources and materials</PawnEditor.Fallback.ResourcesMaterials>
+    <PawnEditor.Fallback.UtilityItems>Utility items</PawnEditor.Fallback.UtilityItems>
+    <PawnEditor.Fallback.OtherItems>Other items</PawnEditor.Fallback.OtherItems>
 
     <!-- Needs and Thoughts -->
     <PawnEditor.RefillNeeds>Refill needs to max</PawnEditor.RefillNeeds>
@@ -269,6 +294,7 @@
     <PawnEditor.ItemType.Apparel>Apparel</PawnEditor.ItemType.Apparel>
     <PawnEditor.ItemType.Equipment>Equipment</PawnEditor.ItemType.Equipment>
     <PawnEditor.ItemType.Possessions>Possessions</PawnEditor.ItemType.Possessions>
+    <PawnEditor.ItemType.Starting>Starting items</PawnEditor.ItemType.Starting>
 
     <!-- Fork fixes -->
     <PawnEditor.SelectBodyPart>Select a specific body part first.</PawnEditor.SelectBodyPart>
@@ -331,4 +357,98 @@
     <PawnEditor.ProficiencyRemoveCascade>Removing {0} will also remove everything that depends on it: {1}.\n\nContinue?</PawnEditor.ProficiencyRemoveCascade>
     <PawnEditor.Search>Search</PawnEditor.Search>
     <PawnEditor.LoadingItem>Loading...</PawnEditor.LoadingItem>
+    <PawnEditor.OverrideUnsupportedGenes>Override unsupported genes</PawnEditor.OverrideUnsupportedGenes>
+    <PawnEditor.OverrideUnsupportedGenes.Desc>Allow cosmetic genes even when the pawn's current xenotype or race compatibility marks them as unsupported.</PawnEditor.OverrideUnsupportedGenes.Desc>
+    <PawnEditor.PassionLearningSpeed>Learning speed: {0}</PawnEditor.PassionLearningSpeed>
+    <PawnEditor.Preview.RotateLeft>Rotate left</PawnEditor.Preview.RotateLeft>
+    <PawnEditor.Preview.DragHint>Drag to reposition. Scroll to zoom.</PawnEditor.Preview.DragHint>
+    <PawnEditor.Source>Source</PawnEditor.Source>
+    <PawnEditor.Category>Category</PawnEditor.Category>
+    <PawnEditor.XenotypeCategoryDesc>Filter cosmetic genes by their appearance category.</PawnEditor.XenotypeCategoryDesc>
+    <PawnEditor.RJW.Sexuality>Sexuality</PawnEditor.RJW.Sexuality>
+    <PawnEditor.FA.Tab>Facial Animation</PawnEditor.FA.Tab>
+    <PawnEditor.FA.Eyes>Eyes</PawnEditor.FA.Eyes>
+    <PawnEditor.FA.Brows>Brows</PawnEditor.FA.Brows>
+    <PawnEditor.FA.Lids>Lids</PawnEditor.FA.Lids>
+    <PawnEditor.FA.Mouth>Mouth</PawnEditor.FA.Mouth>
+    <PawnEditor.FA.Skin>Skin</PawnEditor.FA.Skin>
+    <PawnEditor.FA.Head>Head</PawnEditor.FA.Head>
+    <PawnEditor.FA.EyeColor>Eye color</PawnEditor.FA.EyeColor>
+    <PawnEditor.FA.EyeSecondColor>Second eye color</PawnEditor.FA.EyeSecondColor>
+    <PawnEditor.Apply>Apply</PawnEditor.Apply>
+    <PawnEditor.VPE.NoPsycasts>This pawn does not currently have VPE psycast data.</PawnEditor.VPE.NoPsycasts>
+    <PawnEditor.VPE.MeditationType>Meditation type</PawnEditor.VPE.MeditationType>
+    <PawnEditor.VPE.PsycastPath>Psycast path</PawnEditor.VPE.PsycastPath>
+    <PawnEditor.RoyaltyUnavailable>Royalty is not available for this pawn.</PawnEditor.RoyaltyUnavailable>
+    <PawnEditor.AbilityAlreadyKnown>{0} is already known by this pawn.</PawnEditor.AbilityAlreadyKnown>
+    <PawnEditor.Royalty.Titles>Titles</PawnEditor.Royalty.Titles>
+    <PawnEditor.Royalty.Permits>Permits</PawnEditor.Royalty.Permits>
+    <PawnEditor.Royalty.Psycasts>Psycasts</PawnEditor.Royalty.Psycasts>
+    <PawnEditor.Royalty.Successors>Successors</PawnEditor.Royalty.Successors>
+    <PawnEditor.Royalty.Faction>Royal faction</PawnEditor.Royalty.Faction>
+    <PawnEditor.Royalty.CurrentTitle>Current title</PawnEditor.Royalty.CurrentTitle>
+    <PawnEditor.Royalty.AvailablePermitPoints>Available permit points</PawnEditor.Royalty.AvailablePermitPoints>
+    <PawnEditor.Royalty.AvailablePermitPointsValue>Available permit points: {0}</PawnEditor.Royalty.AvailablePermitPointsValue>
+    <PawnEditor.Royalty.NoFaction>No royal faction is available.</PawnEditor.Royalty.NoFaction>
+    <PawnEditor.Royalty.Permit>Permit</PawnEditor.Royalty.Permit>
+    <PawnEditor.Royalty.MinimumTitle>Minimum title</PawnEditor.Royalty.MinimumTitle>
+    <PawnEditor.Royalty.Cost>Cost</PawnEditor.Royalty.Cost>
+    <PawnEditor.Royalty.Status>Status</PawnEditor.Royalty.Status>
+    <PawnEditor.Royalty.Grant>Grant</PawnEditor.Royalty.Grant>
+    <PawnEditor.Royalty.Granted>Granted</PawnEditor.Royalty.Granted>
+    <PawnEditor.Royalty.IncludedWithTitle>Included with title</PawnEditor.Royalty.IncludedWithTitle>
+    <PawnEditor.Royalty.NotGranted>Not granted</PawnEditor.Royalty.NotGranted>
+    <PawnEditor.Royalty.SearchPermits>Search permits</PawnEditor.Royalty.SearchPermits>
+    <PawnEditor.Royalty.NoTitleForSuccessor>Assign an inheritable royal title before selecting a successor.</PawnEditor.Royalty.NoTitleForSuccessor>
+    <PawnEditor.Royalty.TitleNotInheritable>{0} cannot be inherited.</PawnEditor.Royalty.TitleNotInheritable>
+    <PawnEditor.Royalty.NoSuccessor>No successor selected</PawnEditor.Royalty.NoSuccessor>
+    <PawnEditor.Royalty.ChooseSuccessor>Choose successor</PawnEditor.Royalty.ChooseSuccessor>
+    <PawnEditor.Royalty.ClearSuccessor>Clear</PawnEditor.Royalty.ClearSuccessor>
+    <PawnEditor.Royalty.Select>Select</PawnEditor.Royalty.Select>
+    <PawnEditor.Royalty.VanillaPsycasts>Royalty psycasts</PawnEditor.Royalty.VanillaPsycasts>
+    <PawnEditor.Royalty.PsylinkLevel>Psylink level</PawnEditor.Royalty.PsylinkLevel>
+    <PawnEditor.Royalty.CurrentPsyfocus>Current psyfocus (%)</PawnEditor.Royalty.CurrentPsyfocus>
+    <PawnEditor.Royalty.TargetPsyfocus>Target psyfocus (%)</PawnEditor.Royalty.TargetPsyfocus>
+    <PawnEditor.Royalty.Entropy>Neural heat</PawnEditor.Royalty.Entropy>
+    <PawnEditor.Royalty.LimitEntropy>Limit neural heat</PawnEditor.Royalty.LimitEntropy>
+    <PawnEditor.Royalty.LearnedPsycasts>Learned Royalty psycasts</PawnEditor.Royalty.LearnedPsycasts>
+    <PawnEditor.Royalty.NoPsycasts>No Royalty psycasts learned.</PawnEditor.Royalty.NoPsycasts>
+    <PawnEditor.Royalty.PsycastLevel>{0} (level {1})</PawnEditor.Royalty.PsycastLevel>
+    <PawnEditor.Development.TraumaIntegrity>Trauma &amp; Integrity</PawnEditor.Development.TraumaIntegrity>
+    <PawnEditor.Development.CharacterUnavailable>Character Development only stores wants and quirks for supported colonists and colony slaves. This pawn is not currently supported by that mod.</PawnEditor.Development.CharacterUnavailable>
+    <PawnEditor.Development.Wants>Wants</PawnEditor.Development.Wants>
+    <PawnEditor.Development.Quirks>Quirks</PawnEditor.Development.Quirks>
+    <PawnEditor.Development.NoWants>No active wants</PawnEditor.Development.NoWants>
+    <PawnEditor.Development.NoQuirks>No quirks</PawnEditor.Development.NoQuirks>
+    <PawnEditor.Development.RemoveWant>Remove want</PawnEditor.Development.RemoveWant>
+    <PawnEditor.Development.Complete>Complete</PawnEditor.Development.Complete>
+    <PawnEditor.Development.CompleteDesc>Complete this want through Character Development. This grants its normal colony-wide character points.</PawnEditor.Development.CompleteDesc>
+    <PawnEditor.Development.Reroll>Reroll</PawnEditor.Development.Reroll>
+    <PawnEditor.Development.RerollsRemaining>{0} rerolls remaining</PawnEditor.Development.RerollsRemaining>
+    <PawnEditor.Development.RemoveQuirk>Remove quirk</PawnEditor.Development.RemoveQuirk>
+    <PawnEditor.Development.RemoveQuirkConfirm>Remove {0}? Any gene or hediff granted by this quirk will also be removed.</PawnEditor.Development.RemoveQuirkConfirm>
+    <PawnEditor.Development.AddWant>Add want</PawnEditor.Development.AddWant>
+    <PawnEditor.Development.AddWantFailed>Character Development could not add that want.</PawnEditor.Development.AddWantFailed>
+    <PawnEditor.Development.NoAvailableWants>No valid unassigned wants are available for this pawn.</PawnEditor.Development.NoAvailableWants>
+    <PawnEditor.Development.AddQuirk>Add quirk</PawnEditor.Development.AddQuirk>
+    <PawnEditor.Development.AddQuirkFailed>Character Development could not add that quirk.</PawnEditor.Development.AddQuirkFailed>
+    <PawnEditor.Development.NoAvailableQuirks>No valid quirks are available for this pawn and current map.</PawnEditor.Development.NoAvailableQuirks>
+    <PawnEditor.Development.TargetQuirksRequireMap>Item- and pawn-targeted quirks require a loaded map. Only targetless quirks are shown.</PawnEditor.Development.TargetQuirksRequireMap>
+    <PawnEditor.Development.NoAvailableQuirksWithoutMap>Item- and pawn-targeted quirks require a loaded map, and no targetless quirks are available.</PawnEditor.Development.NoAvailableQuirksWithoutMap>
+    <PawnEditor.Development.NoValidTargets>No valid targets are available on a loaded map.</PawnEditor.Development.NoValidTargets>
+    <PawnEditor.Development.ChooseItem>Choose an item for {0}</PawnEditor.Development.ChooseItem>
+    <PawnEditor.Development.TraumaPercent>Trauma</PawnEditor.Development.TraumaPercent>
+    <PawnEditor.Development.TraumaState>State</PawnEditor.Development.TraumaState>
+    <PawnEditor.Development.Innocent>Innocent</PawnEditor.Development.Innocent>
+    <PawnEditor.Development.Disturbed>Disturbed</PawnEditor.Development.Disturbed>
+    <PawnEditor.Development.Tempered>Tempered</PawnEditor.Development.Tempered>
+    <PawnEditor.Development.TraumaApplyDesc>Applying trauma once invokes Trauma &amp; Integrity's native threshold handling for tempered state and traumatic traits.</PawnEditor.Development.TraumaApplyDesc>
+    <PawnEditor.Development.IntegrityPercent>Integrity</PawnEditor.Development.IntegrityPercent>
+    <PawnEditor.Development.IntegrityApplyDesc>Applying integrity rerolls betrayal status through Trauma &amp; Integrity's native behavior.</PawnEditor.Development.IntegrityApplyDesc>
+    <PawnEditor.Development.Betrayer>Betrayer</PawnEditor.Development.Betrayer>
+    <PawnEditor.Development.BetrayerDesc>This is hidden gameplay state. Enabling it makes the pawn immediately eligible for betrayal.</PawnEditor.Development.BetrayerDesc>
+    <PawnEditor.Development.TraumaDisabled>Trauma is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.TraumaDisabled>
+    <PawnEditor.Development.IntegrityDisabled>Integrity is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.IntegrityDisabled>
+    <PawnEditor.Development.IntegrityHidden>Integrity is hidden in normal gameplay by the mod's settings. Pawn Editor still exposes it here.</PawnEditor.Development.IntegrityHidden>
+    <PawnEditor.Development.IntegrityUninitialized>This pawn's integrity has not been initialized. Applying a value will initialize and roll its betrayal state.</PawnEditor.Development.IntegrityUninitialized>
 </LanguageData>

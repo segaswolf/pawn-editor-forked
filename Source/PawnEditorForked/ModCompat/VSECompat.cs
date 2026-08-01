@@ -110,6 +110,15 @@ public static class VSECompat
     /// <summary>Clears the learn rate factor cache for a skill after changing its passion.</summary>
     public static void ClearCacheFor(SkillRecord sr, Passion passion) => clearCacheFor(sr, passion);
 
+    public static string GetPassionTooltip(Passion passion)
+    {
+        var passionDef = passionToDef(passion) as Def;
+        if (passionDef == null)
+            return passion.ToString();
+
+        return passionDef.LabelCap + (passionDef.description.NullOrEmpty() ? string.Empty : "\n\n" + passionDef.description);
+    }
+
     /// <summary>
     /// Adds "Set all to [passion]" options to a float menu for bulk passion assignment.
     /// </summary>
@@ -151,6 +160,7 @@ public static class VSECompat
                     skill.passion = passion;
                     // Keep VSE's passion hediffs (e.g. traumatic mood penalty) in sync with the change.
                     SyncPassionHediffs(pawn);
+                    PawnEditor.Notify_PointsUsed();
                 },
                 icon, Color.white));
         }
