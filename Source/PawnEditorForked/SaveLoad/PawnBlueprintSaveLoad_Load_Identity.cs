@@ -79,6 +79,16 @@ public static partial class PawnBlueprintSaveLoad
                 if (melanin >= 0f) pawn.story.melanin = melanin;
             }
 
+            // Gradient Hair (optional mod): restore colour B + enabled. No-op without the mod.
+            var gradientNode = app.SelectSingleNode("gradientHair");
+            if (gradientNode != null && GradientHairCompat.Active)
+            {
+                var enabled = gradientNode.Attributes?["enabled"]?.Value != "False";
+                var colorBNode = gradientNode.SelectSingleNode("colorB");
+                var colorB = colorBNode != null ? ReadColor(colorBNode) : Color.white;
+                GradientHairCompat.Set(pawn, enabled, colorB);
+            }
+
             // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
             PawnEditor.RefreshPawnGraphics(pawn);
         }

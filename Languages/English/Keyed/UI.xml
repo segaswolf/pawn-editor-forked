@@ -248,6 +248,10 @@
     <PawnEditor.MechsSection>Mechs</PawnEditor.MechsSection>
     <PawnEditor.SelectedLocation>Selected location</PawnEditor.SelectedLocation>
     <PawnEditor.SelectedSide>Side</PawnEditor.SelectedSide>
+    <PawnEditor.PreviewSplitterTip>Drag to resize the pawn preview. Double-click to let it scale with the window again.</PawnEditor.PreviewSplitterTip>
+    <PawnEditor.GradientHair>Gradient hair</PawnEditor.GradientHair>
+    <PawnEditor.GradientHairSecondColor>Second color</PawnEditor.GradientHairSecondColor>
+    <PawnEditor.GradientHairFixesHint>Some older hairs may render blank with Gradient Hair. The "Gradient Hair Fixes" mod resolves this.</PawnEditor.GradientHairFixesHint>
     <PawnEditor.RemoveFilter>Remove this filter</PawnEditor.RemoveFilter>
     <PawnEditor.FilterInverted>(inverted)</PawnEditor.FilterInverted>
     <PawnEditor.BmModuleNeedsPart>{0} goes into a modular {1}. This pawn doesn't have one installed there yet, so install the modular part first and then add the module to it.</PawnEditor.BmModuleNeedsPart>

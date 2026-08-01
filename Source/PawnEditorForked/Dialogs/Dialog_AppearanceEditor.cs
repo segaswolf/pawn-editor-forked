@@ -52,8 +52,21 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 
     // v3.1: user-resizable preview panel. Drag the splitter to grow/shrink the pawn; the option grid
     // on the right reflows to fill the rest.
-    private float leftPanelWidth = 280f; // bigger default so the pawn preview is clearly visible
+    // v3.2: the default width is now PROPORTIONAL to the window (see EffectiveLeftPanelWidth), so
+    // widening the window grows the preview instead of leaving it stuck at a fixed size. Once the user
+    // drags the splitter, their pixel choice takes over for the session.
+    private float leftPanelWidth = 280f;
+    private bool userSetPanelWidth;
     private bool draggingSplitter;
+
+    // Below/above these window widths the layout changes shape (like CSS breakpoints).
+    private const float WideBreakpoint = 1250f;   // room for a bigger preview + side-by-side controls
+    private const float NarrowBreakpoint = 1000f; // keep the preview modest so options don't get cramped
+
+    // When the option grid is at least this wide, the colour palette moves to a side column of this
+    // width instead of stacking under the grid.
+    private const float ColorColumnBreakpoint = 720f;
+    private const float ColorColumnWidth = 220f;
 
     public Dialog_AppearanceEditor(Pawn pawn)
     {
@@ -109,8 +122,12 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 
             // v3.1: resizable preview panel. The splitter lets the user grow/shrink the pawn preview;
             // the option grid on the right reflows to fill the remaining width.
+            // v3.2: until the user drags the splitter, the panel width scales with the window so the
+            // whole editor reflows as you resize — bigger preview AND more option columns when wider.
             var contentWidth = inRect.width;
             var maxLeft = Mathf.Max(150f, contentWidth - 300f);
+            if (!userSetPanelWidth)
+                leftPanelWidth = ProportionalLeftWidth(windowRect.width);
             leftPanelWidth = Mathf.Clamp(leftPanelWidth, 150f, maxLeft);
             var leftRect = inRect.TakeLeftPart(leftPanelWidth);
             HandleLeftSplitter(inRect.TakeLeftPart(14f), contentWidth);
@@ -219,7 +236,11 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
                                 if (hairEnforce) q = q.Where(hair => HARCompat.AllowStyleItem(hair, pawn));
                                 return q;
                             });
-                            DoIconOptions(inRect.ContractedBy(5), hairTypes, def =>
+                            var hairRect = inRect.ContractedBy(5);
+                            // Gradient Hair support (optional mod): a toggle + second-colour picker sits
+                            // above the hair grid, only when the mod is present and this pawn can use it.
+                            DoGradientHairRow(ref hairRect);
+                            DoIconOptions(hairRect, hairTypes, def =>
                                 {
                                     pawn.story.hairDef = def;
                                     TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
@@ -315,6 +336,38 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         Widgets.EndGroup();
     }
 
+    // Defs whose broken icon we've already reported, so the log gets ONE helpful line per def instead
+    // of 55k "null texture passed to GUI.DrawTexture" every frame the grid is on screen.
+    private static readonly HashSet<string> ReportedBrokenIcons = new();
+
+    /// <summary>
+    /// Draws an option's icon, but never hands a null texture to the GPU — that's what floods the log
+    /// with "null texture passed to GUI.DrawTexture" (thousands per second while the grid is open) and
+    /// it's usually another mod's hair/tattoo/gene whose art failed to load.
+    ///
+    /// Instead we draw a visible placeholder AND, once per def, log a precise, friendly line naming the
+    /// def and the mod it came from — so the mod's author (or the user) can see exactly what's broken.
+    /// The goal: help other mods get fixed and keep our own log clean, rather than silently spamming.
+    /// </summary>
+    private static void SafeDrawIcon<T>(Rect rect, Texture icon, T option)
+    {
+        if (icon != null)
+        {
+            GUI.DrawTexture(rect, icon);
+            return;
+        }
+
+        GUI.DrawTexture(rect, BaseContent.BadTex);
+
+        if (option is Def def && def.defName != null && ReportedBrokenIcons.Add(def.defName))
+        {
+            var mod = def.modContentPack?.Name ?? "unknown mod";
+            Log.Warning($"[Pawn Editor] '{def.defName}' (from {mod}) has no icon texture — its art is "
+                        + "missing or failed to load. Showing a placeholder in the appearance editor. This "
+                        + "is that mod's asset, not Pawn Editor; the mod author may want to check the texture path.");
+        }
+    }
+
     // Return the cached option list for the current key, rebuilding only when the key changed.
     private List<T> CachedOptions<T>(object key, Func<IEnumerable<T>> build)
     {
@@ -341,22 +394,52 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         if (selectedColorIndex + 1 > colorCount) selectedColorIndex = 0;
         if (colorCount > 0)
         {
-            var rect = new Rect(inRect.xMax - 26, inRect.yMax - 26, 18, 18);
-            if (Widgets.ButtonImage(rect, Designator_Eyedropper.EyeDropperTex))
-                Find.WindowStack.Add(new Dialog_ColorPicker(color => setColor(color, selectedColorIndex), availableColors, colors[selectedColorIndex]));
-
-            for (var i = 0; i < colorCount; i++)
+            // When there's horizontal room, the colour palette moves to a column ON THE RIGHT of the
+            // grid instead of stacking underneath it. On a wide window the old bottom stack left the
+            // grid half-empty above a huge palette; side-by-side uses the width the responsive layout
+            // now gives us. Narrow windows keep the exact old bottom-stacked behaviour.
+            var sideColumn = inRect.width >= ColorColumnBreakpoint;
+            if (sideColumn)
             {
-                rect.x -= 26;
-                Widgets.DrawBoxSolid(rect, colors[i]);
-                if (selectedColorIndex == i) Widgets.DrawBox(rect);
-                if (Widgets.ButtonInvisible(rect)) selectedColorIndex = i;
-            }
+                var colRect = inRect.TakeRightPart(ColorColumnWidth);
+                inRect.xMax -= 8f; // gap between grid and colour column
 
-            var oldColor = colors[selectedColorIndex];
-            Widgets.ColorSelector(inRect.TakeBottomPart(lastColorHeight + 10).ContractedBy(4), ref colors[selectedColorIndex], availableColors,
-                out lastColorHeight, colorSize: 18);
-            if (colors[selectedColorIndex] != oldColor) setColor(colors[selectedColorIndex], selectedColorIndex);
+                // Swatches + eyedropper across the top of the column.
+                var swatchRow = colRect.TakeTopPart(26f);
+                var eyedrop = swatchRow.TakeRightPart(24f).ContractedBy(3f);
+                if (Widgets.ButtonImage(eyedrop, Designator_Eyedropper.EyeDropperTex))
+                    Find.WindowStack.Add(new Dialog_ColorPicker(color => setColor(color, selectedColorIndex), availableColors, colors[selectedColorIndex]));
+                for (var i = 0; i < colorCount; i++)
+                {
+                    var sw = swatchRow.TakeLeftPart(24f).ContractedBy(3f);
+                    Widgets.DrawBoxSolid(sw, colors[i]);
+                    if (selectedColorIndex == i) Widgets.DrawBox(sw);
+                    if (Widgets.ButtonInvisible(sw)) selectedColorIndex = i;
+                }
+
+                var oldC = colors[selectedColorIndex];
+                Widgets.ColorSelector(colRect.ContractedBy(2f), ref colors[selectedColorIndex], availableColors, out lastColorHeight, colorSize: 18);
+                if (colors[selectedColorIndex] != oldC) setColor(colors[selectedColorIndex], selectedColorIndex);
+            }
+            else
+            {
+                var rect = new Rect(inRect.xMax - 26, inRect.yMax - 26, 18, 18);
+                if (Widgets.ButtonImage(rect, Designator_Eyedropper.EyeDropperTex))
+                    Find.WindowStack.Add(new Dialog_ColorPicker(color => setColor(color, selectedColorIndex), availableColors, colors[selectedColorIndex]));
+
+                for (var i = 0; i < colorCount; i++)
+                {
+                    rect.x -= 26;
+                    Widgets.DrawBoxSolid(rect, colors[i]);
+                    if (selectedColorIndex == i) Widgets.DrawBox(rect);
+                    if (Widgets.ButtonInvisible(rect)) selectedColorIndex = i;
+                }
+
+                var oldColor = colors[selectedColorIndex];
+                Widgets.ColorSelector(inRect.TakeBottomPart(lastColorHeight + 10).ContractedBy(4), ref colors[selectedColorIndex], availableColors,
+                    out lastColorHeight, colorSize: 18);
+                if (colors[selectedColorIndex] != oldColor) setColor(colors[selectedColorIndex], selectedColorIndex);
+            }
         }
 
         var itemsPerRow = 9;
@@ -400,10 +483,70 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             if (isSelected(option)) Widgets.DrawBox(rect);
             if (Widgets.ButtonInvisible(rect)) onSelected(option);
 
-            GUI.DrawTexture(rect.ContractedBy(2), getIcon(option));
+            SafeDrawIcon(rect.ContractedBy(2), getIcon(option), option);
         }
 
         Widgets.EndScrollView();
+    }
+
+    /// <summary>
+    /// Draws the Gradient Hair controls (a toggle + a second-colour swatch) at the top of the hair grid.
+    /// No-op unless the Gradient Hair mod is installed AND this pawn has its comp — so vanilla pawns,
+    /// mechs, and players without the mod see exactly the old layout. Second colour opens the same
+    /// colour picker the rest of the editor uses, seeded with the hair palette.
+    /// </summary>
+    private void DoGradientHairRow(ref Rect inRect)
+    {
+        if (!GradientHairCompat.Active) return;
+        if (!GradientHairCompat.TryGet(pawn, out var enabled, out var colorB)) return;
+
+        var row = inRect.TakeTopPart(30f);
+        inRect.yMin += 6f; // gap before the grid
+
+        // Toggle on the left.
+        var toggleRect = row.TakeLeftPart(Mathf.Min(190f, row.width * 0.5f));
+        var wasEnabled = enabled;
+        Widgets.CheckboxLabeled(toggleRect, "PawnEditor.GradientHair".Translate(), ref enabled);
+        if (enabled != wasEnabled)
+        {
+            GradientHairCompat.Set(pawn, enabled, colorB);
+            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+        }
+
+        if (!enabled) return;
+
+        // Second-colour swatch + label on the right of the row.
+        var swatch = row.TakeRightPart(28f).ContractedBy(3f);
+        Widgets.DrawBoxSolid(swatch, colorB);
+        Widgets.DrawBox(swatch);
+        if (Widgets.ButtonInvisible(swatch))
+        {
+            var palette = CachedColors("colHair", () => DefDatabase<ColorDef>.AllDefs
+                .Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color));
+            Find.WindowStack.Add(new Dialog_ColorPicker(c =>
+            {
+                GradientHairCompat.Set(pawn, true, c);
+                TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+            }, palette, colorB));
+        }
+
+        using (new TextBlock(TextAnchor.MiddleRight))
+            Widgets.Label(row, "PawnEditor.GradientHairSecondColor".Translate());
+
+        // Gentle heads-up (not our bug): without the "Gradient Hair Fixes" mod, older hairs using the
+        // legacy _back/_side/_front texture naming render blank. We don't take over their render; we
+        // just point the user at the fix so it doesn't look like our editor broke the hair.
+        if (GradientHairCompat.ShouldRecommendFixes)
+        {
+            var hint = inRect.TakeTopPart(Text.LineHeight);
+            inRect.yMin += 4f;
+            using (new TextBlock(GameFont.Tiny))
+            {
+                GUI.color = ColoredText.SubtleGrayColor;
+                Widgets.Label(hint, "PawnEditor.GradientHairFixesHint".Translate());
+                GUI.color = Color.white;
+            }
+        }
     }
 
     private void DoXenotypeOptions(Rect inRect)
@@ -498,7 +641,7 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             // ToDo: Apply correct gene background texture according to gene category.
             GUI.DrawTexture(rect.ContractedBy(4), GeneUIUtility.GeneBackground_Endogene.Texture);
             GUI.color *= option.IconColor;
-            GUI.DrawTexture(rect.ContractedBy(4), option.Icon);
+            SafeDrawIcon(rect.ContractedBy(4), option.Icon, option);
             GUI.color = Color.white;
 
             TooltipHandler.TipRegion(rect, option.LabelCap + (enabled ? TaggedString.Empty : "\n\n" + "PawnEditor.XenotypeForbbiden".Translate()));
@@ -534,6 +677,20 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 
     // v3.1: draggable splitter that resizes the preview panel. mousePosition is group-relative, so its
     // x is the distance from the content's left edge = the new panel width.
+    /// <summary>
+    /// Default width of the preview panel as a fraction of the window, clamped so it never dominates a
+    /// huge window or starves the options on a small one. This is what makes the editor feel responsive:
+    /// drag the whole window wider and the pawn grows with it. Overridden the moment the user drags the
+    /// splitter (userSetPanelWidth).
+    /// </summary>
+    private static float ProportionalLeftWidth(float windowWidth)
+    {
+        // ~32% of the window, but held between a readable minimum and a cap so options keep their room.
+        var min = windowWidth <= NarrowBreakpoint ? 240f : 280f;
+        var max = windowWidth >= WideBreakpoint ? 480f : 400f;
+        return Mathf.Clamp(windowWidth * 0.32f, min, max);
+    }
+
     private void HandleLeftSplitter(Rect bar, float contentWidth)
     {
         // Always show a subtle handle so it's obviously draggable; brighten on hover/drag. Draw a small
@@ -547,14 +704,28 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         GUI.color = Color.white;
         if (hot) Widgets.DrawHighlight(bar);
 
+        if (hot)
+            TooltipHandler.TipRegion(bar, "PawnEditor.PreviewSplitterTip".Translate());
+
         var ev = Event.current;
         if (ev.type == EventType.MouseDown && ev.button == 0 && Mouse.IsOver(bar))
         {
-            draggingSplitter = true;
+            // Double-click hands control back to the automatic, window-proportional width.
+            if (ev.clickCount >= 2)
+            {
+                userSetPanelWidth = false;
+                draggingSplitter = false;
+            }
+            else
+            {
+                draggingSplitter = true;
+            }
             ev.Use();
         }
         else if (draggingSplitter && ev.type == EventType.MouseDrag)
         {
+            // The user is choosing a width by hand now: stop auto-scaling with the window.
+            userSetPanelWidth = true;
             leftPanelWidth = Mathf.Clamp(ev.mousePosition.x, 150f, Mathf.Max(150f, contentWidth - 300f));
             ev.Use();
         }
@@ -586,7 +757,9 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 
         // Cap the preview by what is ACTUALLY free below it (face button + the sex/age/xenotype block)
         // instead of a blind 55% of the height, which didn't account for those.
-        var neededBelow = 8f + 110f + 6f + (FacialAnimCompat.CanEditFace(pawn) ? 30f : 0f);
+        var neededBelow = 8f + 110f + 6f
+            + (FacialAnimCompat.CanEditFace(pawn) ? 30f : 0f)
+            + (AnthrosonaeCompat.HasFur(pawn) ? 30f : 0f);
         var previewSide = Mathf.Clamp(inRect.width, 150f, Mathf.Max(150f, inRect.height - neededBelow));
         // Snap to 24px steps so dragging the splitter doesn't render a NEW portrait texture every pixel
         // (PortraitsCache keys by size; unrounded sizes = per-frame RenderTexture churn = the old GC/
@@ -604,6 +777,16 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             if (Widgets.ButtonText(inRect.TakeTopPart(28f), "Customize face"))
                 FacialAnimCompat.OpenFaceEditor(pawn);
         }
+
+        // Restore Anthrosonae's "Change fur" button (their own patch skips our fork; see AnthrosonaeCompat).
+        // Uses their translation key so the wording matches their mod exactly.
+        if (AnthrosonaeCompat.HasFur(pawn))
+        {
+            inRect.yMin += 2f;
+            if (Widgets.ButtonText(inRect.TakeTopPart(28f), "ColorPicker.ChangeFur".Translate()))
+                AnthrosonaeCompat.OpenFurPicker(pawn);
+        }
+
         inRect.yMin += 8f;
         var buttonsRect = inRect.TakeTopPart(110);
         Widgets.DrawHighlight(buttonsRect);
