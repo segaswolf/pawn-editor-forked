@@ -35,11 +35,17 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
     private float lastColorHeight;
     private FloatMenuOption lastRandomization;
     private float lastXenotypeHeight;
+    private FacialAnimCompat.FacePart facialAnimationPart;
+    private bool draggingPreview;
+    private Vector3 pickerPreviewCameraOffset = new(0f, 0f, 0.12f);
+    private Rot4 pickerPreviewRotation = Rot4.South;
+    private float pickerPreviewZoom = 1.35f;
     private MainTab mainTab;
     private Vector2 scrollPos;
     private int selectedColorIndex;
     private ShapeTab shapeTab;
     private ModContentPack sourceFilter;
+    private int xenotypeCategoryIndex = -1;
 
     // Appearance lists used to be rebuilt (LINQ Where + ToList) every single frame; with 1000+
     // hairs/tattoos that re-filtered and allocated constantly (GC churn + CPU). Only ONE icon grid
@@ -125,6 +131,11 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
                 mainTabs.Add(new("Xenotype".Translate(), () => mainTab = MainTab.Xenotype, mainTab == MainTab.Xenotype));
             if (HARCompat.Active)
                 mainTabs.Add(new("HAR.RaceFeatures".Translate(), () => mainTab = MainTab.HAR, mainTab == MainTab.HAR));
+            if (FacialAnimCompat.Active && FacialAnimCompat.HasFaceControls(pawn))
+                mainTabs.Add(new("PawnEditor.FA.Tab".Translate(), () => mainTab = MainTab.FacialAnimation, mainTab == MainTab.FacialAnimation));
+
+            if (mainTab == MainTab.FacialAnimation && !FacialAnimCompat.HasFaceControls(pawn))
+                mainTab = MainTab.Shape;
 
             Widgets.DrawMenuSection(inRect);
             TabDrawer.DrawTabs(inRect, mainTabs, 400f);
@@ -299,13 +310,15 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
 
                     break;
                 case MainTab.Xenotype:
-                    inRect.yMin -= TabDrawer.TabHeight;
-                    DoXenotypeOptions(inRect.ContractedBy(5));
+                    DoXenotypePicker(inRect.ContractedBy(5));
                     break;
                 case MainTab.HAR:
                     HARCompat.DoRaceTabs(inRect.ContractedBy(5));
                     if (Event.current.type is EventType.MouseDown or EventType.Used)
                         TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                    break;
+                case MainTab.FacialAnimation:
+                    DoFacialAnimationOptions(inRect.ContractedBy(5));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -336,7 +349,8 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
     }
 
     private void DoIconOptions<T>(Rect inRect, List<T> options, Action<T> onSelected, Func<T, Texture> getIcon, Func<T, bool> isSelected, int colorCount,
-        Color[] colors, Action<Color, int> setColor, ColorType colorType, List<Color> availableColors)
+        Color[] colors, Action<Color, int> setColor, ColorType colorType, List<Color> availableColors, int preferredItemsPerRow = 9,
+        Rect? iconTexCoords = null)
     {
         if (selectedColorIndex + 1 > colorCount) selectedColorIndex = 0;
         if (colorCount > 0)
@@ -359,21 +373,22 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             if (colors[selectedColorIndex] != oldColor) setColor(colors[selectedColorIndex], selectedColorIndex);
         }
 
-        var itemsPerRow = 9;
-        var itemSize = (inRect.width - 20) / itemsPerRow;
+        var availableWidth = Mathf.Max(48f, inRect.width - 20f);
+        var itemsPerRow = Mathf.Max(1, preferredItemsPerRow);
+        var itemSize = availableWidth / itemsPerRow;
         while (itemSize > 192)
         {
             itemsPerRow++;
-            itemSize = (inRect.width - 20) / itemsPerRow;
+            itemSize = availableWidth / itemsPerRow;
         }
 
-        while (itemSize < 48)
+        while (itemSize < 48 && itemsPerRow > 1)
         {
             itemsPerRow--;
-            itemSize = (inRect.width - 20) / itemsPerRow;
+            itemSize = availableWidth / itemsPerRow;
         }
 
-        var viewRect = new Rect(0, 0, inRect.width - 20, Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize);
+        var viewRect = new Rect(0, 0, availableWidth, Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
 
         // Only draw the rows visible in the viewport (plus one row of margin each side). Without this,
@@ -400,23 +415,159 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             if (isSelected(option)) Widgets.DrawBox(rect);
             if (Widgets.ButtonInvisible(rect)) onSelected(option);
 
-            GUI.DrawTexture(rect.ContractedBy(2), getIcon(option));
+            var icon = getIcon(option);
+            if (icon != null)
+            {
+                var iconRect = rect.ContractedBy(2);
+                if (iconTexCoords.HasValue)
+                    GUI.DrawTextureWithTexCoords(iconRect, icon, iconTexCoords.Value);
+                else
+                    GUI.DrawTexture(iconRect, icon);
+            }
         }
 
         Widgets.EndScrollView();
     }
 
+    private void DoXenotypePicker(Rect inRect)
+    {
+        DrawXenotypeFilters(inRect.TakeTopPart(UIUtility.RegularButtonHeight));
+        inRect.yMin += 4f;
+
+        var overrideRect = inRect.TakeTopPart(30f);
+        Widgets.CheckboxLabeled(overrideRect, "PawnEditor.OverrideUnsupportedGenes".Translate(), ref ignoreXenotype);
+        TooltipHandler.TipRegion(overrideRect, "PawnEditor.OverrideUnsupportedGenes.Desc".Translate());
+        inRect.yMin += 4f;
+
+        DoXenotypeOptions(inRect);
+    }
+
+    private void DrawXenotypeFilters(Rect row)
+    {
+        var sourceRect = row.LeftHalf().ContractedBy(1f, 0f);
+        var categoryRect = row.RightHalf().ContractedBy(1f, 0f);
+        var sourceLabel = "PawnEditor.Source".Translate().CapitalizeFirst() + ": " +
+                          (sourceFilter?.Name ?? "PawnEditor.All".Translate().CapitalizeFirst().ToString());
+        if (Widgets.ButtonText(sourceRect, sourceLabel))
+        {
+            var sourceDefs = CosmeticGeneDiscovery.GroupGenes.SelectMany(defs => defs.Cast<Def>());
+            var options = LoadedModManager.RunningMods
+                .Intersect(sourceDefs.Select(def => def.modContentPack).Where(mod => mod != null).Distinct())
+                .Select(mod => new FloatMenuOption(mod.Name, () => SetXenotypeSource(mod)))
+                .Prepend(new FloatMenuOption("PawnEditor.All".Translate().CapitalizeFirst(), () => SetXenotypeSource(null)))
+                .ToList();
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+        TooltipHandler.TipRegion(sourceRect, "PawnEditor.SourceDesc".Translate());
+
+        var categoryLabel = xenotypeCategoryIndex >= 0 && xenotypeCategoryIndex < CosmeticGeneDiscovery.GroupLabels.Count
+            ? CosmeticGeneDiscovery.GroupLabels[xenotypeCategoryIndex]
+            : "PawnEditor.All".Translate().ToString().CapitalizeFirst();
+        if (Widgets.ButtonText(categoryRect, "PawnEditor.Category".Translate().CapitalizeFirst() + ": " + categoryLabel))
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new("PawnEditor.All".Translate().CapitalizeFirst(), () => SetXenotypeCategory(-1))
+            };
+            for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++)
+            {
+                var index = i;
+                options.Add(new FloatMenuOption(CosmeticGeneDiscovery.GroupLabels[index], () => SetXenotypeCategory(index)));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+        TooltipHandler.TipRegion(categoryRect, "PawnEditor.XenotypeCategoryDesc".Translate());
+    }
+
+    private void SetXenotypeSource(ModContentPack source)
+    {
+        sourceFilter = source;
+        scrollPos = Vector2.zero;
+        optionsCacheKey = null;
+        optionsCacheVal = null;
+    }
+
+    private void SetXenotypeCategory(int index)
+    {
+        xenotypeCategoryIndex = index;
+        scrollPos = Vector2.zero;
+    }
+
     private void DoXenotypeOptions(Rect inRect)
     {
         if (Event.current.type == EventType.Layout) lastXenotypeHeight = 9999;
-        var viewRect = new Rect(0, 0, inRect.width - 20, lastXenotypeHeight);
+        var viewRect = new Rect(0, 0, Mathf.Max(1f, inRect.width - 20f), lastXenotypeHeight);
         // Visible content band, passed to DoGeneOptions so it can cull off-screen gene rows/groups.
         var visMin = scrollPos.y;
         var visMax = scrollPos.y + inRect.height;
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
-        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++) DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], CosmeticGeneDiscovery.GroupGenes[i], visMin, visMax);
+        for (var i = 0; i < CosmeticGeneDiscovery.GroupLabels.Count; i++)
+        {
+            if (xenotypeCategoryIndex >= 0 && xenotypeCategoryIndex != i)
+                continue;
+
+            var options = CosmeticGeneDiscovery.GroupGenes[i].Where(MatchesSource).ToList();
+            if (xenotypeCategoryIndex >= 0 || options.Count > 0)
+                DoGeneOptions(ref viewRect, CosmeticGeneDiscovery.GroupLabels[i], options, visMin, visMax);
+        }
         if (Event.current.type == EventType.Layout) lastXenotypeHeight -= viewRect.height;
         Widgets.EndScrollView();
+    }
+
+    private void DoFacialAnimationOptions(Rect inRect)
+    {
+        var parts = FacialAnimCompat.GetFaceParts().ToList();
+        if (parts.Count == 0)
+            return;
+
+        if (facialAnimationPart == null || !parts.Contains(facialAnimationPart))
+            facialAnimationPart = parts[0];
+
+        shapeTabs.Clear();
+        foreach (var part in parts)
+        {
+            shapeTabs.Add(new TabRecord(part.Label, () =>
+            {
+                facialAnimationPart = part;
+                scrollPos = Vector2.zero;
+            }, facialAnimationPart == part));
+        }
+
+        TabDrawer.DrawTabs(inRect, shapeTabs, 400f);
+        inRect.yMin += TabDrawer.TabHeight + 6f;
+
+        if (facialAnimationPart.Key == "eyes")
+        {
+            DrawFacialAnimationColor(inRect.TakeTopPart(36f).ContractedBy(2f), "PawnEditor.FA.EyeColor".Translate(),
+                FacialAnimCompat.GetEyeColor(pawn), color => FacialAnimCompat.SetEyeColor(pawn, color));
+            inRect.yMin += 4f;
+            DrawFacialAnimationColor(inRect.TakeTopPart(36f).ContractedBy(2f), "PawnEditor.FA.EyeSecondColor".Translate(),
+                FacialAnimCompat.GetSecondEyeColor(pawn), color => FacialAnimCompat.SetSecondEyeColor(pawn, color));
+            inRect.yMin += 8f;
+        }
+
+        var options = FacialAnimCompat.GetApplicableFaceTypeDefs(pawn, facialAnimationPart)
+            .Where(MatchesSource)
+            .ToList();
+        DoIconOptions(inRect, options, def => FacialAnimCompat.SetFaceType(pawn, facialAnimationPart, def),
+            def => FacialAnimCompat.GetFaceTypeIcon(def, pawn),
+            def => FacialAnimCompat.GetFaceType(pawn, facialAnimationPart) == def,
+            0, Array.Empty<Color>(), null, ColorType.Misc, null, 5,
+            facialAnimationPart.Key == "eyes" ? new Rect(0.34f, 0.315f, 0.32f, 0.27f) : null);
+    }
+
+    private static void DrawFacialAnimationColor(Rect row, string label, Color? current, Action<Color> onSelected)
+    {
+        var labelRect = row.TakeLeftPart(Mathf.Min(150f, row.width * 0.36f));
+        Widgets.Label(labelRect, label);
+        row.xMin += 8f;
+        var color = current ?? Color.white;
+        var swatch = row.TakeRightPart(36f).ContractedBy(4f);
+        Widgets.DrawBoxSolid(swatch, color);
+        Widgets.DrawBox(swatch);
+
+        if (Widgets.ButtonText(row, "PawnEditor.PickColor".Translate()))
+            Find.WindowStack.Add(new Dialog_ColorPicker(onSelected, DefDatabase<ColorDef>.AllDefs.Select(def => def.color).ToList(), color));
     }
 
     private void DoGeneOptions(ref Rect inRect, string label, List<GeneDef> options, float visMin, float visMax)
@@ -593,7 +744,9 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         // black-screen problem). The portrait only re-renders when it crosses a step.
         previewSide = Mathf.Round(previewSide / 24f) * 24f;
         var slot = inRect.TakeTopPart(previewSide);
-        PawnEditor.DrawPawnPortrait(new Rect(slot.x + (slot.width - previewSide) / 2f, slot.y, previewSide, previewSide));
+        PawnEditor.DrawInteractivePawnPreview(
+            new Rect(slot.x + (slot.width - previewSide) / 2f, slot.y, previewSide, previewSide),
+            pawn, ref draggingPreview, ref pickerPreviewRotation, ref pickerPreviewCameraOffset, ref pickerPreviewZoom);
 
         // v3.1: open NL Facial Animation's own face editor for this pawn, if that mod is present.
         if (FacialAnimCompat.CanEditFace(pawn))
@@ -752,7 +905,7 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        if (ModsConfig.BiotechActive)
+        if (ModsConfig.BiotechActive && mainTab != MainTab.Xenotype)
             Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(50), "PawnEditor.IgnoreXenotype".Translate(), ref ignoreXenotype);
         Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(30), "PawnEditor.ShowApparel".Translate(), ref PawnEditor.RenderClothes);
         Widgets.CheckboxLabeled(bottomRect.TakeBottomPart(30), "PawnEditor.ShowHeadgear".Translate(), ref PawnEditor.RenderHeadgear);
@@ -951,6 +1104,8 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
                 };
             case MainTab.Xenotype:
                 return CosmeticGeneDiscovery.GroupGenes.SelectMany(defs => defs.Cast<Def>());
+            case MainTab.FacialAnimation:
+                return FacialAnimCompat.GetAllOptionDefs(pawn);
         }
 
         return Enumerable.Empty<Def>();
@@ -962,7 +1117,8 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         Hair,
         Tattoos,
         Xenotype,
-        HAR
+        HAR,
+        FacialAnimation
     }
 
     private enum ShapeTab

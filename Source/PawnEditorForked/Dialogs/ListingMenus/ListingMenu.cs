@@ -188,6 +188,8 @@ public class ListingMenu<T> : Window, IMinWindowSize
         visibleRect.position += _scrollPosition;
         var outRect = inRect;
         outRect.yMax -= UIUtility.SearchBarHeight + 4f;
+        Listing.DrawSearchBar(new(inRect.x, inRect.yMax - UIUtility.SearchBarHeight, inRect.width,
+            UIUtility.SearchBarHeight));
         Widgets.BeginScrollView(outRect, ref _scrollPosition, viewRect);
         var rect3 = new Rect(0.0f, 2f, viewRect.width, 999999f);
         visibleRect.position -= rect3.position;
@@ -201,9 +203,6 @@ public class ListingMenu<T> : Window, IMinWindowSize
         if (Event.current.type == EventType.Layout)
             _viewHeight = Listing.CurHeight;
         Widgets.EndScrollView();
-
-        Listing.DrawSearchBar(new(inRect.x, inRect.yMax - UIUtility.SearchBarHeight, inRect.width,
-            UIUtility.SearchBarHeight));
     }
 
     private void DrawFootnote(Rect inRect)
@@ -337,18 +336,26 @@ public class ListingMenu<T> : Window, IMinWindowSize
     private void DrawNodeCollapse(Rect inRect)
     {
         if (Widgets.ButtonText(inRect.RightHalf(), "OpenFolder".Translate() + " " + "AllDays".Translate()))
+        {
             foreach (var treeNodeThingCategory in TreeNodeThingCategory.ChildCategoryNodes)
             {
                 treeNodeThingCategory.SetOpen(1, true);
                 foreach (var child in treeNodeThingCategory.ChildCategoryNodes) child.SetOpen(1, true);
             }
+            if (Listing is Listing_TreeThing listingTree)
+                listingTree.SetManualGroupsOpen(1, true);
+        }
 
         if (Widgets.ButtonText(inRect.LeftHalf(), "Close".Translate() + " " + "AllDays".Translate()))
+        {
             foreach (var treeNodeThingCategory in TreeNodeThingCategory.ChildCategoryNodes)
             {
                 treeNodeThingCategory.SetOpen(1, false);
                 foreach (var child in treeNodeThingCategory.ChildCategoryNodes) child.SetOpen(1, false);
             }
+            if (Listing is Listing_TreeThing listingTree)
+                listingTree.SetManualGroupsOpen(1, false);
+        }
     }
 
     private bool _appliedShowFilters;

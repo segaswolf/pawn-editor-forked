@@ -9,7 +9,7 @@ public abstract class Dialog_PawnEditor : Window
 {
     protected Dialog_PawnEditor()
     {
-        forcePause = true;
+        forcePause = PawnEditorMod.Settings?.PauseWhileEditorOpen ?? true;
         absorbInputAroundWindow = false;
         closeOnAccept = false;
         closeOnCancel = true;
