@@ -9,6 +9,22 @@ namespace PawnEditor;
 
 public class Listing_TreeThing : Listing_Thing<ThingDef>
 {
+    public sealed class ManualGroup
+    {
+        internal readonly TreeNode OpenState = new();
+
+        public ManualGroup(string label, IEnumerable<ThingDef> things)
+        {
+            Label = label;
+            Things = things.OrderBy(thing => thing.LabelCap.ToString()).ToList();
+        }
+
+        public string Label { get; }
+        public List<ThingDef> Things { get; }
+    }
+
+    private List<ManualGroup> manualGroups = new();
+
     public Listing_TreeThing(List<ThingDef> items, Func<ThingDef, string> labelGetter, Func<ThingDef, string> descGetter = null,
         List<Filter<ThingDef>> filters = null)
         : base(items, labelGetter, descGetter, filters) { }
@@ -24,8 +40,20 @@ public class Listing_TreeThing : Listing_Thing<ThingDef>
         Rect visibleRect)
     {
         VisibleRect = visibleRect;
-        ColumnWidth = visibleRect.width - 16f;
+        ColumnWidth = Mathf.Max(1f, visibleRect.width - 16f);
         DoCategoryChildren(node, 0, openMask, false);
+        DoManualGroups(openMask);
+    }
+
+    public void SetManualGroups(IEnumerable<ManualGroup> groups)
+    {
+        manualGroups = groups?.Where(group => !group.Things.NullOrEmpty()).ToList() ?? new();
+    }
+
+    public void SetManualGroupsOpen(int openMask, bool open)
+    {
+        foreach (var group in manualGroups)
+            group.OpenState.SetOpen(openMask, open);
     }
 
     private void DoCategoryChildren(
@@ -74,6 +102,13 @@ public class Listing_TreeThing : Listing_Thing<ThingDef>
         {
             OpenCloseWidget(node, indentLevel, openMask);
             LabelLeft(node.LabelCap, node.catDef.description, indentLevel, textColor: textColor);
+
+            // OpenCloseWidget only consumes the small arrow. Make the rest of the category row
+            // behave the same way so users do not have to target that tiny control.
+            var rowX = XAtIndentLevel(indentLevel) + OpenCloseWidgetSize;
+            var rowRect = new Rect(rowX, curY, Mathf.Max(0f, ColumnWidth - rowX), lineHeight);
+            if (rowRect.width > 0f && Widgets.ButtonInvisible(rowRect))
+                node.SetOpen(openMask, !node.IsOpen(openMask));
         }
 
         EndLine();
@@ -82,8 +117,43 @@ public class Listing_TreeThing : Listing_Thing<ThingDef>
         DoCategoryChildren(node, indentLevel + 1, openMask, subtreeMatchedSearch);
     }
 
+    private void DoManualGroups(int openMask)
+    {
+        foreach (var group in manualGroups)
+        {
+            var groupMatchesSearch = SearchFilter.filter.Active && SearchFilter.filter.Matches(group.Label);
+            var visibleThings = group.Things
+                .Where(Visible)
+                .Where(thing => !SearchFilter.filter.Active || groupMatchesSearch || SearchFilter.filter.Matches(LabelGetter(thing)))
+                .ToList();
+            if (visibleThings.Count == 0)
+                continue;
+
+            var open = group.OpenState.IsOpen(openMask) || SearchFilter.filter.Active;
+            if (CurrentRowVisibleOnScreen())
+            {
+                OpenCloseWidget(group.OpenState, 0, openMask);
+                LabelLeft(group.Label, group.Label, 0);
+
+                var rowRect = new Rect(OpenCloseWidgetSize, curY,
+                    Mathf.Max(0f, ColumnWidth - OpenCloseWidgetSize), lineHeight);
+                if (rowRect.width > 0f && Widgets.ButtonInvisible(rowRect))
+                    group.OpenState.SetOpen(openMask, !open);
+            }
+
+            EndLine();
+            if (!open)
+                continue;
+
+            for (var i = 0; i < visibleThings.Count; i++)
+                DoThing(visibleThings[i], 1, i);
+        }
+    }
+
     public override bool IsOpen(TreeNode node, int openMask) =>
-        base.IsOpen(node, openMask) || (node is TreeNode_ThingCategory node1 && SearchFilter.filter.Active && ThisOrDescendantsVisibleAndMatchesSearch(node1));
+        base.IsOpen(node, openMask) ||
+        (node is TreeNode_ThingCategory node1 && SearchFilter.filter.Active && ThisOrDescendantsVisibleAndMatchesSearch(node1)) ||
+        (SearchFilter.filter.Active && manualGroups.Any(group => ReferenceEquals(group.OpenState, node)));
 
     private bool ThisOrDescendantsVisibleAndMatchesSearch(TreeNode_ThingCategory node)
     {

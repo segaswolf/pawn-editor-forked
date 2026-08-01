@@ -17,11 +17,8 @@ public partial class TabWorker_Bio_Humanlike
         var faction = "Faction".Translate();
         var ideo = "DifficultyIdeologySection".Translate();
         var certainty = "Certainty".Translate().CapitalizeFirst();
-        var title = "PawnEditor.EmpireTitle".Translate();
-        var honor = "PawnEditor.Honor".Translate();
-        var favColor = "PawnEditor.FavColor".Translate();
         var role = "Role".Translate().CapitalizeFirst();
-        var leftWidth = UIUtility.ColumnWidth(3, faction, ideo, certainty, title, honor, favColor) + 4f;
+        var leftWidth = UIUtility.ColumnWidth(3, faction, ideo, certainty, role) + 4f;
         var factionRect = inRect.TakeTopPart(30);
         inRect.yMin += 4;
         using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(factionRect.TakeLeftPart(leftWidth), faction);
@@ -142,38 +139,6 @@ public partial class TabWorker_Bio_Humanlike
         
         inRect.yMin += 16;
 
-        var empire = Faction.OfEmpire;
-        if (ModsConfig.RoyaltyActive && empire != null)
-        {
-            var titleRect = inRect.TakeTopPart(30);
-            inRect.yMin += 10;
-            using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(titleRect.TakeLeftPart(leftWidth), title);
-            var curTitle = pawn.royalty.GetCurrentTitle(empire);
-            if (Widgets.ButtonText(titleRect, curTitle?.GetLabelCapFor(pawn) ?? "None".Translate()))
-            {
-                var list = new List<FloatMenuOption>
-                {
-                    new("None".Translate(), () => { pawn.royalty.SetTitle(empire, null, false, false, false); })
-                };
-                list.AddRange(empire.def.RoyalTitlesAllInSeniorityOrderForReading.Select(royalTitle =>
-                    new FloatMenuOption(royalTitle.GetLabelCapFor(pawn), () => pawn.royalty.SetTitle(empire, royalTitle, true, false, false))));
-                Find.WindowStack.Add(new FloatMenu(list));
-            }
-
-            if (curTitle?.GetNextTitle(empire) != null)
-            {
-                var honorRect = inRect.TakeTopPart(30);
-                inRect.yMin += 4;
-                using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(honorRect.TakeLeftPart(leftWidth), honor);
-                float favor = pawn.royalty.GetFavor(empire);
-                honorRect.yMax -= Mathf.Round((honorRect.height - 10f) / 2f);
-                Widgets.HorizontalSlider(honorRect, ref favor, new(0, curTitle.GetNextTitle(empire).favorCost - 1), favor.ToString());
-                pawn.royalty.SetFavor(empire, (int)favor, false);
-            }
-
-            inRect.yMin += 16;
-        }
-
         if (ModsConfig.IdeologyActive && pawn.Ideo != null)
         {
             var ideoRect = inRect.TakeTopPart(30);
@@ -231,6 +196,9 @@ public partial class TabWorker_Bio_Humanlike
 
             inRect.yMin += 16;
         }
+
+        if (TraumaIntegrityCompat.Available)
+            DrawTraumaIntegrityControls(ref inRect, pawn);
     }
 
     void DrawFactionLabel(Rect factionRect, Pawn pawn)

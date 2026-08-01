@@ -184,6 +184,9 @@ public static partial class PawnEditor
         CopyDup_Expertise(source, newPawn);            // VSE Expertise
         CopyDup_Aspirations(source, newPawn);          // VAspirE Aspirations
         CopyDup_Proficiencies(source, newPawn);        // Life Lessons Proficiencies
+        CharacterDevelopmentCompat.CopyData(source, newPawn);
+        TraumaIntegrityCompat.CopyData(source, newPawn);
+        RJWCompat.CopyData(source, newPawn);
 
         // Miscellaneous fields too small for their own CopyDup_ method
         if (source.guest != null && newPawn.guest != null)

@@ -128,7 +128,6 @@ public static partial class PawnEditor
         List<string> sections = null;
         int sectionCount = 0;
         Action<Pawn, int, int> onReorder = null;
-        Action<Pawn> onDelete;
 
         if (pregame)
         {
@@ -168,11 +167,6 @@ public static partial class PawnEditor
                 }
             }
 
-            onDelete = pawn =>
-            {
-                DeletePawn(pawn, pawns);
-                DoRecache();
-            };
         }
         else
         {
@@ -190,29 +184,66 @@ public static partial class PawnEditor
             }
 
             onReorder = PawnList.OnReorder;
-            onDelete = pawn =>
-            {
-                if (selectedPawn == pawn) selectedPawn = pawns.Get(pawns.IndexOf(pawn) + 1);
-                PawnList.OnDelete(pawn);
-            };
         }
 
         inRect.yMin += 12f;
         if (pawns.Any())
         {
-            DoPawnList(inRect.TakeTopPart(415f), pawns, sections, sectionCount, onReorder, onDelete);
+            DoPawnList(inRect.TakeTopPart(415f), pawns, sections, sectionCount, onReorder);
         }
     }
 
-    private static void DeletePawn(Pawn pawn, List<Pawn> pawns)
+    private static void ConfirmDeletePawn(Pawn pawn)
     {
-        if (selectedPawn == pawn) selectedPawn = pawns.Get(pawns.IndexOf(pawn) + 1);
-        pawns.Remove(pawn);
-        if (pawns.Empty()) selectedPawn = null;
-        if (pawn.Discarded is false)
+        if (pawn == null || pawn.Discarded) return;
+        Find.WindowStack.Add(new Dialog_Confirm("PawnEditor.ReallyDelete".Translate(pawn.NameShortColored), "ConfirmDeletePawn",
+            () => DeletePawn(pawn), true));
+    }
+
+    private static void DeletePawn(Pawn pawn)
+    {
+        List<Pawn> pawns;
+        var nextPawn = selectedPawn;
+
+        if (Pregame)
         {
+            pawns = selectedCategory == PawnCategory.Humans
+                ? Find.GameInitData.startingAndOptionalPawns
+                : StartingThingsManager.GetPawns(selectedCategory);
+            var index = pawns.IndexOf(pawn);
+            if (index < 0) return;
+            if (selectedPawn == pawn) nextPawn = pawns.Count > 1 ? pawns.Get(index + 1) : null;
+
+            if (selectedCategory == PawnCategory.Humans)
+            {
+                Find.GameInitData.startingPossessions.Remove(pawn);
+                if (index < Find.GameInitData.startingPawnCount)
+                    Find.GameInitData.startingPawnCount = Math.Max(0, Find.GameInitData.startingPawnCount - 1);
+                pawns.RemoveAt(index);
+            }
+            else
+                StartingThingsManager.RemovePawn(selectedCategory, pawn);
+
             pawn.Discard(true);
         }
+        else
+        {
+            var lists = PawnList.GetLists();
+            pawns = lists.Item1;
+            var index = pawns.IndexOf(pawn);
+            if (index < 0) return;
+            if (selectedPawn == pawn) nextPawn = pawns.Count > 1 ? pawns.Get(index + 1) : null;
+
+            PawnList.OnDelete(pawn);
+            pawns.RemoveAt(index);
+            lists.Item2.RemoveAt(index);
+        }
+
+        selectedPawn = nextPawn;
+        DoRecache();
+        RefreshTabs();
+        NotifyColonistBarsDirty();
+        Notify_PointsUsed();
     }
 
     private static void TryRefreshSelectedPawn()

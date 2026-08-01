@@ -12,6 +12,8 @@
     <PawnEditor.CountNPCs.Desc>If enabled, then NPC pawns will also impact your point limit.</PawnEditor.CountNPCs.Desc>
     <PawnEditor.ShowEditButton>Show edit gizmo</PawnEditor.ShowEditButton>
     <PawnEditor.ShowEditButton.Desc>Show a button in the bar of buttons on the bottom to open the pawn editor to a selected pawn.</PawnEditor.ShowEditButton.Desc>
+    <PawnEditor.PauseWhileEditorOpen>Pause while editor is open</PawnEditor.PauseWhileEditorOpen>
+    <PawnEditor.PauseWhileEditorOpen.Desc>Keep game time paused while the editor overlay is open. Background map and UI clicks still work.</PawnEditor.PauseWhileEditorOpen.Desc>
     <PawnEditor.ResetConfirmation>Reset all confirmation messages</PawnEditor.ResetConfirmation>
     <PawnEditor.HediffLocation>Limit possible hediff parts to...</PawnEditor.HediffLocation>
     <PawnEditor.HediffLocation.All>all</PawnEditor.HediffLocation.All>

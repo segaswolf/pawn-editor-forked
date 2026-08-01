@@ -10,6 +10,13 @@ namespace PawnEditor;
 [StaticConstructorOnStartup]
 public class ListingMenu_Abilities : ListingMenu<AbilityDef>
 {
+    public enum AbilityListMode
+    {
+        All,
+        NonPsycasts,
+        Psycasts
+    }
+
     private static readonly List<AbilityDef> items;
     private static readonly Func<AbilityDef, string> labelGetter = d => d.LabelCap;
     private static readonly Func<AbilityDef, Pawn, string> descGetter = (d, p) => d.GetTooltip(p);
@@ -21,11 +28,22 @@ public class ListingMenu_Abilities : ListingMenu<AbilityDef>
         filters = GetFilters();
     }
 
-    public ListingMenu_Abilities(Pawn pawn) : base(items, labelGetter, b => TryAdd(b, pawn),
+    public ListingMenu_Abilities(Pawn pawn) : this(pawn, AbilityListMode.All)
+    {
+    }
+
+    public ListingMenu_Abilities(Pawn pawn, AbilityListMode mode) : base(ItemsFor(mode), labelGetter, b => TryAdd(b, pawn),
         "PawnEditor.Choose".Translate() + " " + "PawnEditor.Ability".Translate().ToLower(),
         b => descGetter(b, pawn), DrawIcon, filters, pawn)
     {
     }
+
+    private static List<AbilityDef> ItemsFor(AbilityListMode mode) => mode switch
+    {
+        AbilityListMode.NonPsycasts => items.Where(def => !def.IsPsycast).ToList(),
+        AbilityListMode.Psycasts => items.Where(def => def.IsPsycast).ToList(),
+        _ => items
+    };
 
     private static void DrawIcon(AbilityDef abilityDef, Rect rect)
     {
@@ -37,19 +55,30 @@ public class ListingMenu_Abilities : ListingMenu<AbilityDef>
 
     private static AddResult TryAdd(AbilityDef abilityDef, Pawn pawn)
     {
+        if (pawn.abilities.GetAbility(abilityDef) != null)
+            return "PawnEditor.AbilityAlreadyKnown".Translate(abilityDef.LabelCap);
+
+        var gainAbility = new SuccessInfo(() =>
+        {
+            pawn.abilities.GainAbility(abilityDef);
+            PawnEditor.Notify_PointsUsed();
+        });
+
         if (abilityDef.IsPsycast && !pawn.HasPsylink)
         {
-            var addPsylink = () =>
-            {
-                pawn.health.AddHediff(HediffDefOf.PsychicAmplifier, pawn.health.hediffSet.GetBrain());
-                TabWorker_Table<Pawn>.ClearCacheFor<TabWorker_Health>();
-            };
-            Find.WindowStack.Add(new Dialog_MessageBox("PawnEditor.AddPsylink".Translate(abilityDef.LabelCap), "Yes".Translate(), addPsylink,
-                "No".Translate(), acceptAction: addPsylink));
+            return new ConfirmInfo(
+                "PawnEditor.AddPsylink".Translate(abilityDef.LabelCap),
+                "AddPsylinkForPsycast",
+                new SuccessInfo(() =>
+                {
+                    pawn.ChangePsylinkLevel(1, false);
+                    pawn.abilities.GainAbility(abilityDef);
+                    PawnEditor.Notify_PointsUsed();
+                }),
+                title: "PawnEditor.Royalty.Psycasts".Translate());
         }
 
-        pawn.abilities.GainAbility(abilityDef);
-        return true;
+        return gainAbility;
     }
 
     private static List<Filter<AbilityDef>> GetFilters()

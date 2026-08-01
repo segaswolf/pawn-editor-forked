@@ -103,11 +103,14 @@ public partial class TabWorker_Bio_Humanlike
 
         headerRect = viewRect.TakeTopPart(Text.LineHeight);
         Widgets.Label(headerRect, "Abilities".Translate().Colorize(ColoredText.TipSectionTitleColor));
-        if (Widgets.ButtonText(headerRect.TakeRightPart(60), add)) Find.WindowStack.Add(new ListingMenu_Abilities(pawn));
+        var addAbilityRect = headerRect.TakeRightPart(60);
+        if (Widgets.ButtonText(addAbilityRect, add))
+            Find.WindowStack.Add(new ListingMenu_Abilities(pawn, ListingMenu_Abilities.AbilityListMode.NonPsycasts));
 
         var abilities = (from a in pawn.abilities.abilities
-            orderby a.def.level, a.def.EntropyGain
-            select a).ToList();
+                         where !a.def.IsPsycast
+                         orderby a.def.level, a.def.EntropyGain
+                         select a).ToList();
         var abilitiesRect = viewRect.TakeTopPart(abilitiesLastHeight + 14).ContractedBy(6);
         if (abilities.Count == 0)
         {

@@ -89,6 +89,82 @@ public static partial class PawnEditor
         return false;
     }
 
+    public static void DrawInteractivePawnPreview(Rect portraitRect, Pawn pawn, ref bool draggingPreview, ref Rot4 previewRotation,
+        ref Vector3 previewCameraOffset, ref float previewZoom)
+    {
+        if (pawn == null || portraitRect.width <= 1f || portraitRect.height <= 1f)
+            return;
+
+        GUI.color = Color.white;
+        var rotateRect = new Rect(portraitRect.x + 4f, portraitRect.y + 4f, 24f, 24f);
+        var apparelRect = new Rect(rotateRect.xMax + 4f, rotateRect.y, 24f, 24f);
+        var headgearRect = new Rect(apparelRect.xMax + 4f, rotateRect.y, 24f, 24f);
+        var currentEvent = Event.current;
+        var pointerInPreview = portraitRect.Contains(currentEvent.mousePosition)
+                               && !rotateRect.Contains(currentEvent.mousePosition)
+                               && !apparelRect.Contains(currentEvent.mousePosition)
+                               && !headgearRect.Contains(currentEvent.mousePosition);
+
+        if (currentEvent.type == EventType.MouseDown && currentEvent.button == 0 && pointerInPreview)
+        {
+            draggingPreview = true;
+            currentEvent.Use();
+        }
+        else if (currentEvent.type == EventType.MouseDrag && draggingPreview)
+        {
+            var visibleWorldSize = 2f / previewZoom;
+            previewCameraOffset.x -= currentEvent.delta.x / portraitRect.width * visibleWorldSize;
+            previewCameraOffset.z += currentEvent.delta.y / portraitRect.height * visibleWorldSize;
+            currentEvent.Use();
+        }
+        else if (currentEvent.type == EventType.MouseUp && draggingPreview)
+        {
+            draggingPreview = false;
+            currentEvent.Use();
+        }
+        else if (currentEvent.type == EventType.ScrollWheel && pointerInPreview)
+        {
+            previewZoom = Mathf.Clamp(previewZoom - currentEvent.delta.y * 0.1f, 0.8f, 2.5f);
+            currentEvent.Use();
+        }
+
+        TooltipHandler.TipRegion(portraitRect, "PawnEditor.Preview.DragHint".Translate());
+        var stableSize = new Vector2(Mathf.Max(1f, Mathf.Round(portraitRect.width)), Mathf.Max(1f, Mathf.Round(portraitRect.height)));
+        var texture = GetPawnTex(pawn, stableSize, previewRotation, previewCameraOffset, previewZoom);
+        DrawPortraitOrPlaceholder(portraitRect, texture);
+
+        if (Widgets.ButtonImage(rotateRect, TexUI.RotLeftTex))
+            previewRotation.Rotate(RotationDirection.Counterclockwise);
+        TooltipHandler.TipRegion(rotateRect, "PawnEditor.Preview.RotateLeft".Translate());
+
+        if (Widgets.ButtonImageWithBG(apparelRect, GetAppearanceToggleIcon("Apparel_BasicShirt"), new Vector2(18f, 18f)))
+            RenderClothes = !RenderClothes;
+        DrawVisibilitySlash(apparelRect, RenderClothes);
+        TooltipHandler.TipRegion(apparelRect, "PawnEditor.ShowApparel".Translate());
+
+        if (Widgets.ButtonImageWithBG(headgearRect, GetAppearanceToggleIcon("Apparel_SimpleHelmet"), new Vector2(18f, 18f)))
+            RenderHeadgear = !RenderHeadgear;
+        DrawVisibilitySlash(headgearRect, RenderHeadgear);
+        TooltipHandler.TipRegion(headgearRect, "PawnEditor.ShowHeadgear".Translate());
+    }
+
+    private static Texture2D GetAppearanceToggleIcon(string defName) =>
+        DefDatabase<ThingDef>.GetNamedSilentFail(defName)?.uiIcon ?? BaseContent.WhiteTex;
+
+    private static void DrawVisibilitySlash(Rect rect, bool visible)
+    {
+        if (visible)
+            return;
+
+        var originalColor = GUI.color;
+        var originalMatrix = GUI.matrix;
+        GUI.color = Color.red;
+        GUIUtility.RotateAroundPivot(-45f, rect.center);
+        GUI.DrawTexture(new Rect(rect.xMin - rect.width * 0.2f, rect.center.y - 1.5f, rect.width * 1.4f, 3f), BaseContent.WhiteTex);
+        GUI.matrix = originalMatrix;
+        GUI.color = originalColor;
+    }
+
     // ── Graphics helpers ──
 
     private static void EnsurePawnGraphicsInitialized(Pawn pawn)

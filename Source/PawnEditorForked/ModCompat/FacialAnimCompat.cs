@@ -18,6 +18,19 @@ public static class FacialAnimCompat
     private static Type faceTypeDef;
     public static List<Def> FaceTypeDefs;
 
+    private static readonly List<FacePart> faceParts = new()
+    {
+        new("eyes", "PawnEditor.FA.Eyes", "Eyes", "FacialAnimation.EyeballControllerComp", "FacialAnimation.EyeballTypeDef"),
+        new("brows", "PawnEditor.FA.Brows", "Brows", "FacialAnimation.BrowControllerComp", "FacialAnimation.BrowTypeDef"),
+        new("lids", "PawnEditor.FA.Lids", "Lids", "FacialAnimation.LidControllerComp", "FacialAnimation.LidTypeDef"),
+        new("mouth", "PawnEditor.FA.Mouth", "Mouth", "FacialAnimation.MouthControllerComp", "FacialAnimation.MouthTypeDef"),
+        new("skin", "PawnEditor.FA.Skin", "Skin", "FacialAnimation.SkinControllerComp", "FacialAnimation.SkinTypeDef"),
+        new("head", "PawnEditor.FA.Head", "Head", "FacialAnimation.HeadControllerComp", "FacialAnimation.HeadTypeDef")
+    };
+
+    private static Type faceTypeGeneratorGenericType;
+    private static readonly Dictionary<string, Texture2D> faceTypeIcons = new();
+
     // v3.1: NL FA ships its own full face-editor window. Opening it (with the pawn set on its static
     // field) reuses the entire facial-animation UI instead of us rebuilding it.
     private static Type faceEditorWindowType;
@@ -83,26 +96,210 @@ public static class FacialAnimCompat
         faceTypeDef = AccessTools.TypeByName("FacialAnimation.FaceTypeDef");
         FaceTypeDefs = GenDefDatabase.GetAllDefsInDatabaseForDef(faceTypeDef).ToList();
 
+        faceTypeGeneratorGenericType = AccessTools.TypeByName("FacialAnimation.FaceTypeGenerator`1");
+        foreach (var part in faceParts)
+        {
+            part.ControllerType = AccessTools.TypeByName(part.ControllerTypeName);
+            part.DefType = AccessTools.TypeByName(part.DefTypeName);
+        }
+
         // Each controller is its own ThingComp on the pawn
-        eyeballControllerType = AccessTools.TypeByName("EyeballControllerComp");
-        browControllerType = AccessTools.TypeByName("BrowControllerComp");
-        lidControllerType = AccessTools.TypeByName("LidControllerComp");
-        mouthControllerType = AccessTools.TypeByName("MouthControllerComp");
-        skinControllerType = AccessTools.TypeByName("SkinControllerComp");
-        headControllerType = AccessTools.TypeByName("HeadControllerComp");
-        drawFaceCompType = AccessTools.TypeByName("DrawFaceGraphicsComp");
+        eyeballControllerType = faceParts[0].ControllerType ?? AccessTools.TypeByName("EyeballControllerComp");
+        browControllerType = faceParts[1].ControllerType ?? AccessTools.TypeByName("BrowControllerComp");
+        lidControllerType = faceParts[2].ControllerType ?? AccessTools.TypeByName("LidControllerComp");
+        mouthControllerType = faceParts[3].ControllerType ?? AccessTools.TypeByName("MouthControllerComp");
+        skinControllerType = faceParts[4].ControllerType ?? AccessTools.TypeByName("SkinControllerComp");
+        headControllerType = faceParts[5].ControllerType ?? AccessTools.TypeByName("HeadControllerComp");
+        drawFaceCompType = AccessTools.TypeByName("FacialAnimation.DrawFaceGraphicsComp") ?? AccessTools.TypeByName("DrawFaceGraphicsComp");
 
         // Def types
-        eyeballTypeDef = AccessTools.TypeByName("FacialAnimation.EyeballTypeDef");
-        browTypeDef = AccessTools.TypeByName("FacialAnimation.BrowTypeDef");
-        lidTypeDef = AccessTools.TypeByName("FacialAnimation.LidTypeDef");
-        mouthTypeDef = AccessTools.TypeByName("FacialAnimation.MouthTypeDef");
-        skinTypeDef = AccessTools.TypeByName("FacialAnimation.SkinTypeDef");
-        faHeadTypeDef = AccessTools.TypeByName("FacialAnimation.HeadTypeDef");
+        eyeballTypeDef = faceParts[0].DefType;
+        browTypeDef = faceParts[1].DefType;
+        lidTypeDef = faceParts[2].DefType;
+        mouthTypeDef = faceParts[3].DefType;
+        skinTypeDef = faceParts[4].DefType;
+        faHeadTypeDef = faceParts[5].DefType;
 
         if (Verse.Prefs.DevMode)
             Log.Message($"[Pawn Editor] FA controllers: eye={eyeballControllerType?.Name ?? "?"}, " +
                 $"head={headControllerType?.Name ?? "?"}, draw={drawFaceCompType?.Name ?? "?"}");
+    }
+
+    public static IReadOnlyList<FacePart> GetFaceParts() =>
+        faceParts.Where(part => part.ControllerType != null && part.DefType != null).ToList();
+
+    public static bool HasFaceControls(Pawn pawn) =>
+        pawn != null && GetFaceParts().Any(part => FindComp(pawn, part.ControllerType) != null);
+
+    public static IEnumerable<Def> GetAllOptionDefs(Pawn pawn) =>
+        GetFaceParts().SelectMany(part => GetApplicableFaceTypeDefs(pawn, part)).Distinct();
+
+    public static List<Def> GetApplicableFaceTypeDefs(Pawn pawn, FacePart part)
+    {
+        if (pawn == null || part?.DefType == null)
+            return new List<Def>();
+
+        var generatedDefs = TryGetGeneratedFaceDefs(pawn, part);
+        if (!generatedDefs.NullOrEmpty())
+            return generatedDefs;
+
+        return GenDefDatabase.GetAllDefsInDatabaseForDef(part.DefType)
+            .OfType<Def>()
+            .OrderBy(def => def.label ?? def.defName)
+            .ToList();
+    }
+
+    public static Def GetFaceType(Pawn pawn, FacePart part)
+    {
+        if (pawn == null || part == null)
+            return null;
+
+        var defName = GetFaceTypeDefName(pawn, part);
+        return defName.NullOrEmpty()
+            ? null
+            : GenDefDatabase.GetAllDefsInDatabaseForDef(part.DefType)
+                .OfType<Def>()
+                .FirstOrDefault(def => def.defName == defName);
+    }
+
+    public static string GetFaceTypeDefName(Pawn pawn, FacePart part)
+    {
+        var comp = FindComp(pawn, part?.ControllerType);
+        if (comp == null)
+            return null;
+
+        var propertyValue = AccessTools.Property(comp.GetType(), "FaceTypeDefName")?.GetValue(comp) as string;
+        return propertyValue.NullOrEmpty() ? GetCurrentType(comp)?.defName : propertyValue;
+    }
+
+    public static void SetFaceType(Pawn pawn, FacePart part, Def def)
+    {
+        if (pawn == null || part == null || def == null)
+            return;
+
+        var comp = FindComp(pawn, part.ControllerType);
+        if (comp == null)
+            return;
+
+        var property = AccessTools.Property(comp.GetType(), "FaceTypeDefName");
+        if (property is { CanWrite: true })
+            property.SetValue(comp, def.defName);
+        else
+            SetCurrentType(comp, def);
+
+        AccessTools.Method(comp.GetType(), "SetDirty")?.Invoke(comp, Array.Empty<object>());
+        PawnEditor.RefreshPawnGraphics(pawn);
+    }
+
+    public static Color? GetEyeColor(Pawn pawn) => GetEyeballColor(pawn);
+
+    public static void SetEyeColor(Pawn pawn, Color color)
+    {
+        var comp = FindComp(pawn, eyeballControllerType);
+        if (comp == null)
+            return;
+
+        SetEyeballColor(pawn, color);
+        AccessTools.Method(comp.GetType(), "SetDirty")?.Invoke(comp, Array.Empty<object>());
+        PawnEditor.RefreshPawnGraphics(pawn);
+    }
+
+    public static Color? GetSecondEyeColor(Pawn pawn)
+    {
+        var comp = FindComp(pawn, eyeballControllerType);
+        if (comp == null)
+            return null;
+
+        var property = AccessTools.Property(comp.GetType(), "FaceSecondColor");
+        if (property?.GetValue(comp) is Color color)
+            return color;
+
+        return FindField(comp.GetType(), "faceSecondColor")?.GetValue(comp) is Color fieldColor ? fieldColor : null;
+    }
+
+    public static void SetSecondEyeColor(Pawn pawn, Color color)
+    {
+        var comp = FindComp(pawn, eyeballControllerType);
+        if (comp == null)
+            return;
+
+        var property = AccessTools.Property(comp.GetType(), "FaceSecondColor");
+        if (property is { CanWrite: true })
+            property.SetValue(comp, color);
+        else
+        {
+            var field = FindField(comp.GetType(), "faceSecondColor");
+            if (field == null)
+                return;
+            field.SetValue(comp, color);
+        }
+
+        AccessTools.Method(comp.GetType(), "SetDirty")?.Invoke(comp, Array.Empty<object>());
+        PawnEditor.RefreshPawnGraphics(pawn);
+    }
+
+    public static Texture2D GetFaceTypeIcon(Def def, Pawn pawn)
+    {
+        if (def == null)
+            return null;
+
+        var texPath = FindField(def.GetType(), "texPath")?.GetValue(def) as string;
+        if (texPath.NullOrEmpty())
+            return null;
+
+        var useUnisexPath = FindField(def.GetType(), "enableUnisexTexPath")?.GetValue(def) is bool value && value;
+        var genderFolder = useUnisexPath ? "Unisex" : (pawn?.gender ?? Gender.Female).ToString();
+        var cacheKey = texPath + "/" + genderFolder;
+        if (faceTypeIcons.TryGetValue(cacheKey, out var texture))
+            return texture;
+
+        texture = LoadFaceTypeIcon(texPath, genderFolder);
+        if (texture == null && genderFolder != "Unisex")
+            texture = LoadFaceTypeIcon(texPath, "Unisex");
+        if (texture == null && genderFolder != "Female")
+            texture = LoadFaceTypeIcon(texPath, "Female");
+        if (texture == null && genderFolder != "Male")
+            texture = LoadFaceTypeIcon(texPath, "Male");
+
+        faceTypeIcons[cacheKey] = texture;
+        return texture;
+    }
+
+    private static List<Def> TryGetGeneratedFaceDefs(Pawn pawn, FacePart part)
+    {
+        if (faceTypeGeneratorGenericType == null)
+            return null;
+
+        var generatorType = faceTypeGeneratorGenericType.MakeGenericType(part.DefType);
+        var method = AccessTools.Method(generatorType, "GetApplicableFaceTypeDefsForRaceConsideringGenes", new[] { typeof(Pawn) });
+        if (method == null)
+            return null;
+
+        var instance = method.IsStatic ? null : Activator.CreateInstance(generatorType);
+        if (method.Invoke(instance, new object[] { pawn }) is not System.Collections.IEnumerable enumerable)
+            return null;
+
+        return enumerable.OfType<Def>()
+            .OrderBy(def => def.label ?? def.defName)
+            .ToList();
+    }
+
+    private static Texture2D LoadFaceTypeIcon(string texPath, string genderFolder) =>
+        ContentFinder<Texture2D>.Get(texPath + "/" + genderFolder + "/normal_south", reportFailure: false);
+
+    private static FieldInfo FindField(Type type, string fieldName)
+    {
+        while (type != null)
+        {
+            var field = type.GetField(fieldName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (field != null)
+                return field;
+
+            type = type.BaseType;
+        }
+
+        return null;
     }
 
     private static Type[] ControllerTypes =>
@@ -399,5 +596,35 @@ public static class FacialAnimCompat
             if (color.HasValue) SetEyeballColor(dst, color.Value);
         }
         catch (Exception ex) { Log.Warning($"[Pawn Editor] FA CopyFacialData: {ex.Message}"); }
+    }
+
+    public sealed class FacePart
+    {
+        public readonly string ControllerTypeName;
+        public readonly string DefTypeName;
+        public readonly string Key;
+        public readonly string LabelFallback;
+        public readonly string LabelKey;
+
+        internal Type ControllerType;
+        internal Type DefType;
+
+        public FacePart(string key, string labelKey, string labelFallback, string controllerTypeName, string defTypeName)
+        {
+            Key = key;
+            LabelKey = labelKey;
+            LabelFallback = labelFallback;
+            ControllerTypeName = controllerTypeName;
+            DefTypeName = defTypeName;
+        }
+
+        public string Label
+        {
+            get
+            {
+                var translated = LabelKey.Translate().ToString();
+                return translated == LabelKey ? LabelFallback : translated;
+            }
+        }
     }
 }

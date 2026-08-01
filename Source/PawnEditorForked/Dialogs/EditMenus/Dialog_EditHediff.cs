@@ -74,4 +74,10 @@ public class Dialog_EditHediff : Dialog_EditItem<Hediff>
                         break;
                 }
     }
+
+    protected override void ClearCaches()
+    {
+        base.ClearCaches();
+        PawnEditor.RefreshPawnGraphics(Pawn);
+    }
 }

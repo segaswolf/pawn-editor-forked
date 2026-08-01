@@ -18,6 +18,7 @@ public class PawnEditorSettings : ModSettings
     public bool HideFactions;
     public bool InGameDevButton = true;
     public bool OverrideVanilla;
+    public bool PauseWhileEditorOpen = true;
     public float PointLimit = 100000f;
     public bool ShowOpenButton = true;
     public bool UseSilver;
@@ -51,6 +52,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref OverrideVanilla, nameof(OverrideVanilla));
         Scribe_Values.Look(ref InGameDevButton, nameof(InGameDevButton), true);
         Scribe_Values.Look(ref ShowOpenButton, nameof(ShowOpenButton), true);
+        Scribe_Values.Look(ref PauseWhileEditorOpen, nameof(PauseWhileEditorOpen), true);
         Scribe_Values.Look(ref PointLimit, nameof(PointLimit), 100000f);
         Scribe_Values.Look(ref UseSilver, nameof(UseSilver));
         Scribe_Values.Look(ref HideFactions, nameof(HideFactions));

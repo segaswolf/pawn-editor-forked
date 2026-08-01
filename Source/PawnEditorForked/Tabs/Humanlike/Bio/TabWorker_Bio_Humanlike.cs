@@ -20,7 +20,8 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
 
     public override void DrawTabContents(Rect rect, Pawn pawn)
     {
-        var headerRect = rect.TakeTopPart(170);
+        var headerHeight = RJWCompat.IsAvailableForPawn(pawn) ? 205f : 170f;
+        var headerRect = rect.TakeTopPart(headerHeight);
         var portraitRect = headerRect.TakeLeftPart(170);
         PawnEditor.DrawPawnPortrait(portraitRect);
         var buttonRect = headerRect.TakeRightPart(212);
@@ -97,28 +98,18 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                 Widgets.DrawHighlightIfMouseover(rect);
                 TooltipHandler.TipRegion(rect, () => SkillUI.GetSkillDescription(skill), def.GetHashCode() * 397945);
                 Widgets.Label(rect.TakeLeftPart(leftWidth), def.LabelCap);
+                var passionRect = rect.TakeLeftPart(30);
                 if (VSECompat.Active) {
-                    if (Widgets.ButtonImage(rect.TakeLeftPart(30), VSECompat.GetPassionIcon(skill.passion)))
+                    if (Widgets.ButtonImage(passionRect, VSECompat.GetPassionIcon(skill.passion)))
                     {
-                        // With VSE: open a dropdown with ALL passions instead of cycling
                         var passionOptions = VSECompat.GetPassionFloatMenuOptions(skill, pawn);
                         Find.WindowStack.Add(new FloatMenu(passionOptions));
                     }
+                    TooltipHandler.TipRegion(passionRect, VSECompat.GetPassionTooltip(skill.passion));
                 } else {
-                    if (Widgets.ButtonImage(rect.TakeLeftPart(30), skill.passion switch
-                        {
-                            Passion.None => TexPawnEditor.PassionEmptyTex,
-                            Passion.Minor => SkillUI.PassionMinorIcon,
-                            Passion.Major => SkillUI.PassionMajorIcon,
-                            _ => SkillUI.PassionMajorIcon
-                        }))
-                        skill.passion = skill.passion switch
-                        {
-                            Passion.None => Passion.Minor,
-                            Passion.Minor => Passion.Major,
-                            Passion.Major => Passion.None,
-                            _ => Passion.None
-                        };
+                    if (Widgets.ButtonImage(passionRect, GetPassionIcon(skill.passion)))
+                        Find.WindowStack.Add(new FloatMenu(GetVanillaPassionOptions(skill)));
+                    TooltipHandler.TipRegion(passionRect, GetPassionTooltip(skill.passion));
                 }
 
                 var level = skill.GetLevel();
@@ -150,6 +141,32 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
                 inRect.yMin += 4;
             }
     }
+
+    private static List<FloatMenuOption> GetVanillaPassionOptions(SkillRecord skill) =>
+        new()
+        {
+            new(Passion.None.GetLabel(), () => SetVanillaPassion(skill, Passion.None), GetPassionIcon(Passion.None), Color.white),
+            new(Passion.Minor.GetLabel(), () => SetVanillaPassion(skill, Passion.Minor), GetPassionIcon(Passion.Minor), Color.white),
+            new(Passion.Major.GetLabel(), () => SetVanillaPassion(skill, Passion.Major), GetPassionIcon(Passion.Major), Color.white)
+        };
+
+    private static void SetVanillaPassion(SkillRecord skill, Passion passion)
+    {
+        skill.passion = passion;
+        PawnEditor.Notify_PointsUsed();
+    }
+
+    private static Texture2D GetPassionIcon(Passion passion) => passion switch
+    {
+        Passion.None => TexPawnEditor.PassionEmptyTex,
+        Passion.Minor => SkillUI.PassionMinorIcon,
+        Passion.Major => SkillUI.PassionMajorIcon,
+        _ => TexPawnEditor.PassionEmptyTex
+    };
+
+    private static string GetPassionTooltip(Passion passion) =>
+        passion.GetLabel() + "\n\n" +
+        "PawnEditor.PassionLearningSpeed".Translate(passion.GetLearningFactor().ToStringPercent());
 
     public static Action GetSetDelegate(Pawn pawn, bool passions, int value)
     {

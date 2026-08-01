@@ -8,6 +8,8 @@
             <li>Needs</li>
             <li>Health</li>
             <li>Social</li>
+            <li>Development</li>
+            <li>Royalty</li>
         </tabs>
     </PawnEditor.TabGroupDef>
     <PawnEditor.TabGroupDef>

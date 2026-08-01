@@ -50,6 +50,8 @@ public abstract class TabWorker<T>
     private static readonly List<TabWorker<T>> tabWorkers = new();
     public abstract void DrawTabContents(Rect rect, T pawn);
 
+    public virtual bool ShowOn(T value) => true;
+
     public virtual IEnumerable<SaveLoadItem> GetSaveLoadItems(T pawn)
     {
         yield break;
@@ -92,6 +94,8 @@ public class TabDef : Def
     private Func<Pawn, IEnumerable<FloatMenuOption>> getRandomizationOptionsPawn;
     private Func<Faction, IEnumerable<SaveLoadItem>> getSaveLoadItemsFaction;
     private Func<Pawn, IEnumerable<SaveLoadItem>> getSaveLoadItemsPawn;
+    private Func<Faction, bool> showOnFaction;
+    private Func<Pawn, bool> showOnPawn;
     private object worker;
 
     public TabDef() => description ??= label;
@@ -101,11 +105,13 @@ public class TabDef : Def
     public IEnumerable<SaveLoadItem> GetSaveLoadItems(Pawn pawn) => getSaveLoadItemsPawn?.Invoke(pawn);
 
     public IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn) => getRandomizationOptionsPawn?.Invoke(pawn);
+    public bool ShowOn(Pawn pawn) => showOnPawn?.Invoke(pawn) ?? true;
     public void DrawTabContents(Rect rect, Faction faction) => drawerFaction?.Invoke(rect, faction);
 
     public IEnumerable<SaveLoadItem> GetSaveLoadItems(Faction faction) => getSaveLoadItemsFaction?.Invoke(faction);
 
     public IEnumerable<FloatMenuOption> GetRandomizationOptions(Faction faction) => getRandomizationOptionsFaction?.Invoke(faction);
+    public bool ShowOn(Faction faction) => showOnFaction?.Invoke(faction) ?? true;
 
     public override void PostLoad()
     {
@@ -137,6 +143,12 @@ public class TabDef : Def
                        .CreateDelegate<Action<Rect, Pawn>>(worker);
             }
             catch (Exception e) { Log.Error($"Failed to instantiate tab drawer: {e}"); }
+
+            var showOnMethod = AccessTools.Method(workerClass, "ShowOn", new[] { argType });
+            if (type == TabType.Faction)
+                showOnFaction = showOnMethod?.CreateDelegate<Func<Faction, bool>>(worker);
+            else if (type == TabType.Pawn)
+                showOnPawn = showOnMethod?.CreateDelegate<Func<Pawn, bool>>(worker);
 
             try
             {
