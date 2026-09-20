@@ -19,6 +19,12 @@ public partial class TabWorker_Bio_Humanlike
         // yield return new("PawnEditor.Shape".Translate(), () => RandomizeShape(pawn));
         yield return new("Relations".Translate(), () => RandomizeRelations(pawn));
         yield return new("Traits".Translate(), () => RandomizeTraits(pawn));
+        // Extra entry, only when the pawn actually has traits locked by its backstory/kindDef: normally
+        // those are left alone (the backstory "requires" them), but in an editor you may well want the
+        // whole trait set rerolled. Kept as a SEPARATE option so the plain "Traits" reroll stays safe
+        // and predictable. Gene-granted traits are never touched — see RandomizeTraits.
+        if (HasBackstoryForcedTraits(pawn) || ProgressionEducationCompat.HasProficiencies(pawn))
+            yield return new("PawnEditor.TraitsIncludingForced".Translate(), () => RandomizeTraits(pawn, true));
         yield return new("Skills".Translate(), () => RandomizeSkills(pawn));
         yield return new("Backstory".Translate(), () => RandomizeBackstory(pawn));
         if (VAspirECompat.Active)
@@ -247,16 +253,45 @@ public partial class TabWorker_Bio_Humanlike
         PawnEditor.RefreshPawnGraphics(pawn);
     }
 
-    private static void RandomizeTraits(Pawn pawn)
-    {
-        var traitRequirements = (pawn.kindDef.forcedTraits ?? Enumerable.Empty<TraitRequirement>()).Concat(pawn.story.AllBackstories.SelectMany(
+    /// <summary>
+    /// Traits the pawn is required to have by its kindDef or a backstory (as opposed to gene-granted
+    /// ones). Used to decide whether the "reroll everything" option is worth offering at all.
+    /// </summary>
+    private static List<TraitRequirement> GetTraitRequirements(Pawn pawn) =>
+        (pawn.kindDef.forcedTraits ?? Enumerable.Empty<TraitRequirement>()).Concat(pawn.story.AllBackstories.SelectMany(
                 backstory => backstory.forcedTraits ?? Enumerable.Empty<BackstoryTrait>(),
                 (_, backstoryTrait) => new TraitRequirement { def = backstoryTrait.def, degree = backstoryTrait.degree }))
             .ToList();
+
+    private static bool HasBackstoryForcedTraits(Pawn pawn)
+    {
+        if (pawn?.story?.traits?.allTraits == null) return false;
+        var requirements = GetTraitRequirements(pawn);
+        return pawn.story.traits.allTraits.Any(trait =>
+            trait.sourceGene == null && requirements.Any(req => req.def == trait.def && req.degree == trait.degree));
+    }
+
+    /// <param name="includeForced">
+    /// When true, traits locked in by the kindDef/backstory are rerolled as well. Gene-granted traits
+    /// are still preserved either way: those are owned by a gene the pawn actually has, so removing the
+    /// trait would leave the gene without its effect (or have the game put it straight back).
+    /// </param>
+    private static void RandomizeTraits(Pawn pawn, bool includeForced = false)
+    {
+        var traitRequirements = GetTraitRequirements(pawn);
         var forcedTraits = pawn.story.traits.allTraits
-            .Where(trait => trait.sourceGene != null || traitRequirements.Any(req => req.def == trait.def && req.degree == trait.degree))
+            .Where(trait => trait.sourceGene != null
+                // Progression: Education proficiency traits have commonality 0, so RimWorld's generator
+                // can never roll them back. Removing one here would delete it permanently, so they are
+                // ALWAYS kept out of the normal reroll and instead swapped within their own track below.
+                || ProgressionEducationCompat.IsProficiencyTrait(trait.def)
+                || (!includeForced && traitRequirements.Any(req => req.def == trait.def && req.degree == trait.degree)))
             .ToHashSet();
-        foreach (var trait in pawn.story.traits.allTraits.Except(forcedTraits).ToList()) pawn.story.traits.RemoveTrait(trait, true);
+        // v3d10: snapshot the removable traits BEFORE clearing them. The reroll below can legitimately
+        // produce nothing, and without this the pawn is left with zero traits and no way back.
+        // (Steam report from Iirly: "clicking this button deleted all traits".)
+        var previousTraits = pawn.story.traits.allTraits.Except(forcedTraits).ToList();
+        foreach (var trait in previousTraits) pawn.story.traits.RemoveTrait(trait, true);
         var num = Mathf.Min(GrowthUtility.GrowthMomentAges.Length, PawnGenerator.TraitsCountRange.RandomInRange);
         var ageBiologicalYears = pawn.ageTracker.AgeBiologicalYears;
         var num2 = 3;
@@ -270,6 +305,35 @@ public partial class TabWorker_Bio_Humanlike
 
             num2++;
         }
+
+        // v3d10: the loop above only fires on growth birthdays (vanilla: ages 7/10/13), so a pawn
+        // younger than the first growth moment exits it having gained nothing. GenerateTraitsFor can
+        // also return null repeatedly when heavy trait modlists make every candidate conflict.
+        // Fill the remainder without the birthday gate, bounded so we can't spin forever.
+        var attempts = 0;
+        while (pawn.story.traits.allTraits.Count < num && attempts < 20)
+        {
+            attempts++;
+            var trait = PawnGenerator.GenerateTraitsFor(pawn, 1, null, true).FirstOrFallback();
+            if (trait == null) continue;
+            if (pawn.story.traits.allTraits.Any(t => t.def == trait.def)) continue;
+            pawn.story.traits.GainTrait(trait);
+        }
+
+        // v3d10: last resort. If the reroll produced nothing at all, put the originals back rather
+        // than silently wiping the pawn's traits.
+        if (pawn.story.traits.allTraits.Count == 0 && previousTraits.Count > 0)
+        {
+            foreach (var trait in previousTraits)
+                pawn.story.traits.GainTrait(new Trait(trait.def, trait.Degree, trait.ScenForced));
+            Messages.Message("Pawn Editor: couldn't generate new traits for this pawn, kept the existing ones.",
+                MessageTypeDefOf.RejectInput, false);
+        }
+
+        // Progression: Education proficiencies are rerolled separately, WITHIN their own track (a mute
+        // pawn may come back fluent, never with an unrelated proficiency). Only on the "including
+        // forced" reroll, since these represent the pawn's schooling rather than personality.
+        if (includeForced) ProgressionEducationCompat.RandomizeProficiencies(pawn);
 
         if (PawnGenerator.HasSexualityTrait(pawn)) return;
 

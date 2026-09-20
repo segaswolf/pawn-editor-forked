@@ -29,7 +29,23 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
         headerRect.xMin += 3;
         DoBasics(headerRect.ContractedBy(5, 0), pawn);
         rect.yMin += 20;
-        var (left, skills, groups) = rect.Split1D(3, false, 15);
+
+        // The Groups column carries Faction/Ideology/Certainty/Role AND any optional mod sections
+        // (Ferny's Trauma & Integrity). With an even three-way split those extra controls ended up
+        // squeezed against the right edge, so give that column more room when they're present.
+        // Layout.Columns guarantees the three always fit, however narrow the window gets.
+        const float columnSpacing = 15f;
+        const float minColumnWidth = 120f;
+        var groupsWeight = TraumaIntegrityCompat.Available ? 1.2f : 1f;
+
+        var columns = Layout.Columns(
+            rect,
+            new[] { 1f, 1f, groupsWeight },
+            new[] { minColumnWidth, minColumnWidth, minColumnWidth },
+            columnSpacing);
+
+        var (left, skills, groups) = (columns[0], columns[1], columns[2]);
+
         DoLeft(left, pawn);
         DoSkills(skills, pawn);
         DoGroups(groups, pawn);

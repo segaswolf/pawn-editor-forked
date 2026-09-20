@@ -273,6 +273,7 @@
     <PawnEditor.MechsSection>Mechs</PawnEditor.MechsSection>
     <PawnEditor.SelectedLocation>Selected location</PawnEditor.SelectedLocation>
     <PawnEditor.SelectedSide>Side</PawnEditor.SelectedSide>
+    <PawnEditor.TraitsIncludingForced>Traits (including forced ones)</PawnEditor.TraitsIncludingForced>
     <PawnEditor.GradientHair>Gradient hair</PawnEditor.GradientHair>
     <PawnEditor.GradientHairSecondColor>Second color</PawnEditor.GradientHairSecondColor>
     <PawnEditor.GradientHairFixesHint>Some older hairs may render blank with Gradient Hair. The "Gradient Hair Fixes" mod resolves this.</PawnEditor.GradientHairFixesHint>
@@ -450,6 +451,10 @@
     <PawnEditor.Development.IntegrityApplyDesc>Applying integrity rerolls betrayal status through Trauma &amp; Integrity's native behavior.</PawnEditor.Development.IntegrityApplyDesc>
     <PawnEditor.Development.Betrayer>Betrayer</PawnEditor.Development.Betrayer>
     <PawnEditor.Development.BetrayerDesc>This is hidden gameplay state. Enabling it makes the pawn immediately eligible for betrayal.</PawnEditor.Development.BetrayerDesc>
+    <PawnEditor.Development.ClearAllBetrayers>Clear betrayer flag on all pawns</PawnEditor.Development.ClearAllBetrayers>
+    <PawnEditor.Development.ClearAllBetrayersConfirm>{0} pawn(s) are currently flagged as betrayers.\n\nClear the flag on all of them? This also clears flags you set on purpose, and any set by Trauma and Integrity's own gameplay.</PawnEditor.Development.ClearAllBetrayersConfirm>
+    <PawnEditor.Development.BetrayersCleared>Cleared the betrayer flag on {0} pawn(s).</PawnEditor.Development.BetrayersCleared>
+    <PawnEditor.Development.NoBetrayers>No pawns are flagged as betrayers.</PawnEditor.Development.NoBetrayers>
     <PawnEditor.Development.TraumaDisabled>Trauma is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.TraumaDisabled>
     <PawnEditor.Development.IntegrityDisabled>Integrity is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.IntegrityDisabled>
     <PawnEditor.Development.IntegrityHidden>Integrity is hidden in normal gameplay by the mod's settings. Pawn Editor still exposes it here.</PawnEditor.Development.IntegrityHidden>

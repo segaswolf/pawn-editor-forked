@@ -55,8 +55,19 @@ public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
             return "PawnEditor.HARRestrictionViolated".Translate(pawn.Named("PAWN"), pawn.def.label.Named("RACE"), "PawnEditor.Wear".Named("VERB"),
                 traitInfo.Trait.Label.Named("ITEM"));
 
+        // Progression: Education proficiencies are tiers of one track (mute -> basic -> fluent speech),
+        // but the mod declares no trait conflicts, so nothing stops a pawn from ending up "mute" AND
+        // "fluent speech" at the same time. Picking a tier replaces the one the pawn already had in
+        // that track, which is how the mod itself treats them.
+        var supersededTiers = ProgressionEducationCompat.GetSameTrackTraits(pawn, traitInfo.Trait.def);
+
         var newTrait = new Trait(traitInfo.Trait.def, traitInfo.TraitDegreeData.degree);
-        ApplyTraitDeltaAndRefresh(pawn, () => pawn.story.traits.GainTrait(newTrait));
+        ApplyTraitDeltaAndRefresh(pawn, () =>
+        {
+            foreach (var superseded in supersededTiers)
+                pawn.story.traits.RemoveTrait(superseded, true);
+            pawn.story.traits.GainTrait(newTrait);
+        });
         return true;
     }
 

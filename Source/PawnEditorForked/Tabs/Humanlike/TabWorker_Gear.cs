@@ -497,17 +497,32 @@ public class TabWorker_Gear : TabWorker<Pawn>
 
     private sealed class GearEditSession
     {
+        /// <summary>
+        /// Apparel temporarily taken off the pawn so the edit preview can be drawn without it, along with
+        /// the wearing state that has to survive the round trip.
+        ///
+        /// "Forced" is part of that state. Pawn_ApparelTracker.Remove ends up calling
+        /// forcedHandler.SetForced(apparel, false), and Wear does NOT put it back — so merely SELECTING a
+        /// worn item in the Gear tab silently un-forced it, and pawns started swapping that apparel out on
+        /// their own. (Reported by a player who tracked their pawns undressing back to this mod.)
+        /// </summary>
         private readonly struct DetachedApparel
         {
-            public DetachedApparel(Apparel apparel, bool locked)
+            public DetachedApparel(Apparel apparel, bool locked, bool forced)
             {
                 Apparel = apparel;
                 Locked = locked;
+                Forced = forced;
             }
 
             public Apparel Apparel { get; }
             public bool Locked { get; }
+            public bool Forced { get; }
         }
+
+        /// <summary>Reads the forced flag defensively: outfits is null for pawns without an outfit tracker.</summary>
+        private static bool IsForcedApparel(Pawn pawn, Apparel apparel) =>
+            pawn?.outfits?.forcedHandler != null && apparel != null && pawn.outfits.forcedHandler.IsForced(apparel);
 
         private readonly GearSlot slot;
         private readonly Thing original;
@@ -943,7 +958,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
             switch (slot)
             {
                 case GearSlot.Apparel when original is Apparel apparel && Pawn.apparel.Contains(apparel):
-                    detachedApparel.Add(new(apparel, Pawn.apparel.IsLocked(apparel)));
+                    detachedApparel.Add(new(apparel, Pawn.apparel.IsLocked(apparel), IsForcedApparel(Pawn, apparel)));
                     Pawn.apparel.Remove(apparel);
                     break;
                 case GearSlot.Apparel when original == null:
@@ -951,7 +966,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                                  .Where(apparel => !ApparelUtility.CanWearTogether(ThingDef, apparel.def, Pawn.RaceProps.body))
                                  .ToList())
                     {
-                        detachedApparel.Add(new(worn, Pawn.apparel.IsLocked(worn)));
+                        detachedApparel.Add(new(worn, Pawn.apparel.IsLocked(worn), IsForcedApparel(Pawn, worn)));
                         Pawn.apparel.Remove(worn);
                     }
                     break;
@@ -994,6 +1009,10 @@ public class TabWorker_Gear : TabWorker<Pawn>
             foreach (var apparel in detachedApparel)
             {
                 Pawn.apparel.Wear(apparel.Apparel, false, apparel.Locked);
+                // Wear() does not restore the forced flag, and Remove() cleared it — put it back, or the
+                // pawn quietly stops treating this piece as forced and swaps it out later on its own.
+                if (apparel.Forced && Pawn?.outfits?.forcedHandler != null)
+                    Pawn.outfits.forcedHandler.SetForced(apparel.Apparel, true);
             }
 
             foreach (var equipment in detachedEquipment)

@@ -27,6 +27,9 @@ public class ListingMenu_CustomXenotypes : Window, IMinWindowSize
         draggable = true;
         closeOnClickedOutside = true;
         onlyOneOfTypeAllowed = true;
+        // This window has a search box: absorb input so typing doesn't trigger game hotkeys.
+        absorbInputAroundWindow = true;
+        preventCameraMotion = true;
         RefreshList();
     }
 

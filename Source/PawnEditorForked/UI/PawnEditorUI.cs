@@ -29,7 +29,9 @@ public static partial class PawnEditor
     private static bool showFactionInfo;
     public static PawnCategory selectedCategory;
     private static float cachedValue;
-    private static FloatMenuOption lastRandomization;
+    // Index into the randomization options list of the last one used (-1 = none yet). Stored as an
+    // index, not as the option object, so the repeat button always re-runs the current frame's entry.
+    private static int lastRandomizationIndex = -1;
     private static TabGroupDef tabGroup;
     private static List<TabRecord> tabs;
     private static TabDef curTab;
@@ -143,19 +145,24 @@ public static partial class PawnEditor
         if (Widgets.ButtonText(inRect.TakeRightPart(Page.BottomButSize.x), Pregame ? "Start".Translate() : "PawnEditor.Teleport".Translate())
             && CanExit()) onRightButton();
 
+        // Bottom row: four buttons (Delete | Randomize | Save | Load) laid out as ONE evenly spaced,
+        // centred group. Earlier versions mixed anchoring styles — Randomize centred while Save/Load
+        // were pinned to the right edge — so when space got tight they collided and looked squashed
+        // together. Sizing every slot the same and placing them sequentially makes overlap impossible.
+        // Widths are clamped: never below a clickable minimum, never above the vanilla button size.
+        const float minButtonWidth = 60f;
         var standardWidth = Page.BottomButSize.x;
-        var spacing = Mathf.Min(5f, inRect.width / 20f);
-        var randomWidth = Mathf.Min(standardWidth, Mathf.Max(1f, inRect.width / 5f));
         var buttonY = inRect.y + (inRect.height - Page.BottomButSize.y) / 2f;
-        var randomRect = new Rect(inRect.center.x - randomWidth / 2f, buttonY, randomWidth, Page.BottomButSize.y);
-        var sideRegionWidth = Mathf.Max(0f, (inRect.width - randomWidth) / 2f);
-        var deleteMargin = Mathf.Min(40f, sideRegionWidth * 0.2f);
-        var deleteWidth = Mathf.Min(standardWidth, Mathf.Max(1f, sideRegionWidth - deleteMargin * 2f));
-        var deleteRect = new Rect(inRect.x + (sideRegionWidth - deleteWidth) / 2f, buttonY, deleteWidth, Page.BottomButSize.y);
-        var saveLoadWidth = Mathf.Min(standardWidth, Mathf.Max(1f, (sideRegionWidth - spacing) / 2f));
-        var saveLoadGroupWidth = saveLoadWidth * 2f + spacing;
-        var saveRect = new Rect(inRect.xMax - saveLoadGroupWidth, buttonY, saveLoadWidth, Page.BottomButSize.y);
-        var loadRect = new Rect(saveRect.xMax + spacing, buttonY, saveLoadWidth, Page.BottomButSize.y);
+        var spacing = Mathf.Clamp(inRect.width / 40f, 6f, 16f);
+
+        var slotWidth = Mathf.Clamp((inRect.width - spacing * 3f) / 4f, minButtonWidth, standardWidth);
+        var groupWidth = slotWidth * 4f + spacing * 3f;
+        var groupX = inRect.x + Mathf.Max(0f, (inRect.width - groupWidth) / 2f);
+
+        var deleteRect = new Rect(groupX, buttonY, slotWidth, Page.BottomButSize.y);
+        var randomRect = new Rect(deleteRect.xMax + spacing, buttonY, slotWidth, Page.BottomButSize.y);
+        var saveRect = new Rect(randomRect.xMax + spacing, buttonY, slotWidth, Page.BottomButSize.y);
+        var loadRect = new Rect(saveRect.xMax + spacing, buttonY, slotWidth, Page.BottomButSize.y);
         var options = GetRandomizationOptions().ToList();
 
         // Add randomize options for factions
@@ -170,10 +177,10 @@ public static partial class PawnEditor
 
                     option.action();
                 }
-                lastRandomization = option;
                 Notify_PointsUsed();
                 List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                var chosenFaction = factions[Rand.Range(0, factions.Count - 1)];
+                // Rand.Range(int, int) is max-EXCLUSIVE: "Count - 1" could never pick the last faction.
+                var chosenFaction = factions.RandomElement();
                 selectedFaction = chosenFaction;
                 if (chosenFaction != selectedPawn.Faction) selectedPawn.SetFaction(chosenFaction);
                 DoRecache();
@@ -186,7 +193,9 @@ public static partial class PawnEditor
                 options.Add(new FloatMenuOption("PawnEditor.SelectRandomFaction".Translate(), () =>
                 {
                     List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                    var chosenFaction = factions[Rand.Range(0, factions.Count - 1)];
+                    // Rand.Range(int, int) is max-EXCLUSIVE, so "Count - 1" meant the last faction in
+                    // the list could never be picked. RandomElement covers the whole list.
+                    var chosenFaction = factions.RandomElement();
                     selectedFaction = chosenFaction;
                     if (chosenFaction != selectedPawn.Faction) selectedPawn.SetFaction(chosenFaction);
                     DoRecache();
@@ -194,17 +203,15 @@ public static partial class PawnEditor
             }
         }
 
-        if (lastRandomization != null && randomRect.width > 24f
-                                      && Widgets.ButtonImageWithBG(randomRect.TakeRightPart(20), TexUI.RotRightTex, new Vector2(12, 12)))
+        // "Repeat last randomization": a small square button that carves its space out of the right end
+        // of the Randomize slot. Done explicitly (not as a side effect inside an && short-circuit) so
+        // the Randomize button's width is predictable, and only when the slot is wide enough to spare it.
+        var canRepeat = lastRandomizationIndex >= 0 && lastRandomizationIndex < options.Count;
+        if (canRepeat && randomRect.width >= minButtonWidth + 24f)
         {
-            var label = lastRandomization.Label.ToLower();
-            var matched = options.FirstOrDefault(op => op.Label.Contains(label));
-            if (matched != null)
-            {
-                lastRandomization = matched;
-                lastRandomization.action();
-            }
-            randomRect.TakeRightPart(1);
+            var repeatRect = randomRect.TakeRightPart(24f);
+            if (Widgets.ButtonImageWithBG(repeatRect, TexUI.RotRightTex, new Vector2(12, 12)))
+                options[lastRandomizationIndex].action();
         }
 
         if (options.Count > 0 && (selectedPawn != null && selectedFaction != null))

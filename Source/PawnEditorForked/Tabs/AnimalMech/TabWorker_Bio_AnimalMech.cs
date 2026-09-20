@@ -12,6 +12,9 @@ public class TabWorker_Bio_AnimalMech : TabWorker<Pawn>
 {
     private string ageBiologicalBuffer;
 
+    /// <summary>Scroll position of the trainables list (static because DoSkills is static).</summary>
+    private static Vector2 trainablesScroll;
+
     public override void DrawTabContents(Rect rect, Pawn pawn)
     {
         var headerRect = rect.TakeTopPart(170);
@@ -226,11 +229,25 @@ public class TabWorker_Bio_AnimalMech : TabWorker<Pawn>
 
         inRect.xMin += 4;
         inRect.yMin += 4f;
-        var leftWidth = DefDatabase<TrainableDef>.AllDefs.Select(def => Text.CalcSize(def.LabelCap.Resolve()).x).Max() + 16f;
+
+        var trainables = DefDatabase<TrainableDef>.AllDefsListForReading;
+        if (trainables.Count == 0) return;
+
+        // User report: "can't reach the bottom of the list to select a training def". Every trainable was
+        // drawn straight into the panel with no scrolling, so once mods add enough of them (vanilla has
+        // 4; modded animals easily reach 25+) the last entries fell outside the window and could not be
+        // clicked at all. The rows now live in a scroll view.
+        var leftWidth = trainables.Select(def => Text.CalcSize(def.LabelCap.Resolve()).x).DefaultIfEmpty(0f).Max() + 16f;
+        const float rowHeight = 30f; // 26px row + 4px gap, matching the spacing used below
+
+        var viewRect = new Rect(0f, 0f, Mathf.Max(0f, inRect.width - 16f), trainables.Count * rowHeight);
+        Widgets.BeginScrollView(inRect, ref trainablesScroll, viewRect);
+        var content = viewRect;
+
         using (new TextBlock(TextAnchor.MiddleLeft))
-            foreach (var def in DefDatabase<TrainableDef>.AllDefsListForReading)
+            foreach (var def in trainables)
             {
-                var rect = inRect.TakeTopPart(26f);
+                var rect = content.TakeTopPart(26f);
                 Widgets.DrawHighlightIfMouseover(rect);
                 TooltipHandler.TipRegion(rect, () => def.description, def.GetHashCode() * 397945);
                 Widgets.Label(rect.TakeLeftPart(leftWidth), def.LabelCap);
@@ -255,8 +272,10 @@ public class TabWorker_Bio_AnimalMech : TabWorker<Pawn>
                     PawnEditor.Notify_PointsUsed();
                 }
 
-                inRect.yMin += 4;
+                content.yMin += 4;
             }
+
+        Widgets.EndScrollView();
     }
 
 

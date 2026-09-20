@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Xml;
 using HarmonyLib;
 using JetBrains.Annotations;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -46,8 +47,29 @@ public static class FacialAnimCompat
         return faceEditorWindowType;
     }
 
-    /// <summary>True if NL Facial Animation is present and its face editor can be opened.</summary>
-    public static bool CanEditFace(Pawn pawn) => pawn != null && Active && FaceEditorWindowType() != null;
+    /// <summary>
+    /// NL Facial Animation's own editor window (NL_SelectPartWindow) calls Find.Selector on EVERY frame
+    /// of DoWindowContents, via its GetSelectedPawn. RimWorld implements that as a hard cast:
+    ///
+    ///     public static MapInterface MapUI => ((UIRoot_Play)UIRoot).mapUI;
+    ///
+    /// Outside a running game the UI root is a UIRoot_Entry, so that cast throws InvalidCastException
+    /// before their window draws anything — which is why "Customize face" opened a blank panel on the
+    /// starting-characters screen and spammed the log once per frame. Confirmed from a player log:
+    ///
+    ///     Exception filling window for FacialAnimation.NL_SelectPartWindow:
+    ///     System.InvalidCastException ... at NL_SelectPartWindow.GetSelectedPawn
+    ///
+    /// Nothing we can do from our side makes their window survive that, so we simply don't offer it
+    /// where it cannot work. Inside a game it's fine: when no pawn is selected on the map their code
+    /// keeps the selectedPawn we hand it in OpenFaceEditor. In pregame our own Facial Animation tab
+    /// covers the same editing.
+    /// </summary>
+    private static bool FaceEditorCanRun => Find.UIRoot is UIRoot_Play;
+
+    /// <summary>True if NL Facial Animation is present and its face editor can actually be opened here.</summary>
+    public static bool CanEditFace(Pawn pawn) =>
+        pawn != null && Active && FaceEditorCanRun && FaceEditorWindowType() != null;
 
     /// <summary>Opens NL Facial Animation's own face editor window for this pawn (sets its static
     /// selectedPawn field, then adds the window to the stack).</summary>
@@ -55,6 +77,14 @@ public static class FacialAnimCompat
     {
         var t = FaceEditorWindowType();
         if (t == null || pawn == null) return;
+        // Second line of defence: never add a window that is guaranteed to throw every frame.
+        if (!FaceEditorCanRun)
+        {
+            Messages.Message("Pawn Editor: the Facial Animation editor only works inside a running game. "
+                + "Use the Facial Animation tab here instead.", MessageTypeDefOf.RejectInput, false);
+            return;
+        }
+
         try
         {
             AccessTools.Field(t, "selectedPawn").SetValue(null, pawn);

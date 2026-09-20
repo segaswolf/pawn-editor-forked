@@ -18,6 +18,9 @@ public abstract class Dialog_PawnEditorFiles : Dialog_FileList
     {
         this.type = type;
         usePath = onPath;
+        // Has a name/search field: absorb input so typing a file name doesn't fire game hotkeys.
+        absorbInputAroundWindow = true;
+        preventCameraMotion = true;
     }
 
     public override void PostOpen()

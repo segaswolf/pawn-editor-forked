@@ -100,6 +100,38 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                     ResurrectionUtility.TryResurrect(pawn);
                     PawnEditor.RefreshPawnGraphics(pawn);
                 }));
+
+            // Remediation for a bug in v3.2: the Betrayer checkbox was drawn past the bottom of its panel,
+            // over the buttons, and a checkbox reacts to a click anywhere inside it — so players could
+            // flag pawns as betrayers without ever seeing it. The overlap is fixed, but flags already set
+            // stay set, and nothing in the data distinguishes an accidental flag from one the player meant
+            // or one Trauma & Integrity set through its own gameplay. So this is offered as an explicit,
+            // confirmed action rather than something we quietly do to someone's save.
+            if (TraumaIntegrityCompat.Available)
+                list.Add(new("PawnEditor.Development.ClearAllBetrayers".Translate(), () =>
+                {
+                    var flagged = PawnEditor.PawnList.GetList()
+                        .Where(p => p != null && TraumaIntegrityCompat.IsBetrayer(p))
+                        .ToList();
+
+                    if (flagged.Count == 0)
+                    {
+                        Messages.Message("PawnEditor.Development.NoBetrayers".Translate(), MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                        "PawnEditor.Development.ClearAllBetrayersConfirm".Translate(flagged.Count),
+                        () =>
+                        {
+                            var cleared = flagged.Count(p => TraumaIntegrityCompat.SetBetrayer(p, false));
+                            Messages.Message("PawnEditor.Development.BetrayersCleared".Translate(cleared),
+                                MessageTypeDefOf.TaskCompletion, false);
+                            PawnEditor.Notify_PointsUsed();
+                        },
+                        true));
+                }));
+
             Find.WindowStack.Add(new FloatMenu(list));
         }
 
@@ -109,8 +141,20 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
             Find.WindowStack.Add(new ListingMenu_Hediffs(pawn, table));
         inRect.xMin += 4f;
 
-        Widgets.CheckboxLabeled(inRect, "PawnEditor.ShowHidden.Hediffs".Translate(), ref HealthCardUtility.showAllHediffs,
+        // User report (duskdarter): "I can hover over the button and click but nothing happens."
+        // The checkbox WAS flipping the flag correctly — the problem is that the table only rebuilds its
+        // rows when the TARGET PAWN changes (UITable.CheckRecache compares hash codes). Toggling this
+        // doesn't change the pawn, so the cached rows stayed exactly as they were and the hidden hediffs
+        // never appeared. Flipping the flag has to invalidate the cache too.
+        var showHidden = HealthCardUtility.showAllHediffs;
+        Widgets.CheckboxLabeled(inRect, "PawnEditor.ShowHidden.Hediffs".Translate(), ref showHidden,
             placeCheckboxNearText: true);
+
+        if (showHidden != HealthCardUtility.showAllHediffs)
+        {
+            HealthCardUtility.showAllHediffs = showHidden;
+            table?.ClearCache();
+        }
     }
 
     private void DrawPreview(Rect inRect, Pawn pawn)

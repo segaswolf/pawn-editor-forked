@@ -59,6 +59,16 @@ public partial class TabWorker_Bio_Humanlike
         using (new TextBlock(TextAnchor.MiddleLeft))
             Widgets.Label(nameRect.TakeLeftPart(leftWidth), "PawnEditor.Name".Translate());
 
+        // The blinking text caret is drawn by Unity from a GLOBAL skin setting, not by the field itself.
+        // Users reported being able to type here while seeing no caret at all — with a heavy UI-mod
+        // stack, something else can leave cursorColor transparent (or the flash speed at zero), and our
+        // fields inherit it. Force a visible, blinking caret while we draw, then restore whatever was
+        // there so we don't change how any other window looks.
+        // NOTE: the argument is required. For a struct, `new CaretVisibilityScope()` would call the
+        // implicit default constructor and skip our logic entirely.
+        using (new CaretVisibilityScope(true))
+        {
+
         if (pawn.Name is NameTriple nameTriple)
         {
             var thirdWidth = nameRect.width * 0.333f;
@@ -96,6 +106,35 @@ public partial class TabWorker_Bio_Humanlike
         else
         {
             Widgets.Label(nameRect, pawn.NameFullColored);
+        }
+        } // CaretVisibilityScope
+    }
+
+    /// <summary>
+    /// Makes sure the text caret is actually visible while text fields are drawn, then puts the global
+    /// skin settings back exactly as they were. Unity keeps the caret colour and flash speed on the
+    /// shared GUISkin, so another mod (or an odd skin) can leave it invisible for everyone; this scope
+    /// keeps our input fields usable without permanently changing anyone else's UI.
+    /// </summary>
+    private readonly struct CaretVisibilityScope : System.IDisposable
+    {
+        private readonly Color previousCursorColor;
+        private readonly float previousFlashSpeed;
+
+        public CaretVisibilityScope(bool _ = true)
+        {
+            previousCursorColor = GUI.skin.settings.cursorColor;
+            previousFlashSpeed = GUI.skin.settings.cursorFlashSpeed;
+
+            // Only override when it would be invisible: a transparent caret, or one that never blinks on.
+            if (previousCursorColor.a < 0.5f) GUI.skin.settings.cursorColor = Color.white;
+            if (previousFlashSpeed <= 0f) GUI.skin.settings.cursorFlashSpeed = 1f;
+        }
+
+        public void Dispose()
+        {
+            GUI.skin.settings.cursorColor = previousCursorColor;
+            GUI.skin.settings.cursorFlashSpeed = previousFlashSpeed;
         }
     }
 

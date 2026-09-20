@@ -3,6 +3,127 @@
 All notable changes to this project will be documented in this file.
 
 
+## [v3.2.3] - unreleased — Layout layer
+
+### Added
+- **`Utils/Layout.cs`**: rect arithmetic that cannot produce an invalid rect. `TryTakeTop` /
+  `TryTakeLeft` return false instead of handing back a row that doesn't fit; `Columns` splits with
+  weights and minimum widths and always fits inside the parent; `Proportional` is the grow-with-bounds
+  pattern used in several places; `ScrollViewWidth` only subtracts the scrollbar when the content
+  actually overflows.
+  Motivation: `Rect.TakeTopPart` returns a full-height row even with no room left, which is how the
+  Betrayer checkbox ended up drawn (and clickable) on top of the bottom buttons. The class computes
+  layout as data so it can be checked before anything is painted.
+
+### Changed
+- Trauma & Integrity rows and the Bio tab's three-column split now go through `Layout`, replacing the
+  hand-rolled arithmetic that produced both of the overlap bugs fixed in v3.2.1.
+
+See `Dev Notes/Pawn Editor Forked/LEARNINGS_UI_LAYOUT.md` for the research this came from.
+
+
+## [v3.2.1] - 2026-09-18 — Hotfix
+
+All of these came from player reports. Not fully verified in-game at release time.
+
+### Fixed
+- **Forced apparel was silently un-forced.** Selecting a worn item in the Gear tab detaches it so the
+  edit preview can render without it, then re-wears it. The round trip preserved `locked` but not the
+  forced flag, and `Pawn_ApparelTracker.Remove` clears forced via `forcedHandler.SetForced(ap, false)`
+  — so merely clicking an item made pawns swap that apparel out later on their own.
+- **"Show hidden hediffs" did nothing.** The checkbox set `HealthCardUtility.showAllHediffs` correctly,
+  but `UITable.CheckRecache` only rebuilds rows when the target pawn changes, so the displayed list
+  stayed cached. Toggling now invalidates the table cache.
+- **"Customize face" opened a blank panel in pregame.** NL Facial Animation's `NL_SelectPartWindow`
+  calls `Find.Selector` every frame, and RimWorld implements that as `((UIRoot_Play)UIRoot).mapUI` — a
+  hard cast that throws `InvalidCastException` outside a running game. The button is no longer offered
+  where it cannot work; the built-in Facial Animation tab covers pregame editing.
+- **Trauma & Integrity rows drew past the bottom of their panel.** `Rect.TakeTopPart` returns a
+  full-height row even with no room left, so the Betrayer checkbox — and its tooltip region — ended up
+  over the bottom buttons. Since a checkbox reacts to a click anywhere inside it, clicking there could
+  toggle Betrayer unnoticed. Rows now stop at the panel edge.
+- **Hardened the editor backdrop** (possible cause of a reported crash when opening the editor mid-game,
+  unconfirmed). It is excluded from the resizable-windows patch via the new `IExcludeFromResizePatch`
+  marker, no longer reassigns its own `windowRect` during `DoWindowContents`, and closes itself quietly
+  instead of erroring if it fails to draw.
+
+### Added
+- **"Clear betrayer flag on all pawns"** under Quick actions on the Health tab (only with Trauma &
+  Integrity installed). Reports how many pawns are flagged and asks for confirmation. Offered as an
+  explicit action rather than an automatic cleanup: nothing in the data distinguishes an accidental
+  flag from one the player set deliberately or one the mod set through its own gameplay.
+
+
+## [v3.2] - 2026-09-11 — Facial Animation, Gear, Royalty & Ferny's mods
+
+Most of the new editor sections come from a pull request by **Lucius127**.
+
+> There is no v3.1 release. That work was never published on its own — the cycle kept being
+> fix, test, another report arrives, repeat — so it shipped as part of v3.2. The jump from
+> v3.0 to v3.2 in this file is intentional.
+
+### Added
+- **Facial Animation tab** inside "Edit appearance" (NL Facial Animation): per-part editing for eyes,
+  brows, lids, mouth, skin and head, plus eye colour and second eye colour.
+- **Gear window** rebuilt: large pawn preview, apparel with condition and per-item editing, equipment,
+  possessions, and a material picker.
+- **Royalty tab** with three pages: titles (faction, title, honor, successors), permits (cost, minimum
+  title, Grant), and psycasts (psylink, psyfocus, entropy, paths, meditation foci).
+- **VPE psycast state saved with blueprints** (level, experience, unlocked paths), not only on duplicate.
+  Previously this lived inside `WriteRoyalTitles`, which early-returns for pawns with no royal title.
+- **Ferny's mods**: Trauma & Integrity editable from the Bio tab (with State and Betrayer), a
+  Development tab with searchable Wants and Quirks, and Progression: Education proficiency handling.
+- **Progression: Education proficiencies** treated as tiers of a track (`ProficiencyDef.tiers` ->
+  `ProficiencyTierDef.traitDef`): picking "fluent speech" removes "mute", a separate "Traits (including
+  forced ones)" reroll swaps a pawn's tier within its own track, and those traits are excluded from the
+  normal trait reroll — they have `commonality 0`, so the generator could never restore them.
+- **Appearance editor**: drag-to-rotate and zoom on the preview, responsive layout that reflows on
+  resize, colour palette in a side column on wide windows, Source/Category filters on the xenotype
+  picker.
+
+### Changed
+- The appearance editor's drag-bar was removed; it conflicted with drag-to-rotate. Panel widths are now
+  proportional with clamped minimum and maximum.
+- The editor window opens slightly larger, and the Groups column is wider when Ferny's mods are present.
+- The editor dims what is behind it, so vanilla's character page stops competing for attention.
+
+### Fixed
+- **Randomizing traits no longer wipes them.** Traits were removed and only re-added on growth
+  birthdays, so a pawn younger than the first growth moment — or an unlucky roll with heavy trait mods
+  — could end up with none. Added an unbounded-by-birthday second pass (capped at 20 attempts) and a
+  restore of the originals if the reroll produces nothing.
+- **Saving no longer leaks global Harmony patches.** `SaveLoadUtility` installs global patches
+  (`Scribe_Values.Look`, `Thing`/`Pawn.ExposeData`, `PostLoadIniter`) while writing. The save path had
+  no try/finally, so an exception mid-save left them installed for the rest of the session — after
+  which `ReassignLoadID` rewrote IDs during unrelated loads. The load path already had this guard.
+- **Missing tails, ears and other modded appearance genes now appear.** The cosmetic-gene filter only
+  admitted genes that were 100% cosmetic, hiding anything with a minor mechanical side effect.
+- **Typing in a search box no longer fires game hotkeys** (`absorbInputAroundWindow` /
+  `preventCameraMotion` on listing menus; `Dialog_EditItem` swallows key events while a field has focus).
+- **The text caret is visible in the name field.** It is drawn from the global
+  `GUI.skin.settings.cursorColor` / `cursorFlashSpeed`, which another UI mod can leave invisible; the
+  name fields now force a visible caret and restore the previous values afterwards.
+- **The window can no longer be squashed into an unusable state.** `IMinWindowSize` feeds
+  `WindowResizer.minWindowSize` directly, so the floor is enforced before the new rect is committed
+  rather than corrected a frame later. No maximum.
+- **Bottom buttons no longer overlap.** They are laid out as one evenly spaced, centred group with
+  clamped slot widths, instead of mixing centred and right-anchored anchoring.
+- **Random faction selection could never pick the last faction** — `Rand.Range(int, int)` is
+  max-exclusive and the code passed `Count - 1`. Replaced with `RandomElement()`.
+- **The repeat-randomize button** is a normal size again and re-runs the correct option in every
+  language (tracked by index instead of by matching the label text).
+- **Animal training list scrolls.** Every `TrainableDef` was drawn directly into the panel with no
+  scroll view, so with modded trainables the entries at the bottom fell outside the window.
+- **Broken modded textures** draw a placeholder and log one line naming the mod, instead of flooding
+  the log every frame. `TexPawnEditor` no longer throws during static construction on a bad body-type
+  icon.
+
+### Known issues
+- Changing a xenotype's head type can revert to the human shape.
+- Pawn IDs are not preserved across saves, so couple compatibility can differ when loaded elsewhere.
+- Work in progress, not verified: Gradient Hair support, Anthrosonae "Change fur", RJW sexuality editing.
+
+
 ## [v3.0] - 2026-07-13 — Portable Colonies, Performance & Quality of Life
 
 ### Added — Portable colony & pawn save/load

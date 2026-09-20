@@ -344,18 +344,30 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
         Widgets.EndGroup();
     }
 
-    // Defs whose broken icon we've already reported, so the log gets ONE helpful line per def instead
-    // of 55k "null texture passed to GUI.DrawTexture" every frame the grid is on screen.
-    private static readonly HashSet<string> ReportedBrokenIcons = new();
+    /// <summary>
+    /// How many frames an icon has to keep coming back null before we say anything about it.
+    ///
+    /// A null texture is NOT proof that the art is broken. Faster Game Loading (and mods like it) load
+    /// textures on a background queue — verified in its own source, which keeps a ConcurrentQueue of
+    /// load requests with cancellation — so an icon can legitimately be null for a while and then
+    /// appear. Reporting on the first miss named other authors' mods as broken when their art was
+    /// merely still in flight. The grid redraws every frame, so anything still missing after this many
+    /// draws really is missing.
+    /// </summary>
+    private const int MissesBeforeReportingIcon = 180;
+
+    // Per-def count of consecutive draws with no texture. An entry reaching the threshold reports once
+    // and then stays put so the log gets a single line per def, not one per frame.
+    private static readonly Dictionary<string, int> MissingIconDraws = new();
 
     /// <summary>
     /// Draws an option's icon, but never hands a null texture to the GPU — that's what floods the log
     /// with "null texture passed to GUI.DrawTexture" (thousands per second while the grid is open) and
     /// it's usually another mod's hair/tattoo/gene whose art failed to load.
     ///
-    /// Instead we draw a visible placeholder AND, once per def, log a precise, friendly line naming the
-    /// def and the mod it came from — so the mod's author (or the user) can see exactly what's broken.
-    /// The goal: help other mods get fixed and keep our own log clean, rather than silently spamming.
+    /// Instead we draw a visible placeholder and, only after the icon has stayed null for a while, log
+    /// a single line naming the def and the mod it came from — so the author (or the user) can see what
+    /// to look at, without accusing anyone whose texture was simply still loading.
     /// </summary>
     private static void SafeDrawIcon<T>(Rect rect, Texture icon, T option, Rect? texCoords = null)
     {
@@ -366,18 +378,41 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
                 GUI.DrawTextureWithTexCoords(rect, icon, texCoords.Value);
             else
                 GUI.DrawTexture(rect, icon);
+
+            ForgetMissingIcon(option);
             return;
         }
 
         GUI.DrawTexture(rect, BaseContent.BadTex);
+        NoteMissingIcon(option);
+    }
 
-        if (option is Def def && def.defName != null && ReportedBrokenIcons.Add(def.defName))
-        {
-            var mod = def.modContentPack?.Name ?? "unknown mod";
-            Log.Warning($"[Pawn Editor] '{def.defName}' (from {mod}) has no icon texture — its art is "
-                        + "missing or failed to load. Showing a placeholder in the appearance editor. This "
-                        + "is that mod's asset, not Pawn Editor; the mod author may want to check the texture path.");
-        }
+    /// <summary>The icon turned up after all, so the def starts from zero if it ever goes missing again.</summary>
+    private static void ForgetMissingIcon<T>(T option)
+    {
+        if (MissingIconDraws.Count == 0) return;
+        if (option is Def def && def.defName != null) MissingIconDraws.Remove(def.defName);
+    }
+
+    /// <summary>
+    /// Counts a draw with no texture and reports exactly once, when the count crosses the threshold.
+    /// Counting past it does nothing, which is what keeps this to one log line per def.
+    /// </summary>
+    private static void NoteMissingIcon<T>(T option)
+    {
+        if (option is not Def def || def.defName == null) return;
+
+        MissingIconDraws.TryGetValue(def.defName, out var misses);
+        if (misses > MissesBeforeReportingIcon) return;
+
+        MissingIconDraws[def.defName] = ++misses;
+        if (misses <= MissesBeforeReportingIcon) return;
+
+        var mod = def.modContentPack?.Name ?? "unknown mod";
+        Log.Warning($"[Pawn Editor] '{def.defName}' (from {mod}) still has no icon texture after "
+                    + $"{MissesBeforeReportingIcon} draws, so a placeholder is shown in the appearance editor. "
+                    + "This is that mod's asset rather than Pawn Editor's, and the texture path may be worth "
+                    + "checking — though a mod that loads textures in the background can also delay it.");
     }
 
     // Return the cached option list for the current key, rebuilding only when the key changed.

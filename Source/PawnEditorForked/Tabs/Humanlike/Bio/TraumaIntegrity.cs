@@ -11,12 +11,21 @@ public partial class TabWorker_Bio_Humanlike
     private float traumaValue;
     private float integrityValue;
 
+    private const float TraumaRowHeight = 30f;
+
     private void DrawTraumaIntegrityControls(ref Rect rect, Pawn pawn)
     {
         SyncTraumaIntegrityBuffers(pawn);
 
-        Widgets.Label(
-            rect.TakeTopPart(Text.LineHeight),
+        // Rect.TakeTopPart hands back a full-height row even when the rect has less room left than that,
+        // so the row simply hangs past the bottom of the panel. This section is the LAST thing in the
+        // Groups column, so when space ran out the Betrayer row — and the tooltip region registered for
+        // it — ended up sitting on top of the bottom buttons. Players reported the "hidden gameplay
+        // state / eligible for betrayal" tooltip popping up over the Start button on the character
+        // creation screen. Every row below is now drawn only if it actually fits.
+        if (!Layout.TryTakeTop(ref rect, Text.LineHeight, out var headerRow)) return;
+
+        Widgets.Label(headerRow,
             "PawnEditor.Development.TraumaIntegrity".Translate().Colorize(ColoredText.TipSectionTitleColor));
         rect.yMin += 4f;
 
@@ -26,15 +35,16 @@ public partial class TabWorker_Bio_Humanlike
         var betrayerLabel = "PawnEditor.Development.Betrayer".Translate().ToString();
         var labelWidth = UIUtility.ColumnWidth(4f, traumaLabel, stateLabel, integrityLabel, betrayerLabel);
 
-        DrawTraumaControl(ref rect, pawn, traumaLabel, labelWidth);
-        DrawTraumaState(ref rect, pawn, stateLabel, labelWidth);
-        DrawIntegrityControl(ref rect, pawn, integrityLabel, labelWidth);
-        DrawBetrayerControl(ref rect, pawn, betrayerLabel);
+        // Layout.TryTakeTop refuses to hand back a row that doesn't fit, which is what kept the
+        // Betrayer checkbox from being drawn on top of the bottom buttons.
+        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var traumaRow)) DrawTraumaControl(traumaRow, pawn, traumaLabel, labelWidth);
+        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var stateRow)) DrawTraumaState(stateRow, pawn, stateLabel, labelWidth);
+        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var integrityRow)) DrawIntegrityControl(integrityRow, pawn, integrityLabel, labelWidth);
+        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var betrayerRow)) DrawBetrayerControl(betrayerRow, pawn, betrayerLabel);
     }
 
-    private void DrawTraumaControl(ref Rect rect, Pawn pawn, string label, float labelWidth)
+    private void DrawTraumaControl(Rect row, Pawn pawn, string label, float labelWidth)
     {
-        var row = rect.TakeTopPart(30f);
         var tooltipRect = row;
         var applyRect = row.TakeRightPart(58f);
         var percentRect = row.TakeRightPart(18f);
@@ -55,7 +65,7 @@ public partial class TabWorker_Bio_Humanlike
         TooltipHandler.TipRegion(tooltipRect, GetTraumaTooltip());
     }
 
-    private static void DrawTraumaState(ref Rect rect, Pawn pawn, string label, float labelWidth)
+    private static void DrawTraumaState(Rect row, Pawn pawn, string label, float labelWidth)
     {
         var trauma = Mathf.Clamp01(TraumaIntegrityCompat.GetTrauma(pawn));
         var state = TraumaIntegrityCompat.IsTempered(pawn)
@@ -63,7 +73,6 @@ public partial class TabWorker_Bio_Humanlike
             : trauma > 0.5f
                 ? "PawnEditor.Development.Disturbed".Translate()
                 : "PawnEditor.Development.Innocent".Translate();
-        var row = rect.TakeTopPart(30f);
         var tooltipRect = row;
         using (new TextBlock(TextAnchor.MiddleLeft))
         {
@@ -73,9 +82,8 @@ public partial class TabWorker_Bio_Humanlike
         TooltipHandler.TipRegion(tooltipRect, "PawnEditor.Development.TraumaApplyDesc".Translate());
     }
 
-    private void DrawIntegrityControl(ref Rect rect, Pawn pawn, string label, float labelWidth)
+    private void DrawIntegrityControl(Rect row, Pawn pawn, string label, float labelWidth)
     {
-        var row = rect.TakeTopPart(30f);
         var tooltipRect = row;
         var applyRect = row.TakeRightPart(58f);
         var percentRect = row.TakeRightPart(18f);
@@ -96,10 +104,9 @@ public partial class TabWorker_Bio_Humanlike
         TooltipHandler.TipRegion(tooltipRect, GetIntegrityTooltip(pawn));
     }
 
-    private static void DrawBetrayerControl(ref Rect rect, Pawn pawn, string label)
+    private static void DrawBetrayerControl(Rect row, Pawn pawn, string label)
     {
         var betrayer = TraumaIntegrityCompat.IsBetrayer(pawn);
-        var row = rect.TakeTopPart(30f);
         Widgets.CheckboxLabeled(row, label, ref betrayer, placeCheckboxNearText: true);
         if (betrayer != TraumaIntegrityCompat.IsBetrayer(pawn)
             && TraumaIntegrityCompat.SetBetrayer(pawn, betrayer))
