@@ -325,16 +325,22 @@ public class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindowSize
                     }
 
                     break;
+                // Estas tres pestañas dependen de mods de terceros, así que son las que se rompen
+                // cuando uno de ellos cambia su API. Con la frontera, el fallo se queda dentro de su
+                // pestaña, dice cuál es en el log, y el resto del editor sigue utilizable.
                 case MainTab.Xenotype:
-                    DoXenotypePicker(inRect.ContractedBy(5));
+                    Diagnostics.Run("Drawing the xenotype picker", pawn, () => DoXenotypePicker(inRect.ContractedBy(5)));
                     break;
                 case MainTab.HAR:
-                    HARCompat.DoRaceTabs(inRect.ContractedBy(5));
-                    if (Event.current.type is EventType.MouseDown or EventType.Used)
-                        TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                    Diagnostics.Run("Drawing the Humanoid Alien Races tabs", pawn, () =>
+                    {
+                        HARCompat.DoRaceTabs(inRect.ContractedBy(5));
+                        if (Event.current.type is EventType.MouseDown or EventType.Used)
+                            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                    });
                     break;
                 case MainTab.FacialAnimation:
-                    DoFacialAnimationOptions(inRect.ContractedBy(5));
+                    Diagnostics.Run("Drawing the Facial Animation tab", pawn, () => DoFacialAnimationOptions(inRect.ContractedBy(5)));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

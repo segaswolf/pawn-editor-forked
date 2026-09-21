@@ -15,6 +15,12 @@ All notable changes to this project will be documented in this file.
   Betrayer checkbox ended up drawn (and clickable) on top of the bottom buttons. The class computes
   layout as data so it can be checked before anything is painted.
 
+- **Error boundaries with context** (`Utils/Diagnostics.cs`). A failing section now logs *what* was
+  being drawn, *for which pawn*, and *from which mod* — once, not once per frame — and the rest of the
+  window keeps working instead of going blank. Applied where third-party mods are involved and a
+  failure used to take unrelated things down with it: each compatibility layer's activation (one bad
+  `Activate` used to abort every compat that came after it in the loop), the Bio tab's three columns,
+  and the Xenotype, HAR and Facial Animation tabs.
 - **Compatibility self-check at startup**: one log line listing which compat layers hooked in, and a
   warning naming any whose mod is installed but whose API could not be resolved. Our compat layers
   reach into other mods by reflection, so an upstream rename used to fail silently and only surface

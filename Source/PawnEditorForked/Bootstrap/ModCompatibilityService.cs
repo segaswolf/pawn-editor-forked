@@ -38,13 +38,21 @@ public sealed class ModCompatibilityService
                     continue;
                 }
 
-                TryInvoke(type, "Activate", Type.EmptyTypes, null);
-                TryInvoke(type, "Activate", new[] { typeof(Harmony) }, new object[] { _harmony });
+                var name = ResolveCompatName(type);
+                var label = string.IsNullOrEmpty(name) ? type.Name : name;
+
+                // Una frontera por compat. Sin esto, un Activate que reviente se lleva por delante a
+                // todos los compat que vinieran después en el bucle, y el usuario pierde soporte para
+                // mods que no tienen nada que ver con el que falló.
+                Diagnostics.Run($"Activating {label} compatibility", null, () =>
+                {
+                    TryInvoke(type, "Activate", Type.EmptyTypes, null);
+                    TryInvoke(type, "Activate", new[] { typeof(Harmony) }, new object[] { _harmony });
+                });
 
                 var activeField = AccessTools.Field(type, "Active");
                 activeField?.SetValue(null, true);
 
-                var name = ResolveCompatName(type);
                 if (string.IsNullOrEmpty(name)) continue;
 
                 activated.Add((name, type));
