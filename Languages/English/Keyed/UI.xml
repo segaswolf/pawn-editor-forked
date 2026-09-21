@@ -451,6 +451,9 @@
     <PawnEditor.Development.IntegrityApplyDesc>Applying integrity rerolls betrayal status through Trauma &amp; Integrity's native behavior.</PawnEditor.Development.IntegrityApplyDesc>
     <PawnEditor.Development.Betrayer>Betrayer</PawnEditor.Development.Betrayer>
     <PawnEditor.Development.BetrayerDesc>This is hidden gameplay state. Enabling it makes the pawn immediately eligible for betrayal.</PawnEditor.Development.BetrayerDesc>
+    <PawnEditor.Development.BetrayalIn>Betrayal in</PawnEditor.Development.BetrayalIn>
+    <PawnEditor.Development.BetrayalInDesc>Days left before this pawn's betrayal fires. Trauma and Integrity rolls this at random when a pawn becomes a betrayer, so it can be anywhere from immediate to hundreds of days away. Set it to 0 to make the betrayal due right now.</PawnEditor.Development.BetrayalInDesc>
+    <PawnEditor.Development.DaysShort>d</PawnEditor.Development.DaysShort>
     <PawnEditor.Development.ClearAllBetrayers>Clear betrayer flag on all pawns</PawnEditor.Development.ClearAllBetrayers>
     <PawnEditor.Development.ClearAllBetrayersConfirm>{0} pawn(s) are currently flagged as betrayers.\n\nClear the flag on all of them? This also clears flags you set on purpose, and any set by Trauma and Integrity's own gameplay.</PawnEditor.Development.ClearAllBetrayersConfirm>
     <PawnEditor.Development.BetrayersCleared>Cleared the betrayer flag on {0} pawn(s).</PawnEditor.Development.BetrayersCleared>

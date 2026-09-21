@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Verse;
 
@@ -26,6 +27,8 @@ public sealed class ModCompatibilityService
 
     private void ActivateCompatClasses()
     {
+        var activated = new List<(string Name, Type Type)>();
+
         foreach (var assembly in _content.assemblies.loadedAssemblies)
         {
             foreach (var type in assembly.GetTypes())
@@ -42,12 +45,19 @@ public sealed class ModCompatibilityService
                 activeField?.SetValue(null, true);
 
                 var name = ResolveCompatName(type);
-                if (!string.IsNullOrEmpty(name) && Prefs.DevMode)
+                if (string.IsNullOrEmpty(name)) continue;
+
+                activated.Add((name, type));
+                if (Prefs.DevMode)
                 {
                     Log.Message("[Pawn Editor] " + name + " compatibility active.");
                 }
             }
         }
+
+        // One consolidated line, so a mod that updated and broke our reflection shows up on the first
+        // launch instead of arriving weeks later as a player report. See ModCompatReport.
+        ModCompatReport.Emit(activated);
     }
 
     private static void TryInvoke(Type type, string methodName, Type[] parameters, object[] args)

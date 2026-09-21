@@ -15,9 +15,32 @@ All notable changes to this project will be documented in this file.
   Betrayer checkbox ended up drawn (and clickable) on top of the bottom buttons. The class computes
   layout as data so it can be checked before anything is painted.
 
+- **Compatibility self-check at startup**: one log line listing which compat layers hooked in, and a
+  warning naming any whose mod is installed but whose API could not be resolved. Our compat layers
+  reach into other mods by reflection, so an upstream rename used to fail silently and only surface
+  weeks later as a player report.
+- **"Betrayal in" row** on the Bio tab for pawns flagged as betrayers (Trauma & Integrity). The mod
+  stores *when* the betrayal fires, rolled at random up to ~600 in-game days, but nothing showed it.
+  Now it is visible and editable.
+
+- **Test project** (`Source/PawnEditor.Tests`, not shipped): 19 NUnit tests covering `Layout`. Runs
+  with `dotnet test Source\PawnEditor.Tests` in under two seconds, with no game required — it links
+  the source file rather than referencing the mod assembly. It caught a real bug on its first run
+  (see below), in code written the day before and already applied to the Bio tab.
+
+### Fixed
+- **`Layout.Columns` pushed columns outside their parent** when the rect was narrower than the gaps
+  alone required. Only the column widths were being shrunk, so each gap kept nudging the next column
+  further right and the last one landed outside — the exact failure the class exists to prevent. The
+  spacing now shrinks too.
+
 ### Changed
 - Trauma & Integrity rows and the Bio tab's three-column split now go through `Layout`, replacing the
   hand-rolled arithmetic that produced both of the overlap bugs fixed in v3.2.1.
+- Missing option icons in the appearance editor are only reported after they stay missing for 180
+  draws. Mods that load textures on a background thread (Faster Game Loading and similar) hand back a
+  null texture that resolves moments later, so reporting on the first miss named other authors' mods
+  as broken when their art was merely still loading.
 
 See `Dev Notes/Pawn Editor Forked/LEARNINGS_UI_LAYOUT.md` for the research this came from.
 

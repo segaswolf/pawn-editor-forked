@@ -10,6 +10,8 @@
 # ─── Build artifacts ───
 Source/PawnEditorForked/obj/
 Source/PawnEditorForked/bin/
+Source/PawnEditor.Tests/obj/
+Source/PawnEditor.Tests/bin/
 *.pdb
 
 # ─── NuGet ───

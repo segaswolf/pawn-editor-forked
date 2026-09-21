@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pruebas de la lógica pura del mod: la que NO depende de tipos del juego en ejecución.
+
+    Deliberadamente NO referencia el ensamblado del mod. En su lugar enlaza los archivos fuente que
+    puede probar. Referenciar el DLL arrastraría el Assembly-CSharp publicizado y ataría las pruebas
+    al resultado del build del mod; enlazar un archivo las mantiene independientes y rápidas.
+
+    Para agregar otra clase a la cobertura: una línea más en el ItemGroup de Compile. Si esa lista
+    crece mucho, es señal de que conviene mover la lógica pura a su propio proyecto.
+
+    POR QUÉ NO USA Krafs.Rimworld.Ref (que sí usa el mod): ese paquete entrega ensamblados de SOLO
+    REFERENCIA. Sirven para compilar, pero no contienen código ejecutable, así que el motor de
+    pruebas no puede cargar el resultado. Aquí se referencia el UnityEngine real del juego, con
+    Private=true para que se copie junto a las pruebas.
+
+    Ejecutar con:  dotnet test Source\PawnEditor.Tests
+    No forma parte del build del mod ni se empaqueta con él.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>PawnEditor.Tests</AssemblyName>
+    <RootNamespace>PawnEditor.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <!--
+    Ruta a los ensamblados del juego.
+
+    El valor de abajo es solo el DEFECTO para una instalación normal de Steam en Windows. Es lo único
+    específico de una máquina en todo el repositorio, y por eso NO hay que editarlo aquí: si tu
+    RimWorld está en otro lado, crea un archivo `PawnEditor.Tests.csproj.user` junto a este, con
+
+        <Project><PropertyGroup>
+          <RimWorldManagedDir>D:\tu\ruta\Managed</RimWorldManagedDir>
+        </PropertyGroup></Project>
+
+    MSBuild lo importa solo, y `*.user` ya está en .gitignore, así que tu ruta nunca llega al
+    repositorio. Para una sola ejecución también sirve:
+        dotnet test Source\PawnEditor.Tests -p:RimWorldManagedDir="D:\tu\ruta\Managed"
+  -->
+  <PropertyGroup>
+    <RimWorldManagedDir Condition="'$(RimWorldManagedDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</RimWorldManagedDir>
+  </PropertyGroup>
+
+  <Target Name="CheckRimWorldPath" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(RimWorldManagedDir)\UnityEngine.CoreModule.dll')"
+           Text="No se encontró UnityEngine.CoreModule.dll en '$(RimWorldManagedDir)'. Pasa la ruta correcta con -p:RimWorldManagedDir=..." />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="4.6.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ensamblados REALES, no de referencia: Rect y Mathf tienen que poder ejecutarse. -->
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(RimWorldManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PawnEditorForked\Utils\Layout.cs" Link="Linked\Layout.cs" />
+  </ItemGroup>
+
+</Project>

@@ -83,7 +83,17 @@ public static class Layout
             throw new ArgumentException("minWidths must have one entry per weight.", nameof(minWidths));
 
         var count = weights.Length;
-        var available = Mathf.Max(0f, rect.width - spacing * (count - 1));
+        var gaps = count - 1;
+
+        // The spacing has to shrink as well when the rect is narrower than the gaps alone would need.
+        // Shrinking only the columns is not enough: the gaps keep pushing each column further right
+        // and the last one lands outside the parent — the exact failure this class exists to prevent.
+        // Caught by LayoutTests.Columns_NeverSpillOutsideTheParent_WhateverTheInputs.
+        var usableWidth = Mathf.Max(0f, rect.width);
+        var requestedSpacing = Mathf.Max(0f, spacing);
+        var effectiveSpacing = gaps > 0 ? Mathf.Min(requestedSpacing, usableWidth / gaps) : 0f;
+
+        var available = Mathf.Max(0f, usableWidth - effectiveSpacing * gaps);
         var widths = DistributeWidths(available, weights, minWidths);
 
         var columns = new Rect[count];
@@ -91,7 +101,7 @@ public static class Layout
         for (var i = 0; i < count; i++)
         {
             columns[i] = new Rect(x, rect.y, widths[i], rect.height);
-            x += widths[i] + spacing;
+            x += widths[i] + effectiveSpacing;
         }
 
         return columns;
