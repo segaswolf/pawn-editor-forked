@@ -68,6 +68,7 @@
 
   <ItemGroup>
     <Compile Include="..\PawnEditorForked\Utils\Layout.cs" Link="Linked\Layout.cs" />
+    <Compile Include="..\PawnEditorForked\Utils\Utilities.cs" Link="Linked\Utilities.cs" />
   </ItemGroup>
 
 </Project>

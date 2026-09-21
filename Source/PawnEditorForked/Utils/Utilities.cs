@@ -21,11 +21,22 @@ public static class Utilities
         list[index] = item;
     }
 
-    /// <summary>Gets a value at the given index with wraparound (negative indices count from the end).</summary>
+    /// <summary>
+    /// Gets a value at the given index with wraparound (negative indices count from the end).
+    ///
+    /// Empty lists throw instead of hanging. The previous implementation subtracted <c>list.Count</c>
+    /// in a loop, which on an empty list subtracts zero forever and freezes the game rather than
+    /// raising anything. Modulo also replaces those loops: same result, and it no longer spins once
+    /// per wrap for a large index.
+    /// </summary>
     public static T Get<T>(this List<T> list, int index)
     {
-        while (index >= list.Count) index -= list.Count;
-        while (index < 0) index += list.Count;
+        if (list == null) throw new ArgumentNullException(nameof(list));
+        if (list.Count == 0)
+            throw new ArgumentOutOfRangeException(nameof(index), "Cannot wrap an index into an empty list.");
+
+        index %= list.Count;
+        if (index < 0) index += list.Count;
         return list[index];
     }
 

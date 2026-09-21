@@ -23,12 +23,16 @@ All notable changes to this project will be documented in this file.
   stores *when* the betrayal fires, rolled at random up to ~600 in-game days, but nothing showed it.
   Now it is visible and editable.
 
-- **Test project** (`Source/PawnEditor.Tests`, not shipped): 19 NUnit tests covering `Layout`. Runs
-  with `dotnet test Source\PawnEditor.Tests` in under two seconds, with no game required — it links
-  the source file rather than referencing the mod assembly. It caught a real bug on its first run
-  (see below), in code written the day before and already applied to the Bio tab.
+- **Test project** (`Source/PawnEditor.Tests`, not shipped): 37 NUnit tests covering `Layout` and
+  `Utilities`. Runs with `dotnet test Source\PawnEditor.Tests` in under two seconds, with no game
+  required — it links the source files rather than referencing the mod assembly. It found both bugs
+  below within half an hour, one of them a hang that had been shipping for a long time.
 
 ### Fixed
+- **`Utilities.Get` froze the game on an empty list.** It wrapped an out-of-range index by subtracting
+  `list.Count` in a loop, and on an empty list that subtracts zero forever. Not an exception, not an
+  error in the log — a hang, with nothing to diagnose it from. It now throws a clear
+  `ArgumentOutOfRangeException`, and uses modulo instead of looping.
 - **`Layout.Columns` pushed columns outside their parent** when the rect was narrower than the gaps
   alone required. Only the column widths were being shrunk, so each gap kept nudging the next column
   further right and the last one landed outside — the exact failure the class exists to prevent. The
