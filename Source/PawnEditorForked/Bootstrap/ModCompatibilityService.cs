@@ -41,9 +41,9 @@ public sealed class ModCompatibilityService
                 var name = ResolveCompatName(type);
                 var label = string.IsNullOrEmpty(name) ? type.Name : name;
 
-                // Una frontera por compat. Sin esto, un Activate que reviente se lleva por delante a
-                // todos los compat que vinieran después en el bucle, y el usuario pierde soporte para
-                // mods que no tienen nada que ver con el que falló.
+                // One boundary per compat. Without it, an Activate that throws takes down every compat
+                // after it in the loop, and the player loses support for mods unrelated to the one
+                // that failed.
                 Diagnostics.Run($"Activating {label} compatibility", null, () =>
                 {
                     TryInvoke(type, "Activate", Type.EmptyTypes, null);

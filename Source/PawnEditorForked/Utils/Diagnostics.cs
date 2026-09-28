@@ -6,40 +6,36 @@ using Verse;
 namespace PawnEditor;
 
 /// <summary>
-/// Fronteras de error con contexto: ejecuta un trozo de trabajo con nombre y, si revienta, registra
-/// UNA vez quién falló y sobre qué, en lugar de dejar caer la ventana entera.
-///
-/// POR QUÉ EXISTE
-/// Un reporte de usuario útil dice dónde mirar. Uno inútil dice "se me rompió". La diferencia no la
-/// pone el usuario, la ponemos nosotros: si cada sección se identifica al fallar, el log llega con el
-/// culpable ya señalado.
-///
-/// Evidencia: cuando el editor de caras falló, la línea
-///     at FacialAnimation.NL_SelectPartWindow.GetSelectedPawn
-/// fue el diagnóstico completo. No hicieron falta trazas, solo que el método tuviera nombre honesto.
-/// Esto extiende esa idea a nuestras costuras, y le agrega el dato que una traza no lleva: para qué
-/// pawn, de qué mod, en qué sección.
-///
-/// DOS DECISIONES DELIBERADAS
-///
-/// No relanza. El objetivo es que el resto de la interfaz siga funcionando: el usuario ve una
-/// sección vacía en vez de una ventana muerta, y nosotros recibimos el log igual.
-///
-/// Registra una sola vez por combinación de sección, sujeto y tipo de excepción. Esto vive en código
-/// de modo inmediato: sin esa condición, un fallo escribiría sesenta líneas por segundo y enterraría
-/// todo lo demás, que es exactamente el problema que hemos visto en logs ajenos.
-///
-/// COSTE
-/// En el camino feliz solo cuesta la asignación del delegado. Por eso las fronteras van en las
-/// costuras gruesas (una sección, una pestaña, un compat) y NUNCA por fila de una rejilla.
+/// Error boundaries with context: runs a named piece of work and, if it throws, logs once who failed
+/// and on what, instead of taking the whole window down.
 /// </summary>
+/// <remarks>
+/// <para>
+/// A useful bug report says where to look. When every section names itself on failure, the log arrives
+/// with the culprit already pointed out. Evidence: when the face editor broke, the single line
+/// <c>at FacialAnimation.NL_SelectPartWindow.GetSelectedPawn</c> was the whole diagnosis. This extends
+/// that idea to our seams and adds what a stack trace lacks: which pawn, which mod, which section.
+/// </para>
+/// <para>
+/// It does not rethrow, on purpose: the player sees one empty section instead of a dead window, and we
+/// still get the log.
+/// </para>
+/// <para>
+/// It logs once per section, subject and exception type. This runs in immediate-mode UI; without that
+/// rule one failure would write sixty lines a second and bury everything else.
+/// </para>
+/// <para>
+/// Cost on the happy path is one delegate allocation, so boundaries go on coarse seams (a section, a
+/// tab, a compat) and never on each row of a grid.
+/// </para>
+/// </remarks>
 public static class Diagnostics
 {
     private static readonly HashSet<string> Reported = new();
 
-    /// <summary>Ejecuta el trabajo; si falla, lo registra con contexto y continúa.</summary>
-    /// <param name="section">Qué se estaba haciendo, en palabras. Aparece tal cual en el log.</param>
-    /// <param name="subject">Pawn, Def o lo que dé contexto. Puede ser null.</param>
+    /// <summary>Runs the work; if it throws, logs it with context and carries on.</summary>
+    /// <param name="section">What was being done, in words. Appears as-is in the log.</param>
+    /// <param name="subject">A pawn, a def, or anything that gives context. May be null.</param>
     public static void Run(string section, object subject, Action work)
     {
         try
@@ -52,12 +48,12 @@ public static class Diagnostics
         }
     }
 
-    /// <summary>Igual que <see cref="Run(string, object, Action)"/>, sin sujeto que reportar.</summary>
+    /// <summary>Same as <see cref="Run(string, object, Action)"/>, with no subject to report.</summary>
     public static void Run(string section, Action work) => Run(section, null, work);
 
     /// <summary>
-    /// Variante para trabajo que devuelve un valor. Ante un fallo entrega <paramref name="fallback"/>,
-    /// de modo que el llamador siga teniendo algo con lo que dibujar.
+    /// Variant for work that returns a value. On failure it returns <paramref name="fallback"/>, so the
+    /// caller still has something to draw with.
     /// </summary>
     public static T Run<T>(string section, object subject, Func<T> work, T fallback = default)
     {
@@ -84,8 +80,8 @@ public static class Diagnostics
     }
 
     /// <summary>
-    /// Describe el sujeto de la forma más útil para quien lee el log: un pawn por su nombre, un def
-    /// por su defName y el mod que lo trajo, porque esa combinación es la que permite reproducirlo.
+    /// Describes the subject in the most useful way for whoever reads the log: a pawn by name, a def by
+    /// defName and the mod that added it, because that pair is what makes the failure reproducible.
     /// </summary>
     private static string Describe(object subject) => subject switch
     {

@@ -101,7 +101,12 @@ public static partial class PawnBlueprintSaveLoad
                     var c = colorComp.Color;
                     w.WriteAttributeString("color", $"{c.r:F3},{c.g:F3},{c.b:F3},{c.a:F3}");
                 }
-                if (pawn.apparel.IsLocked(worn)) w.WriteAttributeString("locked", "true");
+                // Both flags of the wearing state. "forced" was never saved before, so a blueprint
+                // round trip quietly un-forced everything. Older blueprints simply lack the attribute
+                // and load as not forced; older mod versions ignore it. See ApparelWearingState.
+                var wearing = ApparelWearingState.Capture(pawn, worn);
+                if (wearing.Locked) w.WriteAttributeString("locked", "true");
+                if (wearing.Forced) w.WriteAttributeString("forced", "true");
                 w.WriteEndElement();
             }
             w.WriteEndElement();

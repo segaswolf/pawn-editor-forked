@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Pawn Editor Forked - In-Game Tests (local only)</name>
+  <author>SegasWolf</author>
+  <packageId>segaswolf.pawneditor.ingametests</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>Local test harness for Pawn Editor Forked. NOT for publishing.
+
+Does nothing at all unless RimWorld is launched with the -pawneditortests argument. Meant to be run through run-ingame-tests.ps1, which starts the game in an isolated data folder, runs every test against real pawns, writes the results to a file and closes the game.</description>
+  <modDependencies>
+    <li>
+      <packageId>segaswolf.pawneditor.fork</packageId>
+      <displayName>Pawn Editor Forked</displayName>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>segaswolf.pawneditor.fork</li>
+  </loadAfter>
+</ModMetaData>

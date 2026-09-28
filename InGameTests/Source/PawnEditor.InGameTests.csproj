@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pruebas que corren DENTRO del juego, contra pawns y ropa reales.
+
+    Complementa a Source\PawnEditor.Tests: aquel prueba la lógica pura en segundos sin el juego; este
+    prueba lo que solo existe con el juego corriendo (blueprints, duplicación, estado de la ropa).
+
+    Se compila como un mod local aparte que NUNCA se publica. Solo se activa si el juego se lanza con
+    -pawneditortests, y está pensado para correrse con run-ingame-tests.ps1 desde la raíz del repo.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>PawnEditor.InGameTests</AssemblyName>
+    <RootNamespace>PawnEditorInGameTests</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>..\1.6\Assemblies</OutputPath>
+    <DebugType>none</DebugType>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Solo para compilar: dentro del juego se usan los ensamblados reales que ya cargó RimWorld. -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4489-beta">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- El mod bajo prueba. Private=false: en el juego ya lo carga su propio mod, no hay que copiarlo. -->
+    <Reference Include="PawnEditor">
+      <HintPath>..\..\1.6\Assemblies\PawnEditor.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

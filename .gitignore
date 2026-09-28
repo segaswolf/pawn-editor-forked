@@ -12,6 +12,9 @@ Source/PawnEditorForked/obj/
 Source/PawnEditorForked/bin/
 Source/PawnEditor.Tests/obj/
 Source/PawnEditor.Tests/bin/
+InGameTests/1.6/
+InGameTests/Source/obj/
+InGameTests/Source/bin/
 *.pdb
 
 # ─── NuGet ───

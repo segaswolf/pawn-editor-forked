@@ -3,56 +3,49 @@
 All notable changes to this project will be documented in this file.
 
 
-## [v3.2.3] - unreleased — Layout layer
+## [v3.2.3] - 2026-09-28 — Forced apparel, appearance editor fixes and sturdier compat
 
 ### Added
-- **`Utils/Layout.cs`**: rect arithmetic that cannot produce an invalid rect. `TryTakeTop` /
-  `TryTakeLeft` return false instead of handing back a row that doesn't fit; `Columns` splits with
-  weights and minimum widths and always fits inside the parent; `Proportional` is the grow-with-bounds
-  pattern used in several places; `ScrollViewWidth` only subtracts the scrollbar when the content
-  actually overflows.
-  Motivation: `Rect.TakeTopPart` returns a full-height row even with no room left, which is how the
-  Betrayer checkbox ended up drawn (and clickable) on top of the bottom buttons. The class computes
-  layout as data so it can be checked before anything is painted.
-
-- **Error boundaries with context** (`Utils/Diagnostics.cs`). A failing section now logs *what* was
-  being drawn, *for which pawn*, and *from which mod* — once, not once per frame — and the rest of the
-  window keeps working instead of going blank. Applied where third-party mods are involved and a
-  failure used to take unrelated things down with it: each compatibility layer's activation (one bad
-  `Activate` used to abort every compat that came after it in the loop), the Bio tab's three columns,
-  and the Xenotype, HAR and Facial Animation tabs.
-- **Compatibility self-check at startup**: one log line listing which compat layers hooked in, and a
-  warning naming any whose mod is installed but whose API could not be resolved. Our compat layers
-  reach into other mods by reflection, so an upstream rename used to fail silently and only surface
-  weeks later as a player report.
 - **"Betrayal in" row** on the Bio tab for pawns flagged as betrayers (Trauma & Integrity). The mod
   stores *when* the betrayal fires, rolled at random up to ~600 in-game days, but nothing showed it.
   Now it is visible and editable.
-
-- **Test project** (`Source/PawnEditor.Tests`, not shipped): 37 NUnit tests covering `Layout` and
-  `Utilities`. Runs with `dotnet test Source\PawnEditor.Tests` in under two seconds, with no game
-  required — it links the source files rather than referencing the mod assembly. It found both bugs
-  below within half an hour, one of them a hang that had been shipping for a long time.
+- **Compatibility summary at startup**: one log line listing which compatibility layers hooked in, and
+  a warning naming any whose mod is installed but could not be hooked (usually after that mod changed
+  its code).
 
 ### Fixed
-- **`Utilities.Get` froze the game on an empty list.** It wrapped an out-of-range index by subtracting
-  `list.Count` in a loop, and on an empty list that subtracts zero forever. Not an exception, not an
-  error in the log — a hang, with nothing to diagnose it from. It now throws a clear
-  `ArgumentOutOfRangeException`, and uses modulo instead of looping.
-- **`Layout.Columns` pushed columns outside their parent** when the rect was narrower than the gaps
-  alone required. Only the column widths were being shrunk, so each gap kept nudging the next column
-  further right and the last one landed outside — the exact failure the class exists to prevent. The
-  spacing now shrinks too.
+- **Editing a worn item still un-forced it** (reported by OxTailSafu after the v3.2.1 fix). Editing
+  colour, style or quality builds a fresh copy of the item and wears that, and the copy started out
+  neither locked nor forced. It now inherits both.
+- **Duplicating a pawn, pasting apparel, and saving or loading a blueprint also lost the "forced"
+  flag.** All of them now keep it. Blueprints store it too; older blueprints load as not forced, and
+  older versions of the mod simply ignore it.
+- **Thoughts that can't be removed now say why** (reported by OxTailSafu). Only memories are stored
+  on the pawn and can be deleted; situational thoughts are recalculated from the pawn's current state.
+  The editor used to show an empty cell; it now shows a dimmed icon with a tooltip.
+- **One broken compatibility layer stopped every compat after it from loading.** Each one is now
+  isolated.
+- **A mod item that breaks an appearance grid, or a mod section on the Bio tab, no longer blanks the
+  window.** Only that part is skipped, and the log names the section, the pawn and the mod.
+- **Appearance editor: Randomize tattoos could put a body tattoo on the face, and the reverse.**
+  Randomize now picks only from what the pickers show, so body type and head also respect the Source
+  filter, genes, developmental stage and HAR. It shows a message when the filters leave nothing to pick.
+- **Appearance editor: the Source filter on the Beard sub-tab listed hair mods**, so a beard-only mod
+  could not be filtered to.
+- **Appearance editor: switching tabs could land on the wrong sub-tab** (opening Hair could show
+  Beards). Each tab remembers its own sub-tab, and the hair sub-tab is labelled "Hair" instead of
+  "Head".
+- **Appearance editor: the "Customize face" button was not translatable.**
+- **A rare freeze** in a helper that looped forever when handed an empty list.
 
 ### Changed
-- Trauma & Integrity rows and the Bio tab's three-column split now go through `Layout`, replacing the
-  hand-rolled arithmetic that produced both of the overlap bugs fixed in v3.2.1.
-- Missing option icons in the appearance editor are only reported after they stay missing for 180
-  draws. Mods that load textures on a background thread (Faster Game Loading and similar) hand back a
-  null texture that resolves moments later, so reporting on the first miss named other authors' mods
-  as broken when their art was merely still loading.
-
-See `Dev Notes/Pawn Editor Forked/LEARNINGS_UI_LAYOUT.md` for the research this came from.
+- "Missing icon" warnings in the appearance editor wait until the icon has stayed missing for a
+  while. Mods that load textures in the background (Faster Game Loading and similar) no longer get
+  blamed for art that was simply still loading.
+- The appearance editor's "Xenotype" tab is now called "Cosmetic genes", which is what it edits. The
+  xenotype itself is still changed from the button on the left panel.
+- Removed the "Unlock window / Lock window" button from the appearance editor. It belonged to a preview
+  splitter that no longer exists. Resize the window from its corner as before.
 
 
 ## [v3.2.1] - 2026-09-18 — Hotfix
@@ -60,25 +53,20 @@ See `Dev Notes/Pawn Editor Forked/LEARNINGS_UI_LAYOUT.md` for the research this 
 All of these came from player reports. Not fully verified in-game at release time.
 
 ### Fixed
-- **Forced apparel was silently un-forced.** Selecting a worn item in the Gear tab detaches it so the
-  edit preview can render without it, then re-wears it. The round trip preserved `locked` but not the
-  forced flag, and `Pawn_ApparelTracker.Remove` clears forced via `forcedHandler.SetForced(ap, false)`
-  — so merely clicking an item made pawns swap that apparel out later on their own.
-- **"Show hidden hediffs" did nothing.** The checkbox set `HealthCardUtility.showAllHediffs` correctly,
-  but `UITable.CheckRecache` only rebuilds rows when the target pawn changes, so the displayed list
-  stayed cached. Toggling now invalidates the table cache.
-- **"Customize face" opened a blank panel in pregame.** NL Facial Animation's `NL_SelectPartWindow`
-  calls `Find.Selector` every frame, and RimWorld implements that as `((UIRoot_Play)UIRoot).mapUI` — a
-  hard cast that throws `InvalidCastException` outside a running game. The button is no longer offered
-  where it cannot work; the built-in Facial Animation tab covers pregame editing.
-- **Trauma & Integrity rows drew past the bottom of their panel.** `Rect.TakeTopPart` returns a
-  full-height row even with no room left, so the Betrayer checkbox — and its tooltip region — ended up
-  over the bottom buttons. Since a checkbox reacts to a click anywhere inside it, clicking there could
+- **Forced apparel was silently un-forced.** Selecting a worn item in the Gear tab briefly takes it off
+  so the preview can be drawn without it, then puts it back. It kept "locked" but not "forced", so
+  merely clicking an item made pawns swap that apparel out later on their own.
+- **"Show hidden hediffs" did nothing.** The setting changed, but the health table only rebuilt its
+  rows when you switched pawns, so the list never updated. Toggling now refreshes it immediately.
+- **"Customize face" opened a blank panel on the character creation screen.** NL Facial Animation's
+  own window only works inside a running game. The button is no longer offered where it cannot work;
+  the Facial Animation tab in "Edit appearance" covers that screen.
+- **Trauma & Integrity rows drew past the bottom of their panel**, so the Betrayer checkbox and its
+  tooltip ended up over the bottom buttons. Since a checkbox reacts to a click anywhere inside it, clicking there could
   toggle Betrayer unnoticed. Rows now stop at the panel edge.
-- **Hardened the editor backdrop** (possible cause of a reported crash when opening the editor mid-game,
-  unconfirmed). It is excluded from the resizable-windows patch via the new `IExcludeFromResizePatch`
-  marker, no longer reassigns its own `windowRect` during `DoWindowContents`, and closes itself quietly
-  instead of erroring if it fails to draw.
+- **Possible fix for a crash when opening the editor mid-game** (unconfirmed). The background dim was
+  being resized by the same code that resizes editor windows, and the two fought over it. It no longer
+  is, and if the dim fails to draw it closes quietly instead of taking anything down with it.
 
 ### Added
 - **"Clear betrayer flag on all pawns"** under Quick actions on the Health tab (only with Trauma &
@@ -103,13 +91,12 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - **Royalty tab** with three pages: titles (faction, title, honor, successors), permits (cost, minimum
   title, Grant), and psycasts (psylink, psyfocus, entropy, paths, meditation foci).
 - **VPE psycast state saved with blueprints** (level, experience, unlocked paths), not only on duplicate.
-  Previously this lived inside `WriteRoyalTitles`, which early-returns for pawns with no royal title.
+  Previously it was lost for pawns without a royal title.
 - **Ferny's mods**: Trauma & Integrity editable from the Bio tab (with State and Betrayer), a
   Development tab with searchable Wants and Quirks, and Progression: Education proficiency handling.
-- **Progression: Education proficiencies** treated as tiers of a track (`ProficiencyDef.tiers` ->
-  `ProficiencyTierDef.traitDef`): picking "fluent speech" removes "mute", a separate "Traits (including
+- **Progression: Education proficiencies** treated as tiers of a track: picking "fluent speech" removes "mute", a separate "Traits (including
   forced ones)" reroll swaps a pawn's tier within its own track, and those traits are excluded from the
-  normal trait reroll — they have `commonality 0`, so the generator could never restore them.
+  normal trait reroll, since the game's generator could never restore them.
 - **Appearance editor**: drag-to-rotate and zoom on the preview, responsive layout that reflows on
   resize, colour palette in a side column on wide windows, Source/Category filters on the xenotype
   picker.
@@ -125,31 +112,25 @@ Most of the new editor sections come from a pull request by **Lucius127**.
   birthdays, so a pawn younger than the first growth moment — or an unlucky roll with heavy trait mods
   — could end up with none. Added an unbounded-by-birthday second pass (capped at 20 attempts) and a
   restore of the originals if the reroll produces nothing.
-- **Saving no longer leaks global Harmony patches.** `SaveLoadUtility` installs global patches
-  (`Scribe_Values.Look`, `Thing`/`Pawn.ExposeData`, `PostLoadIniter`) while writing. The save path had
-  no try/finally, so an exception mid-save left them installed for the rest of the session — after
-  which `ReassignLoadID` rewrote IDs during unrelated loads. The load path already had this guard.
+- **An error while saving could corrupt later loads.** If saving failed halfway, temporary changes the
+  editor makes while writing stayed active for the rest of the session and could rewrite IDs during
+  unrelated loads. They are now always undone, error or not.
 - **Missing tails, ears and other modded appearance genes now appear.** The cosmetic-gene filter only
   admitted genes that were 100% cosmetic, hiding anything with a minor mechanical side effect.
-- **Typing in a search box no longer fires game hotkeys** (`absorbInputAroundWindow` /
-  `preventCameraMotion` on listing menus; `Dialog_EditItem` swallows key events while a field has focus).
-- **The text caret is visible in the name field.** It is drawn from the global
-  `GUI.skin.settings.cursorColor` / `cursorFlashSpeed`, which another UI mod can leave invisible; the
-  name fields now force a visible caret and restore the previous values afterwards.
-- **The window can no longer be squashed into an unusable state.** `IMinWindowSize` feeds
-  `WindowResizer.minWindowSize` directly, so the floor is enforced before the new rect is committed
-  rather than corrected a frame later. No maximum.
+- **Typing in a search box no longer fires game hotkeys** or moves the camera.
+- **The text caret is visible in the name field.** Another UI mod can leave it invisible for every
+  window; the name fields now make sure it shows, without changing anything for other windows.
+- **The window can no longer be squashed into an unusable state.** It has a minimum size, enforced
+  while you resize instead of snapping back afterwards. No maximum.
 - **Bottom buttons no longer overlap.** They are laid out as one evenly spaced, centred group with
   clamped slot widths, instead of mixing centred and right-anchored anchoring.
-- **Random faction selection could never pick the last faction** — `Rand.Range(int, int)` is
-  max-exclusive and the code passed `Count - 1`. Replaced with `RandomElement()`.
+- **Random faction selection could never pick the last faction** in the list.
 - **The repeat-randomize button** is a normal size again and re-runs the correct option in every
   language (tracked by index instead of by matching the label text).
-- **Animal training list scrolls.** Every `TrainableDef` was drawn directly into the panel with no
-  scroll view, so with modded trainables the entries at the bottom fell outside the window.
+- **Animal training list scrolls.** With modded trainables, the entries at the bottom fell outside the
+  window.
 - **Broken modded textures** draw a placeholder and log one line naming the mod, instead of flooding
-  the log every frame. `TexPawnEditor` no longer throws during static construction on a bad body-type
-  icon.
+  the log every frame. A bad modded body-type icon no longer breaks the editor at startup.
 
 ### Known issues
 - Changing a xenotype's head type can revert to the human shape.
@@ -185,16 +166,16 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - **Load freeze fixed**: loading no longer stalls on a forced garbage collection (~4.5s → ~250ms).
 - **Portrait fetch** no longer allocates every frame during normal play.
 - **Proficiency list caching** (Life Lessons): per-call allocation dropped from ~152 KB to ~20 KB.
-- Portrait texture churn fixed; graphics refresh centralized. Added an internal profiler for diagnostics.
+- Pawn portraits no longer re-render needlessly while editing.
 
 ### Fixed
 - **"Randomize all — keep xenotype"** no longer loses genes and name on baseliner-named xenotypes (e.g. custom "Veldrak"-style xenotypes); endogenes, xenogenes, xenotype name and icon are preserved.
 - **Mechanitor "phantom" bandwidth**: cloning/loading a pawn no longer binds the clone to the *original's* mech.
 - **Black screen on load** (portrait cache was being fully cleared instead of marked dirty).
-- Surgical fix for a `PioneeringComp` null-reference on certain pawns.
+- Fixed an error on certain pawns with the Pioneering component.
 - Proficiency list now refreshes correctly after add/remove, with a sanitizer for malformed data.
 - Trait **Mute** handling and a Refill/Fulfillment desync.
-- Structural gene classifier for more reliable cosmetic/endogene/xenogene handling.
+- More reliable detection of which genes are cosmetic, endogenes or xenogenes.
 
 
 ## [v2.4.6] - 2026-05-28
@@ -214,10 +195,6 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - Counters in the column headers show totals at a glance
 - Tooltips include the proficiency's category and a click-action hint
 
-### Added — Compatibility Layer
-- New compat methods: `RemoveProficiency`, `CanLearn`, `RefreshModifiers`
-- All reflection signatures re-verified against the actual Life Lessons assembly to prevent silent mismatches in the future
-
 
 ## [v2.4.4] / [v2.4.5] - 2026-05-15
 
@@ -227,18 +204,10 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - **DeepSave fix**: Duplicating pawns with abilities no longer causes save corruption errors.
 
 ### Performance
-- **Search box FPS fix**: Fixed a major performance issue where clicking the search box with large modlists (600+ mods) would drop the framerate to ~5 FPS. The item lookup was using an O(n) linear search — now uses O(1) hash lookup.
+- **Search box FPS fix**: clicking the search box with large modlists (600+ mods) no longer drops the framerate to ~5 FPS.
 
-### Code Quality
-- Extracted cosmetic gene discovery and backstory transition logic into dedicated utility classes
-- Split large methods into focused, well-named smaller methods
-- Added XML documentation to all public classes and methods across 11 files
-- Removed leftover debug logging from previous development sprints
-- Replaced magic numbers with named constants
-- Labels fixed to consistent sentence case throughout the editor
-
-### Notes
-- These code-quality changes don't affect gameplay but make the codebase much easier to understand for anyone wanting to contribute or create compatibility patches.
+### Changed
+- Labels use consistent sentence case throughout the editor.
 
 
 ## [v2.4.3] - 2026-04-24
@@ -270,21 +239,20 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - HAR race restrictions are applied automatically to filter incompatible xenotypes
 
 ### Added — VRE Android Compatibility
-- Restored "Android editor..." button that was lost when FloatMenu was replaced
-- VREAndroidCompat.cs detects VRE Androids and opens Window_CreateAndroidXenotype via reflection
+- Restored the "Android editor..." button that was lost when the xenotype dropdown was replaced
 
 ### Added — VAspirE Life Stage Safeguards
 - Changing a pawn from adult to child/baby now clears all aspirations (children cannot have them)
-- Changing a pawn from child/baby to adult generates fresh random aspirations via SetInitialLevel
+- Changing a pawn from child/baby to adult generates fresh random aspirations
 - Warning dialog now lists aspiration removal when changing to a non-adult stage
 - CompleteSilent mode: completing aspirations in pre-colony no longer triggers growth moment letters
 
 ### Fixed
 - Fixed pawns spawning inside walls when duplicating or loading blueprints in-game
-- Fixed ListingMenu_PawnKindDef crash when modded PawnKindDefs have empty lifeStages or null bodyGraphicData
+- Fixed a crash in the pawn kind list with some modded pawn kinds
 - Fixed custom xenotype tooltip showing garbled text ("Nòt ìnhêrìtàblê") due to missing translation key
-- Fixed Xenotype Editor crashing in-game with NullRef (now uses index -1 for post-colony)
-- Fixed aspirations not regenerating when changing pawn from child to adult (was calling CheckCompletion instead of SetInitialLevel)
+- Fixed the Xenotype Editor crashing when opened in an existing game
+- Fixed aspirations not regenerating when changing a pawn from child to adult
 
 ## [v2.4.1] - 2026-04-01
 
@@ -307,12 +275,12 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - Fulfillment need bar no longer shows +/- buttons (they had no effect since the system recalculates based on completed aspirations)
 - New "Edit Aspirations" button in the Needs tab bottom panel — opens a listing to add aspirations from the full pool of valid aspirations for the pawn
 - Quick Actions menu now includes "Complete all aspirations" and "Reset all aspirations" options
-- Full reflection-based compatibility layer — no hard dependency on VAspirE
+- VAspirE is optional: Pawn Editor works the same without it
 
 ### Fixed
-- Fixed static constructor crash in ListingMenu_Items when a ThingStyle had null StyleDef (ThingStyles dictionary null key error)
-- Fixed static constructor crash in ListingMenu_PawnKindDef when a modded PawnKindDef had empty lifeStages or null bodyGraphicData
-- Fixed inconsistent property/field access (thingDefStyle.styleDef vs .StyleDef) causing silent mismatches in style lookups
+- Fixed a startup crash in the item list with some modded item styles
+- Fixed a startup crash in the pawn kind list with some modded pawn kinds
+- Fixed item styles sometimes not being found
 
 ### Notes
 - VAspirE integration is Phase 1 (pre-colony editor). In-game editing will come in a future update
@@ -320,27 +288,27 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 ## [v2.3.1] - 2026-03-28
 
 ### Fixed
-- Starting items no longer disappear after editing pawns in pregame (idempotency guard + GoToMainMenu hook)
-- Passions and skill levels preserved when changing backstory (save/restore around GenerateSkills)
+- Starting items no longer disappear after editing pawns in pregame
+- Passions and skill levels preserved when changing backstory
 - Hotkey can be fully disabled via right-click (sets to None); Escape cancels picker
 
 ## [v2.3.0] - 2026-03-28
 
-### Major: Blueprint & Duplication Overhaul (Tracker Transplant)
+### Major: Blueprint & Duplication Overhaul
 - Complete rewrite of blueprint save/load and pawn duplication
 - New system automatically preserves all mod data without per-mod patches
 - VPE Psycasts: paths, unlocked nodes, XP, and level fully preserved
 - Mechlink, Cyberlink, and all Hediff_Level types correctly duplicated
-- 35+ mod components automatically preserved via reflection
+- 35+ mod components automatically preserved
 - Duplication now uses the same system as blueprints
 
 ### Fixed
 - Passion sanitizer: mods like Alpha Skills with passion values 3+ no longer reset to None
 - Ideo fallback: fixed crash when loading blueprints for pawns whose faction ideo couldn't resolve
 - Action bars: fixed missing gizmo bar on loaded/duplicated pawns
-- Discard crash: fixed NullReferenceException when replacing a pawn via blueprint
+- Fixed a crash when replacing a pawn via blueprint
 - VRE Android: energy need correctly preserved during duplication
-- TacticalGroups: compatibility patches applied via finalizer
+- Tactical Groups: fixed errors when both mods are active
 
 ### Known Issues
 - VAspirE: Need_Fulfillment may crash during load — investigating
@@ -352,7 +320,6 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - Added a warning when changing a pawn's life stage through the age combo box.
 
 ### Changed
-- Reorganized the blueprint save/load code to make future maintenance and updates easier.
 - Remaining points now behave like an actual budget instead of reflecting colony value in a confusing way.
 
 ### Fixed

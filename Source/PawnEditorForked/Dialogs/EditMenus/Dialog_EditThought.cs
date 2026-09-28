@@ -106,12 +106,39 @@ public class Dialog_EditThought : Dialog_EditItem<List<Thought>>
                     Pawn.needs.mood.thoughts.memories.RemoveMemory(memory);
                     thoughtTable.ClearCache();
                 }));
-            else items.Add(new());
+            else items.Add(new(iconRect => DrawCannotRemoveHint(iconRect, thought)));
 
             result.Add(new(items));
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Says WHY a thought has no delete button, instead of leaving an empty cell.
+    ///
+    /// Only memories can be removed: they are stored on the pawn, so deleting one means something.
+    /// A situational thought is recalculated from the pawn's current state every time it is asked for,
+    /// so "removing" it would achieve nothing — it reappears on the next recalculation. Its cause has
+    /// to go, not the thought.
+    ///
+    /// Players reported this as "Pawn Editor can't remove these", which was a fair reading of a blank
+    /// cell. The limitation is real; the silence about it was ours.
+    /// </summary>
+    private static void DrawCannotRemoveHint(Rect rect, Thought thought)
+    {
+        var side = Mathf.Min(rect.width, rect.height);
+        var iconRect = new Rect(rect.x + (rect.width - side) / 2f, rect.y + (rect.height - side) / 2f, side, side)
+            .ContractedBy(4f);
+
+        var previousColor = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, 0.3f);
+        GUI.DrawTexture(iconRect, TexButton.Delete);
+        GUI.color = previousColor;
+
+        TooltipHandler.TipRegion(rect, thought is Thought_Situational
+            ? "PawnEditor.Thought.SituationalCannotRemove".Translate()
+            : "PawnEditor.Thought.NotAMemoryCannotRemove".Translate());
     }
 
     public override bool IsSelected(List<Thought> item) => Selected.SequenceEqual(item);

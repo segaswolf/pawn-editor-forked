@@ -254,7 +254,8 @@ public static partial class PawnEditor
                     }
                     catch (Exception ex) { Log.Warning($"[Pawn Editor] CopyDup apparel color: {ex.Message}"); }
 
-                    dst.apparel.Wear(copy, dropReplacedApparel: false, locked: src.apparel.IsLocked(worn));
+                    // Duplicates keep "forced" as well as "locked"; this used to copy only the latter.
+                    ApparelWearingState.Capture(src, worn).WearOn(dst, copy);
                 }
                 catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipping apparel {worn.def?.defName}: {ex.Message}"); }
             }

@@ -19,9 +19,9 @@ namespace PawnEditor;
 /// layouts are drawn relative to the window rect, so they adapt to the new size. Setting the flags in
 /// the postfix means the resize handle appears one frame after the window opens (imperceptible).
 /// </summary>
-/// <summary>A Pawn Editor window that can lock itself in place (so an inner splitter can be dragged
-/// without the whole window moving). When DragLocked is true, the resizable-windows patch leaves it
-/// non-draggable.</summary>
+/// <summary>A Pawn Editor window that can lock itself in place (so an inner drag, like rotating the
+/// appearance preview, doesn't move the whole window). When DragLocked is true, the resizable-windows
+/// patch leaves it non-draggable.</summary>
 public interface IDragLockable
 {
     bool DragLocked { get; }

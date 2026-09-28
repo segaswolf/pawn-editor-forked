@@ -46,9 +46,9 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
 
         var (left, skills, groups) = (columns[0], columns[1], columns[2]);
 
-        // Una frontera por columna. La de Groups es la que hospeda las secciones de mods, así que es
-        // la que más probablemente falle cuando uno de ellos cambie su API. Sin esto, ese fallo se
-        // lleva también los rasgos y las habilidades, que no tienen nada que ver.
+        // One boundary per column. Groups hosts the mod sections, so it is the one most likely to fail
+        // when a mod changes its API. Without this, that failure would also take down traits and
+        // skills, which have nothing to do with it.
         Diagnostics.Run("Drawing the traits column", pawn, () => DoLeft(left, pawn));
         Diagnostics.Run("Drawing the skills column", pawn, () => DoSkills(skills, pawn));
         Diagnostics.Run("Drawing the groups column", pawn, () => DoGroups(groups, pawn));
