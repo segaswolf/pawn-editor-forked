@@ -106,8 +106,15 @@ This fork does not claim ownership of the original concept or implementation. If
 - 🎮 [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3667931113)
 - 🐛 [Bug reports](https://github.com/segaswolf/pawn-editor-forked/issues)
 - 💬 [Steam discussions](https://steamcommunity.com/sharedfiles/filedetails/discussions/3667931113)
-- ☕ [Support on Ko-fi](https://ko-fi.com/segaswolf)
 - 📦 [Original Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790)
+
+---
+
+## ☕ Support
+
+If you enjoy this fork and want to support continued work:
+
+[![Support me on Ko-fi](https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_badge_dark.png)](https://ko-fi.com/segaswolf)
 
 ---
 
