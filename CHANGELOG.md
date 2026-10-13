@@ -149,7 +149,7 @@ All of these came from player reports. Not fully verified in-game at release tim
   flag from one the player set deliberately or one the mod set through its own gameplay.
 
 
-## [v3.2] - 2026-09-11 — Facial Animation, Gear, Royalty & Ferny's mods
+## [v3.2] - 2026-09-04 — Facial Animation, Gear, Royalty & Ferny's mods
 
 Most of the new editor sections come from a pull request by **Lucius127**.
 
@@ -212,7 +212,25 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - Work in progress, not verified: Gradient Hair support, Anthrosonae "Change fur", RJW sexuality editing.
 
 
-## [v3.0] - 2026-07-13 — Portable Colonies, Performance & Quality of Life
+## [v3.1] - 2026-07-21 — Blueprints come back whole, modular prosthetics
+
+Save, clone or load a pawn and they now come back exactly right — a whole family of body-part bugs is fixed.
+
+- Psycasts (paths, level, XP, learned casts) survive save/load, not just duplication.
+- Prosthetics keep their correct left/right side; no more wrecking the clone's good arm.
+- No more stray injuries or addictions on loaded pawns.
+- Slot-in modules (arm blades, analyzers…) stay on their host part.
+- Modular prosthetics from Integrated Implants + Bionic Modularity are properly supported, with guided placement.
+- Hediff picker: left/right merged into one entry with a side selector, plus a "fits this pawn" filter.
+- Appearance editor & window layout fixes.
+- Much harder to break with a big modlist — one mod's bad data can't take the whole editor down anymore.
+
+⚠️ Confirming a crash fix: if the editor ever vanished on you with a "TexPawnEditor" error, please update and let us know if it's gone.
+
+💬 Loved / hated something about the new editing experience? The discussions are open — your feedback shapes the next patch. 💛
+
+
+## [v3.0] - 2026-07-15 — Portable Colonies, Performance & Quality of Life
 
 ### Added — Portable colony & pawn save/load
 - New **Save colony pawns** / **Load colony pawns**: store a colony as portable pawn blueprints (no map, no research, no world state), replacing the old full-map save that was fragile across game versions and modlists.
@@ -250,6 +268,13 @@ Most of the new editor sections come from a pull request by **Lucius127**.
 - Proficiency list now refreshes correctly after add/remove, with a sanitizer for malformed data.
 - Trait **Mute** handling and a Refill/Fulfillment desync.
 - More reliable detection of which genes are cosmetic, endogenes or xenogenes.
+
+
+## [v2.4.8] - 2026-06-15 — Compatibility & crash fixes
+
+- Custom gravship scenarios (Vanilla Gravship Expanded) no longer lose the pawns' starting items.
+- Loading older presets with default values no longer fails.
+- Fixed a crash with some custom xenotypes.
 
 
 ## [v2.4.6] - 2026-05-28

@@ -1,153 +1,89 @@
 # 🐾 Pawn Editor Forked
 
-An unofficial community fork of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790) for RimWorld 1.6, maintained by [Segas Wolf](https://github.com/segaswolf).
+A community-maintained fork of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790) for **RimWorld 1.6 and 1.7**, maintained by [Segas Wolf](https://github.com/segaswolf).
 
 > ⚠️ **Use either this fork or the original — not both at the same time.**
+
+[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3667931113) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/segaswolf/pawn-editor-forked/releases) · [Report a bug](https://github.com/segaswolf/pawn-editor-forked/issues)
 
 ---
 
 ## 📋 What is this?
 
-The original Pawn Editor is an incredibly useful tool for editing colonists, but had stability issues with large modlists and certain DLC interactions. This fork fixes those problems, improves compatibility with popular mods, and keeps the editor running smoothly — even with 1000+ mods loaded.
+Pawn Editor lets you edit your colonists, starting pawns and NPCs from one window: bio, traits, skills, genes, health, gear, relations, needs and appearance. This fork keeps it working on current RimWorld, fixes the crashes and save/load issues of the original, and adds compatibility with popular mods. It is tested with a 1000+ mod list.
 
-All credit for the original mod belongs to its authors. See [Credits](#-credits--attribution) below.
+**Current version: v3.2.4** — tested on RimWorld 1.6 and on the 1.7 (Waylith) unstable branch.
+
+---
+
+## ✨ Highlights
+
+- **Save and load pawns (blueprints)** with all their mod data, using RimWorld's own save system. Missing mods are skipped instead of crashing, so blueprints can be shared between mod lists.
+- **Portable colonies**: save every pawn of a colony and bring them into another game.
+- **Duplicate pawns** with gear, hediffs, psycasts, relations and memories.
+- **Appearance editor** with live preview, searchable filters by mod and category, cosmetic genes, gradient hair and fur.
+- **Health tab** with animated severity and immunity bars.
+- **Starting items and resources** editor on the character creation screen, Combat Extended ammo included.
+- **Custom xenotypes** list with search, delete, and a warning when genes from removed mods are missing.
+- **Errors stay contained**: if a mod breaks one section, only that section is skipped and the log names the mod.
+
+See the [Changelog](CHANGELOG.md) for everything that changed in each version.
+
+---
+
+## 🛡️ Mod compatibility
+
+Dedicated support for:
+
+| Mod | What works |
+|-----|------------|
+| Vanilla Psycasts Expanded | Paths, nodes, XP and level, in blueprints and duplicates |
+| Vanilla Skills Expanded | Passions and expertise |
+| Vanilla Aspirations Expanded | Aspirations, with safe life-stage changes |
+| Vanilla Races Expanded – Android | Energy need kept when duplicating |
+| Facial Animations | Every face part, editable and copied |
+| Humanoid Alien Races | Race restrictions for heads, bodies and body types |
+| Character Development, Life Lessons, Progression: Education | Their skills, proficiencies and traits in the editor, blueprints and duplicates |
+| Trauma and Integrity | Its sections on the Bio tab, betrayal countdown included |
+| Mechanoid Upgrades, Bionic Modularity, Modular Modules | Dedicated handling for their parts and upgrades |
+| Gradient Hair, Anthrosonae | Appearance options |
+| TacticalGroups | No colonist bar crashes |
+
+At startup the log lists which compatibility layers hooked in, and warns about any that a mod update broke.
 
 ---
 
 ## 📦 Installation
 
-1. Remove the original Pawn Editor mod
-2. Subscribe on [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3667931113)
-3. Place it **after Harmony** in your load order
+1. Remove the original Pawn Editor.
+2. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3667931113).
+3. Load it **after Harmony**.
 
 ---
 
-## 🐛 Bug Reports & Feedback
+## 🐛 Bug reports
 
-→ Use the [GitHub Issues](https://github.com/segaswolf/pawn-editor-forked/issues) or the [Steam Bug Reports thread](https://steamcommunity.com/workshop/filedetails/discussion/3667931113/). Include your mod list and `Player.log` — reports with those get fixed faster.
+Use [GitHub Issues](https://github.com/segaswolf/pawn-editor-forked/issues) or the [Steam bug reports thread](https://steamcommunity.com/workshop/filedetails/discussion/3667931113/). Please include your mod list and `Player.log`; reports with both get fixed much faster.
 
-→ For active development status, check the [Steam Discussions](https://steamcommunity.com/sharedfiles/filedetails/discussions/3667931113) WIP thread first.
-
----
-
-## ⚠️ Work in Progress
-
-This fork is actively being developed. Many critical bugs have been fixed, but some areas are still being worked on:
-
-| Area | Status |
-|------|--------|
-| Blueprint save/load (individual pawns) | ✅ v2.3.0: New Tracker Transplant system preserves all mod data automatically |
-| Pawn duplication | ✅ v2.3.0: Uses same system as blueprints — full mod data preservation |
-| Starting Preset save/load | 🚧 Still uses old system — may fail with complex modlists |
-| HAR race visuals (tails, custom bodies) | 🚧 May not fully restore |
-
----
-
-## ✨ What's been fixed
-
-### 🔧 Stability
-- Fixed crashes when duplicating pawns (`Collection modified`, `Sequence no matching element`)
-- Fixed crash in Bio tab when traits change during render
-- Fixed startup crashes with TacticalGroups and other mods
-- Fixed duplicate pawn ID conflicts that corrupted save files
-- Fixed null reference exceptions with xenotypes and gene lists
-- Fixed `ListingMenu_Items` crash caused by mods with null style entries
-- Starting Preset load no longer crashes the game on failure
-- All silent `catch {}` blocks now log warnings — no more invisible failures
-
-### 🧬 Pawn Duplication (v2.3.0 — Tracker Transplant)
-- **v2.3.0**: Duplication now uses the same Tracker Transplant system as blueprints — all mod data preserved automatically
-- VPE Psycasts, Mechlink, Cyberlink, and all mod hediffs duplicated correctly
-- Clones keep the same name as the original (vanilla Obelisk behavior)
-- Clones correctly copy gender, appearance, hair, skin color, and melanin
-- Clones copy clothing, armor, and weapons with quality, color, and HP
-- Ideology certainty is now preserved accurately
-- Biological and chronological age no longer get swapped
-- Social memories and opinion relations copy correctly (uses RimWorld 1.6 `ISocialThought` API)
-- Legacy field-by-field copy retained as automatic fallback
-
-### 💾 Blueprint Save/Load (v2.3.0 — Tracker Transplant)
-- **Complete rewrite**: Blueprints now automatically preserve ALL mod data without per-mod patches
-- Uses RimWorld's own save system (Scribe) to capture 100% of pawn state, then transplants data objects directly into a fresh pawn
-- VPE Psycasts: paths, unlocked nodes, XP, and psycaster level fully preserved
-- Mechlink, Cyberlink, and all Hediff_Level types correctly duplicated
-- Saves everything: bio, traits, skills, genes, hediffs, abilities, apparel, equipment, relations, work priorities, inventory, royal titles, records
-- Missing mods/DLCs are gracefully skipped when loading — no more crashes
-- Blueprints can be shared between different modlists
-- 35+ mod components automatically preserved via reflection
-
-### 🎨 Appearance
-- Hair, head type, body type, skin color, and fur properly saved and restored
-- Melanin values preserved for accurate skin tones
-- Style elements (beard, tattoos) correctly handled
-- Genes load before appearance to prevent override conflicts
-
-### 🛡️ Mod Compatibility
-
-| Mod | Status |
-|-----|--------|
-| Vanilla Psycasts Expanded | ✅ Paths, nodes, XP, level — fully preserved in blueprints and duplicates |
-| Facial Animations | ✅ Face type, eye color, brow, lid, mouth, skin, head controllers all copy correctly |
-| TacticalGroups | ✅ Harmony finalizers prevent colonist bar crashes |
-| Vanilla Skills Expanded | ✅ Passion system compatible |
-| VE Hussar / Giant gene | ✅ Visual body offset applies correctly after blueprint load |
-| VRE Android | ✅ Energy need preserved during duplication |
-| Alpha Skills | ✅ Custom passion levels (3+) no longer reset to None |
-| Vanilla Aspirations Expanded | ⚠️ Need_Fulfillment may crash during load — investigating |
-
-Tested with 1000+ mods loaded.
-
-### 🗺️ Faction & NPC Support
-- Replacing an NPC faction leader via blueprint now correctly preserves the leader role on the new pawn
-
-### 🖥️ UI
-- Edit button requires Dev Mode + God Mode (no accidental edits)
-- Social tab defaults to showing all relations
-- Custom hotkey picker in settings, persists across sessions
-- Graphics refresh prevents null texture spam on clones
-
----
-
-## 🗺️ Roadmap
-
-| Status | Feature |
-|--------|---------|
-| ✅ | Blueprint save/load with automatic mod data preservation |
-| ✅ | Pawn duplication with full mod data preservation |
-| ✅ | VPE Psycasts fully preserved (paths, nodes, XP, level) |
-| ✅ | Facial Animations compatibility |
-| ✅ | Social relations copy (opinions, family ties) |
-| ✅ | 35+ mod components automatically handled |
-| 🚧 | VE Aspirations compatibility |
-| 🚧 | Modded race visuals (tails, ears, custom body parts) |
-| 🚧 | Migrate Starting Preset to Blueprint format |
-| ⬜ | Passion dropdown with Alpha Skills support |
-| ⬜ | NL Facial Editor button |
+Where to find the log:
+- **RimWorld 1.6:** `%USERPROFILE%\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Player.log`
+- **RimWorld 1.7:** the same folder, inside `Logs\`
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Before opening a PR, please check the roadmap and open issues to avoid working on something already in progress.
+Contributions are welcome. Open an issue first so we can agree on the approach.
 
-**Current areas under active development (please coordinate first):**
-- `PawnBlueprintSaveLoad.cs` — blueprint system, still being iterated
-- `PawnDuplicationUtility.cs` — cloning logic
-- `FacialAnimCompat.cs` — FA mod integration
-
-**Guidelines:**
-- Do not include compiled `.dll` files in PRs — source only
-- Do not include IDE files (`.idea/`, `.user`, `.DotSettings.user`)
-- Open PRs from a feature branch, not `main`→`main`
-- If in doubt, open an issue first to discuss
-
-There is an open review branch `review/pr1-gear-transfer` for evaluating gear transfer contributions.
+- Source only: no compiled `.dll` files or IDE files in PRs.
+- Open PRs from a feature branch.
+- Run the tests before sending: `dotnet test Source\PawnEditor.Tests`. They run against whichever RimWorld you have installed (1.6, 1.7 or both).
 
 ---
 
-## ❤️ Credits & Attribution
+## ❤️ Credits & attribution
 
-All original credit belongs to the authors of [Pawn Editor]:
+All original credit belongs to the authors of [Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790):
 
 | Name | Role |
 |------|------|
@@ -168,10 +104,10 @@ This fork does not claim ownership of the original concept or implementation. If
 ## 🔗 Links
 
 - 🎮 [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3667931113)
-- 🐛 [Bug Reports](https://github.com/segaswolf/pawn-editor-forked/issues)
-- 💬 [Steam Discussions](https://steamcommunity.com/sharedfiles/filedetails/discussions/3667931113)
+- 🐛 [Bug reports](https://github.com/segaswolf/pawn-editor-forked/issues)
+- 💬 [Steam discussions](https://steamcommunity.com/sharedfiles/filedetails/discussions/3667931113)
 - ☕ [Support on Ko-fi](https://ko-fi.com/segaswolf)
-- 📦 [Original Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790 )
+- 📦 [Original Pawn Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=3219801790)
 
 ---
 
