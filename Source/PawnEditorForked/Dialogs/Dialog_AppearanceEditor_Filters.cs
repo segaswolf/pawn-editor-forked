@@ -40,17 +40,6 @@ public partial class Dialog_AppearanceEditor
         return def.randomChosen;
     }
 
-    private bool IsAllowed(BodyTypeDef def, Pawn p)
-    {
-        if (ignoreXenotype) return true;
-        if (ModsConfig.BiotechActive && pawn.DevelopmentalStage.Juvenile())
-        {
-            return def == BodyTypeDefOf.Baby || def == BodyTypeDefOf.Child;
-        }
-
-        return true;
-    }
-
     /// <summary>
     /// Every def the Source menu should consider for the current tab, before the Source filter. Style
     /// tabs ask their selected picker, so the menu always matches the grid on screen (it used to list

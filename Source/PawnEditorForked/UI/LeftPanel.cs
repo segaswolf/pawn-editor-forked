@@ -2,419 +2,249 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
-using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
 
 namespace PawnEditor;
 
+// The left panel: faction picker and card, category picker, Add button and the pawn list.
 public static partial class PawnEditor
 {
-    static bool needToRecacheNullFactionPawns = false;
-    
-    //Recaches the pawn list regardless of whether a faction is selected or not.
+    private const float FactionButtonHeight = 30f;
+    private const float FactionButtonGap = 2f;
+    private const float FactionCardHeight = 54f;
+    private const float FactionCardPadding = 3f;
+    private const float CategoryButtonHeight = 30f;
+    private const float AddButtonHeight = 25f;
+    private const float SectionGap = 4f;
+    private const float PawnListTopGap = 12f;
+    private const float PawnListHeight = 415f;
+    private const float FactionHintOverflow = 12f;
+
+    private static bool needToRecacheNullFactionPawns;
+
+    /// <summary>Recaches the pawn list, with or without a selected faction.</summary>
     public static void DoRecache()
     {
-        if(selectedFaction == null)
-        {
+        if (selectedFaction == null)
             RecachePawnListWithNoFactionPawns();
-        }
         else
-        {
             RecachePawnList();
-        }
     }
+
     private static void DoLeftPanel(Rect inRect, bool pregame)
     {
-        using (new TextBlock(GameFont.Tiny)) Widgets.Label(inRect.TakeTopPart(Text.LineHeight), "PawnEditor.SelectedFaction".Translate());
+        DrawSmallLabel(ref inRect, "PawnEditor.SelectedFaction".Translate());
+        RecacheIfNeeded(pregame);
+        if (!pregame)
+            DrawSelectFactionButton(ref inRect);
+        DrawFactionCard(ref inRect);
+        DrawFactionHint(ref inRect);
 
-        //recaches the pawn list if needed
+        inRect.yMin += SectionGap;
+        DrawSmallLabel(ref inRect, "PawnEditor.SelectedCategory".Translate());
+        DrawCategoryButton(ref inRect);
+        DrawAddButton(ref inRect);
+
+        if (pregame)
+            TryRefreshSelectedPawn();
+        var list = pregame ? PregamePawnList() : InGamePawnList();
+
+        inRect.yMin += PawnListTopGap;
+        if (list.Pawns.Any() && Layout.TryTakeTop(ref inRect, Mathf.Min(PawnListHeight, inRect.height), out var listRect))
+            DoPawnList(listRect, list.Pawns, list.Sections, list.OnReorder);
+    }
+
+    private static void DrawSmallLabel(ref Rect rect, string label)
+    {
+        using (new TextBlock(GameFont.Tiny))
+        {
+            if (Layout.TryTakeTop(ref rect, Text.LineHeight, out var row))
+                Widgets.Label(row, label);
+        }
+    }
+
+    private static void RecacheIfNeeded(bool pregame)
+    {
         if (selectedFaction == null && needToRecacheNullFactionPawns)
         {
             RecachePawnListWithNoFactionPawns();
             needToRecacheNullFactionPawns = false;
         }
-        else if ((pregame && selectedFaction != Faction.OfPlayer)) RecachePawnList();
+        else if (pregame && selectedFaction != Faction.OfPlayer)
+            RecachePawnList();
+    }
 
-        //Faction selection options include every faction with at least one humanlike (including Ancients)
-        if (!pregame && Widgets.ButtonText(inRect.TakeTopPart(30f), "PawnEditor.SelectFaction".Translate()))
-        {
-            IEnumerable<Faction> existingFaction = PawnEditor_PawnsFinder.GetAllFactionsContainingAtLeastOneHumanLike();
+    private static void DrawSelectFactionButton(ref Rect rect)
+    {
+        if (!Layout.TryTakeTop(ref rect, FactionButtonHeight + FactionButtonGap, out var row)) return;
 
-            List<FloatMenuOption> options = existingFaction
-               .Select(faction =>
-                    new FloatMenuOption(faction.Name, delegate
-                    {
-                        selectedFaction = faction;
-                        selectedPawn = null;
-                        RecachePawnList();
-                        CheckChangeTabGroup();
-                        
-                    }, faction.def.FactionIcon, faction.Color))
-               .ToList();
+        row.yMax -= FactionButtonGap;
+        if (Widgets.ButtonText(row, "PawnEditor.SelectFaction".Translate()))
+            Find.WindowStack.Add(new FloatMenu(FactionMenuOptions()));
+    }
 
-            options.Add(new FloatMenuOption("No Faction", () =>
-            {
-                selectedFaction = null;
-                selectedPawn = null;
-                needToRecacheNullFactionPawns = true;
-                CheckChangeTabGroup();
-            }));
-            Find.WindowStack.Add(new FloatMenu(options));
-            inRect.yMin += 2;
-        }
+    /// <summary>Every faction with at least one humanlike (Ancients included), plus "No faction".</summary>
+    private static List<FloatMenuOption> FactionMenuOptions()
+    {
+        var options = PawnEditor_PawnsFinder.GetAllFactionsContainingAtLeastOneHumanLike()
+            .Select(faction => new FloatMenuOption(faction.Name, () => SelectFaction(faction), faction.def.FactionIcon, faction.Color))
+            .ToList();
+        options.Add(new FloatMenuOption("PawnEditor.NoFaction".Translate(), SelectNoFaction));
+        return options;
+    }
 
-        var factionRect = inRect.TakeTopPart(54f).ContractedBy(3);
-        Widgets.DrawOptionBackground(factionRect, showFactionInfo);
-        MouseoverSounds.DoRegion(factionRect);
-        var color = selectedFaction?.Color == null? Color.white : selectedFaction.Color; //since selectedFaction may be null, we need to choose a default color.
+    private static void SelectFaction(Faction faction)
+    {
+        selectedFaction = faction;
+        selectedPawn = null;
+        RecachePawnList();
+        CheckChangeTabGroup();
+    }
+
+    private static void SelectNoFaction()
+    {
+        selectedFaction = null;
+        selectedPawn = null;
+        needToRecacheNullFactionPawns = true;
+        CheckChangeTabGroup();
+    }
+
+    private static void DrawFactionCard(ref Rect rect)
+    {
+        if (!Layout.TryTakeTop(ref rect, FactionCardHeight, out var row)) return;
+
+        var card = row.ContractedBy(FactionCardPadding);
+        Widgets.DrawOptionBackground(card, showFactionInfo);
+        MouseoverSounds.DoRegion(card);
+        DrawFactionIcon(card.ContractedBy(6).RightPart(0.25f).BottomPart(0.75f));
+        using (new TextBlock(GameFont.Small))
+            Widgets.Label(card.ContractedBy(5f), selectedFaction?.Name ?? "PawnEditor.NoFaction".Translate().ToString());
+
+        if (!Widgets.ButtonInvisible(card)) return;
+        showFactionInfo = !showFactionInfo;
+        CheckChangeTabGroup();
+    }
+
+    /// <summary>Faint faction icon in the card's corner; an empty box when there is no faction.</summary>
+    private static void DrawFactionIcon(Rect rect)
+    {
+        var color = selectedFaction?.Color ?? Color.white;
         color.a = 0.2f;
         GUI.color = color;
-
-        if (selectedFaction != null)
-        {
-            if (selectedFaction.def.FactionIcon != null)
-                GUI.DrawTexture(factionRect.ContractedBy(6).RightPart(0.25f).BottomPart(0.75f), selectedFaction.def.FactionIcon);
-        }
-        else
-        {
-            Widgets.DrawBox(factionRect.ContractedBy(6).RightPart(0.25f).BottomPart(0.75f));
-        }
-
+        if (selectedFaction == null)
+            Widgets.DrawBox(rect);
+        else if (selectedFaction.def.FactionIcon != null)
+            GUI.DrawTexture(rect, selectedFaction.def.FactionIcon);
         GUI.color = Color.white;
+    }
 
-        using (new TextBlock(GameFont.Small))
-                Widgets.Label(factionRect.ContractedBy(5f), selectedFaction == null ? "PawnEditor.NoFaction".Translate().ToString() : selectedFaction.Name); //since selectedFaction may be null, we need a text to display if it is.
+    private static void DrawFactionHint(ref Rect rect)
+    {
+        if (!Layout.TryTakeTop(ref rect, Text.LineHeight, out var row)) return;
 
-        if (Widgets.ButtonInvisible(factionRect))
-        {
-            showFactionInfo = !showFactionInfo;
-            CheckChangeTabGroup();
-        }
-
-        var labelRect = inRect.TakeTopPart(Text.LineHeight);
-        labelRect.xMax += 12f;
+        // Allowed to spill a little to the right: the panel is narrow and the hint is one line.
+        row.xMax += FactionHintOverflow;
         using (new TextBlock(GameFont.Tiny))
-            Widgets.Label(labelRect, "PawnEditor.ClickFactionOverview".Translate().Colorize(ColoredText.SubtleGrayColor));
-
-        inRect.yMin += 4f;
-
-        using (new TextBlock(GameFont.Tiny)) Widgets.Label(inRect.TakeTopPart(Text.LineHeight), "PawnEditor.SelectedCategory".Translate());
-
-        //recache with appropriate list (null or faction) instead of always recaching with a faction.
-        if (Widgets.ButtonText(inRect.TakeTopPart(30f), selectedCategory.LabelCapPlural()))
-                Find.WindowStack.Add(new FloatMenu(Enum.GetValues(typeof(PawnCategory))
-                   .Cast<PawnCategory>()
-                   .Except(new() { PawnCategory.All })
-                   .Select(category =>
-                        new FloatMenuOption(category.LabelCapPlural(), delegate
-                        {
-                            selectedCategory = category;
-                            DoRecache();
-                            CheckChangeTabGroup();
-                        }))
-                   .ToList()));
-
-        if (Widgets.ButtonText(inRect.TakeTopPart(25f), "Add".Translate().CapitalizeFirst()))
-        {
-            if (selectedFaction != Faction.OfPlayer && selectedCategory == PawnCategory.Mechs)
-                Messages.Message("PawnEditor.NoAddMechWarning".Translate(), MessageTypeDefOf.RejectInput);
-            else
-                AddPawn(selectedCategory);
-        }
-
-        List<Pawn> pawns = null;
-        List<string> sections = null;
-        int sectionCount = 0;
-        Action<Pawn, int, int> onReorder = null;
-
-        if (pregame)
-        {
-            TryRefreshSelectedPawn();
-            if (selectedCategory == PawnCategory.Humans)
-            {
-                pawns = Find.GameInitData.startingAndOptionalPawns;
-                if (pawns.Any())
-                {
-                    sections = Enumerable.Repeat<string>(null, pawns.Count).ToList();
-                    sections[0] = "StartingPawnsSelected".Translate();
-                    if (Find.GameInitData.startingPawnCount < sections.Count)
-                        sections[Find.GameInitData.startingPawnCount] = "StartingPawnsLeftBehind".Translate();
-                    sectionCount = 2;
-                    // onReorder = delegate (Pawn _, int from, int to)
-                    // {
-                    //     StartingPawnUtility.ReorderRequests(from, to);
-                    //     var a = Find.GameInitData.startingPawnsRequired;
-                    //     TutorSystem.Notify_Event("ReorderPawn");
-                    //     if (to < Find.GameInitData.startingPawnCount && from >= Find.GameInitData.startingPawnCount)
-                    //         TutorSystem.Notify_Event("ReorderPawnOptionalToStarting");
-                    // };
-                    onReorder = PawnList.OnReorder;
-                }
-
-            }
-            else
-            {
-                pawns = StartingThingsManager.GetPawns(selectedCategory);
-                if (pawns.Any())
-                {
-                    sections = Enumerable.Repeat<string>(null, pawns.Count).ToList();
-                    if (sections.Count > 0)
-                        sections[0] = "StartingPawnsSelected".Translate();
-                    sectionCount = 1;
-                    onReorder = (_, _, _) => { };
-                }
-            }
-
-        }
-        else
-        {
-            (pawns, sections, sectionCount) = PawnList.GetLists();
-                
-            //set the left pawn collection to the list of pawns without faction
-            if(selectedFaction == null)
-            {
-                pawns = PawnEditor_PawnsFinder.GetHumanPawnsWithoutFaction();
-                if (!pawns.Any())
-                {
-                    sections = new();
-                    sectionCount = 0;
-                }
-            }
-
-            onReorder = PawnList.OnReorder;
-        }
-
-        inRect.yMin += 12f;
-        if (pawns.Any())
-        {
-            DoPawnList(inRect.TakeTopPart(415f), pawns, sections, sectionCount, onReorder);
-        }
+            Widgets.Label(row, "PawnEditor.ClickFactionOverview".Translate().Colorize(ColoredText.SubtleGrayColor));
     }
 
-    private static void ConfirmDeletePawn(Pawn pawn)
+    private static void DrawCategoryButton(ref Rect rect)
     {
-        if (pawn == null || pawn.Discarded) return;
-        Find.WindowStack.Add(new Dialog_Confirm("PawnEditor.ReallyDelete".Translate(pawn.NameShortColored), "ConfirmDeletePawn",
-            () => DeletePawn(pawn), true));
+        if (Layout.TryTakeTop(ref rect, CategoryButtonHeight, out var row)
+            && Widgets.ButtonText(row, selectedCategory.LabelCapPlural()))
+            Find.WindowStack.Add(new FloatMenu(CategoryMenuOptions()));
     }
 
-    private static void DeletePawn(Pawn pawn)
+    private static List<FloatMenuOption> CategoryMenuOptions() =>
+        Enum.GetValues(typeof(PawnCategory))
+            .Cast<PawnCategory>()
+            .Where(category => category != PawnCategory.All)
+            .Select(category => new FloatMenuOption(category.LabelCapPlural(), () => SelectCategory(category)))
+            .ToList();
+
+    private static void SelectCategory(PawnCategory category)
     {
-        List<Pawn> pawns;
-        var nextPawn = selectedPawn;
-
-        if (Pregame)
-        {
-            pawns = selectedCategory == PawnCategory.Humans
-                ? Find.GameInitData.startingAndOptionalPawns
-                : StartingThingsManager.GetPawns(selectedCategory);
-            var index = pawns.IndexOf(pawn);
-            if (index < 0) return;
-            if (selectedPawn == pawn) nextPawn = pawns.Count > 1 ? pawns.Get(index + 1) : null;
-
-            if (selectedCategory == PawnCategory.Humans)
-            {
-                Find.GameInitData.startingPossessions.Remove(pawn);
-                if (index < Find.GameInitData.startingPawnCount)
-                    Find.GameInitData.startingPawnCount = Math.Max(0, Find.GameInitData.startingPawnCount - 1);
-                pawns.RemoveAt(index);
-            }
-            else
-                StartingThingsManager.RemovePawn(selectedCategory, pawn);
-
-            pawn.Discard(true);
-        }
-        else
-        {
-            var lists = PawnList.GetLists();
-            pawns = lists.Item1;
-            var index = pawns.IndexOf(pawn);
-            if (index < 0) return;
-            if (selectedPawn == pawn) nextPawn = pawns.Count > 1 ? pawns.Get(index + 1) : null;
-
-            PawnList.OnDelete(pawn);
-            pawns.RemoveAt(index);
-            lists.Item2.RemoveAt(index);
-        }
-
-        selectedPawn = nextPawn;
+        selectedCategory = category;
         DoRecache();
-        RefreshTabs();
-        NotifyColonistBarsDirty();
-        Notify_PointsUsed();
+        CheckChangeTabGroup();
     }
 
+    private static void DrawAddButton(ref Rect rect)
+    {
+        if (!Layout.TryTakeTop(ref rect, AddButtonHeight, out var row)
+            || !Widgets.ButtonText(row, "Add".Translate().CapitalizeFirst())) return;
+
+        if (selectedFaction != Faction.OfPlayer && selectedCategory == PawnCategory.Mechs)
+            Messages.Message("PawnEditor.NoAddMechWarning".Translate(), MessageTypeDefOf.RejectInput);
+        else
+            AddPawn(selectedCategory);
+    }
+
+    /// <summary>What the pawn list shows: the pawns, their section headers and how to reorder them.</summary>
+    private readonly struct PawnListView
+    {
+        public readonly List<Pawn> Pawns;
+        public readonly List<string> Sections;
+        public readonly Action<Pawn, int, int> OnReorder;
+
+        public PawnListView(List<Pawn> pawns, List<string> sections, Action<Pawn, int, int> onReorder)
+        {
+            Pawns = pawns;
+            Sections = sections;
+            OnReorder = onReorder;
+        }
+    }
+
+    private static PawnListView PregamePawnList() =>
+        selectedCategory == PawnCategory.Humans ? StartingColonistsList() : StartingThingsPawnList();
+
+    /// <summary>Starting colonists, split into "selected" and "left behind".</summary>
+    private static PawnListView StartingColonistsList()
+    {
+        var pawns = Find.GameInitData.startingAndOptionalPawns;
+        if (!pawns.Any()) return new PawnListView(pawns, null, null);
+
+        var sections = Enumerable.Repeat<string>(null, pawns.Count).ToList();
+        sections[0] = "StartingPawnsSelected".Translate();
+        if (Find.GameInitData.startingPawnCount < sections.Count)
+            sections[Find.GameInitData.startingPawnCount] = "StartingPawnsLeftBehind".Translate();
+        return new PawnListView(pawns, sections, PawnList.OnReorder);
+    }
+
+    private static PawnListView StartingThingsPawnList()
+    {
+        var pawns = StartingThingsManager.GetPawns(selectedCategory);
+        if (!pawns.Any()) return new PawnListView(pawns, null, null);
+
+        var sections = Enumerable.Repeat<string>(null, pawns.Count).ToList();
+        sections[0] = "StartingPawnsSelected".Translate();
+        return new PawnListView(pawns, sections, (_, _, _) => { });
+    }
+
+    private static PawnListView InGamePawnList()
+    {
+        var (pawns, sections, _) = PawnList.GetLists();
+        if (selectedFaction == null)
+        {
+            pawns = PawnEditor_PawnsFinder.GetHumanPawnsWithoutFaction();
+            if (!pawns.Any())
+                sections = new();
+        }
+
+        return new PawnListView(pawns, sections, PawnList.OnReorder);
+    }
+
+    /// <summary>Pregame: if the selected pawn is no longer in the list, select the first one.</summary>
     private static void TryRefreshSelectedPawn()
     {
-        // If selectedPawn isn't even present in the pawn list on the left, we have to force refresh it
-        if (selectedCategory == PawnCategory.Humans)
-        {
-            if (Find.GameInitData.startingAndOptionalPawns.Contains(selectedPawn) is false)
-            {
-                selectedPawn = Find.GameInitData.startingAndOptionalPawns.FirstOrDefault();
-                RefreshTabs();
-            }
-        }
-        else
-        {
-            var pawns = StartingThingsManager.GetPawns(selectedCategory);
-            if (pawns.Contains(selectedPawn) is false)
-            {
-                selectedPawn = pawns.FirstOrDefault();
-                RefreshTabs();
-            }
-        }
-    }
+        var pawns = selectedCategory == PawnCategory.Humans
+            ? Find.GameInitData.startingAndOptionalPawns
+            : StartingThingsManager.GetPawns(selectedCategory);
+        if (pawns.Contains(selectedPawn)) return;
 
-    private static void RefreshTabs()
-    {
-        TabWorker<Pawn>.Notify_OpenedDialog();
-        TabWorker_Gear.ClearCaches();
-    }
-
-    public static void AddPawn(PawnCategory category)
-    {
-        AddResult AddPawnKind(PawnKindDef pawnKind) =>
-            AddPawn(PawnGenerator.GeneratePawn(new(pawnKind, selectedFaction,
-                Pregame ? PawnGenerationContext.PlayerStarter : PawnGenerationContext.NonPlayer,
-                forceGenerateNewPawn: true)), category);
-
-        var list = new List<FloatMenuOption>
-        {
-            new("PawnEditor.Add.PawnKind".Translate(), () => Find.WindowStack.Add(new ListingMenu_PawnKindDef(category, AddPawnKind))),
-            new("PawnEditor.Add.Saved".Translate(category.Label()), delegate
-            {
-                BlueprintLoadUtility.LoadPawnBlueprint(category.ToString(), newPawn =>
-                {
-                    AddPawn(newPawn, category).HandleResult();
-                });
-            })
-        };
-
-        if (category == PawnCategory.Humans)
-            list.Add(new("PawnEditor.Add.Backer".Translate(), delegate
-            {
-                
-                Find.WindowStack.Add(new ListingMenu<PawnBio>(SolidBioDatabase.allBios, bio => bio.name.ToStringFull, bio =>
-                {
-                    var pawn = PawnGenerator.GeneratePawn(new(selectedFaction.def.basicMemberKind, selectedFaction,
-                        Pregame ? PawnGenerationContext.PlayerStarter : PawnGenerationContext.NonPlayer,
-                        forceGenerateNewPawn: true, fixedBirthName: bio.name.First, fixedLastName: bio.name.Last, fixedGender: bio.gender switch
-                        {
-                            GenderPossibility.Male => Gender.Male,
-                            GenderPossibility.Female => Gender.Female,
-                            GenderPossibility.Either => null,
-                            _ => throw new ArgumentOutOfRangeException()
-                        }));
-                    pawn.Name = bio.name;
-                    pawn.story.Childhood = bio.childhood;
-                    pawn.story.Adulthood = bio.adulthood;
-                    return AddPawn(pawn, category);
-                }, "Add backer pawn"));
-            }));
-        Find.WindowStack.Add(new FloatMenu(list));
-    }
-
-    public static AddResult AddPawn(Pawn addedPawn, PawnCategory category)
-    {
-        return new ConditionalInfo(CanUsePoints(addedPawn), new SuccessInfo(() =>
-        {
-            if (!Pregame && selectedFaction != null && addedPawn.Faction != selectedFaction)
-                addedPawn.SetFaction(selectedFaction);
-
-            if (Pregame)
-                if (category == PawnCategory.Humans)
-                {
-                    Find.GameInitData.startingAndOptionalPawns.Add(addedPawn);
-                    Find.GameInitData.startingPossessions.Add(addedPawn, new());
-                }
-                else
-                {
-                    StartingThingsManager.AddPawn(category, addedPawn);
-
-                    // FIX #018: Auto-assign Overseer so mechs don't spawn rogue.
-                    if (category == PawnCategory.Mechs && addedPawn.GetOverseer() == null)
-                    {
-                        var mechanitor = Find.GameInitData.startingAndOptionalPawns
-                            .FirstOrDefault(p => p.RaceProps.Humanlike && MechanitorUtility.IsMechanitor(p));
-                        if (mechanitor != null)
-                            addedPawn.relations.AddDirectRelation(PawnRelationDefOf.Overseer, mechanitor);
-                        else
-                            Messages.Message("PawnEditor.MechNoOverseer".Translate(addedPawn.LabelCap),
-                                MessageTypeDefOf.CautionInput, false);
-                    }
-                }
-            else
-            {
-                addedPawn.teleporting = true;
-                var spawned = false;
-                if (category == PawnCategory.Humans && selectedFaction == Faction.OfPlayer && Find.CurrentMap != null)
-                {
-                    try
-                    {
-                        var spawnCell = FindSafeSpawnCell(Find.CurrentMap);
-                        GenSpawn.Spawn(addedPawn, spawnCell, Find.CurrentMap);
-                        try
-                        {
-                            addedPawn.Notify_Teleported();
-                            EnsurePawnGraphicsInitialized(addedPawn);
-                            // FIX: VE Hussar Giant gene offset — genes run PostAdd before spawn
-                            // so the renderer is null. Invalidate all caches post-spawn so the
-                            // visual offset applies correctly without needing a reload.
-                            try { PortraitsCache.SetDirty(addedPawn); } catch { }
-                            try { GlobalTextureAtlasManager.TryMarkPawnFrameSetDirty(addedPawn); } catch { }
-                        }
-                        catch
-                        {
-                        }
-                        spawned = true;
-                    }
-                    catch
-                    {
-                        spawned = false;
-                    }
-                }
-
-                if (!spawned)
-                    Find.WorldPawns.PassToWorld(addedPawn, PawnDiscardDecideMode.KeepForever);
-                addedPawn.teleporting = false;
-            }
-
-            PawnList.UpdateCache(selectedFaction, category);
-            NotifyColonistBarsDirty();
-
-            TabWorker_AnimalMech.Notify_PawnAdded(category);
-            Notify_PointsUsed();
-            Select(addedPawn);
-        }));
-    }
-
-    /// <summary>
-    /// Finds a safe, standable cell on the map for spawning a pawn.
-    /// Priority: near existing friendly colonists > near colony center > any walkable cell > random fallback.
-    /// </summary>
-    public static IntVec3 FindSafeSpawnCell(Map map)
-    {
-        // Try near a random friendly colonist
-        var colonists = map.mapPawns?.FreeColonistsSpawned;
-        if (colonists != null && colonists.Count > 0)
-        {
-            var anchor = colonists.RandomElement().Position;
-            if (CellFinder.TryRandomClosewalkCellNear(anchor, map, 10, out var cell))
-                return cell;
-        }
-
-        // Try near the map center
-        if (CellFinder.TryRandomClosewalkCellNear(map.Center, map, 30, out var centerCell))
-            return centerCell;
-
-        // Try any standable, non-fogged cell
-        if (CellFinder.TryFindRandomCellNear(map.Center, map, 999, c => c.Standable(map) && !c.Fogged(map), out var safeCell))
-            return safeCell;
-
-        // Last resort
-        return CellFinder.RandomCell(map);
+        selectedPawn = pawns.FirstOrDefault();
+        RefreshTabs();
     }
 }

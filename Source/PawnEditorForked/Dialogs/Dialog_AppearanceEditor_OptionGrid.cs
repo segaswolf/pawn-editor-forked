@@ -127,7 +127,7 @@ public partial class Dialog_AppearanceEditor
 
     private void DoIconOptions<T>(Rect inRect, List<T> options, Action<T> onSelected, Func<T, Texture> getIcon, Func<T, bool> isSelected, int colorCount,
         Color[] colors, Action<Color, int> setColor, ColorType colorType, List<Color> availableColors, int preferredItemsPerRow = 9,
-        Rect? iconTexCoords = null)
+        Rect? iconTexCoords = null, Func<T, string> warningFor = null)
     {
         if (selectedColorIndex + 1 > colorCount) selectedColorIndex = 0;
         if (colorCount > 0)
@@ -197,11 +197,25 @@ public partial class Dialog_AppearanceEditor
 
         var viewRect = new Rect(0, 0, availableWidth, Mathf.Ceil((float)options.Count / itemsPerRow) * itemSize);
         Widgets.BeginScrollView(inRect, ref scrollPos, viewRect);
+        try
+        {
+            DrawOptionCells(options, onSelected, getIcon, isSelected, itemsPerRow, itemSize, inRect.height, iconTexCoords, warningFor);
+        }
+        finally
+        {
+            // Always closed, even if a mod's option throws: an open scroll view blocks Mouse.IsOver
+            // for the rest of the frame (see DoXenotypeOptions).
+            Widgets.EndScrollView();
+        }
+    }
 
+    private void DrawOptionCells<T>(List<T> options, Action<T> onSelected, Func<T, Texture> getIcon, Func<T, bool> isSelected,
+        int itemsPerRow, float itemSize, float visibleHeight, Rect? iconTexCoords, Func<T, string> warningFor)
+    {
         // Only draw the rows visible in the viewport (plus one row of margin each side). Without this,
         // 1000+ items meant 1000+ DrawTexture/Button/Tooltip calls per frame even though ~20 show.
         var firstRow = Mathf.Max(0, Mathf.FloorToInt(scrollPos.y / itemSize) - 1);
-        var lastRow = Mathf.FloorToInt((scrollPos.y + inRect.height) / itemSize) + 1;
+        var lastRow = Mathf.FloorToInt((scrollPos.y + visibleHeight) / itemSize) + 1;
         var firstIndex = firstRow * itemsPerRow;
         var lastIndex = Mathf.Min(options.Count, (lastRow + 1) * itemsPerRow);
 
@@ -216,7 +230,10 @@ public partial class Dialog_AppearanceEditor
                 {
                     Widgets.DrawLightHighlight(rect);
                     var str = def.label ?? def.defName;
-                    TooltipHandler.TipRegion(rect, str.CapitalizeFirst() + "\n\n" + "ModClickToSelect".Translate());
+                    var warning = warningFor?.Invoke(option);
+                    var tip = str.CapitalizeFirst() + "\n\n" + "ModClickToSelect".Translate();
+                    if (!warning.NullOrEmpty()) tip += "\n\n" + warning.Colorize(ColorLibrary.RedReadable);
+                    TooltipHandler.TipRegion(rect, tip);
                 }
 
             if (isSelected(option)) Widgets.DrawBox(rect);
@@ -226,7 +243,5 @@ public partial class Dialog_AppearanceEditor
             // (placeholder + one-time warning naming the mod when an icon texture is missing).
             SafeDrawIcon(rect.ContractedBy(2), getIcon(option), option, iconTexCoords);
         }
-
-        Widgets.EndScrollView();
     }
 }

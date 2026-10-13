@@ -62,7 +62,9 @@ public partial class Dialog_AppearanceEditor
     /// <returns>False when the current filters leave nothing to pick; the pawn is left untouched.</returns>
     internal bool RandomizeBodyType()
     {
-        if (!BodyTypeOptions().TryRandomElement(out var bodyType)) return false;
+        // Never roll a mod-internal body type: it can leave the pawn invisible. It stays pickable by hand.
+        var ordinary = BodyTypeOptions().Where(bodyType => !BodyTypeRules.IsSpecial(bodyType, pawn));
+        if (!ordinary.TryRandomElement(out var bodyType)) return false;
         pawn.story.bodyType = bodyType;
         return true;
     }

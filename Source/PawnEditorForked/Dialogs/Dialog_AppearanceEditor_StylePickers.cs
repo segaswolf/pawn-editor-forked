@@ -40,24 +40,11 @@ public partial class Dialog_AppearanceEditor
 
     internal IEnumerable<TattooDef> TattooOptions(TattooType type) => Tattoos(type, bySource: true);
 
-    private IEnumerable<BodyTypeDef> BodyTypes(bool bySource)
-    {
-        IEnumerable<BodyTypeDef> q = DefDatabase<BodyTypeDef>.AllDefs.Where(h => (!bySource || MatchesSource(h)) && IsAllowed(h, pawn))
-            .Where(bodyType =>
-                pawn.DevelopmentalStage switch
-                {
-                    DevelopmentalStage.Baby or DevelopmentalStage.Newborn => bodyType == BodyTypeDefOf.Baby,
-                    DevelopmentalStage.Child => bodyType == BodyTypeDefOf.Child,
-                    DevelopmentalStage.Adult => bodyType != BodyTypeDefOf.Baby && bodyType != BodyTypeDefOf.Child,
-                    _ => true
-                });
-        if (HARCompat.Active)
-        {
-            var allowedBodyTypes = HARCompat.AllowedBodyTypes(pawn);
-            if (!allowedBodyTypes.NullOrEmpty()) q = q.Intersect(allowedBodyTypes);
-        }
-        return q;
-    }
+    // Shared with the Bio tab's Shape button (see Utils/BodyTypeRules.cs). Special body types go last.
+    private IEnumerable<BodyTypeDef> BodyTypes(bool bySource) =>
+        BodyTypeRules.For(pawn, ignoreXenotype)
+            .Where(bodyType => !bySource || MatchesSource(bodyType))
+            .OrderBy(bodyType => BodyTypeRules.IsSpecial(bodyType, pawn));
 
     private IEnumerable<HeadTypeDef> HeadTypes(bool bySource)
     {
@@ -114,7 +101,11 @@ public partial class Dialog_AppearanceEditor
             {
                 new StylePicker<BodyTypeDef>(this, "PawnEditor.Body".Translate(),
                     () => ("body", sourceFilter, pawn.DevelopmentalStage, HARCompat.Active, ignoreXenotype), BodyTypes,
-                    def => pawn.story.bodyType = def, def => TexPawnEditor.GetBodyTypeIcon(def), def => pawn.story.bodyType == def, skin),
+                    def => pawn.story.bodyType = def, def => TexPawnEditor.GetBodyTypeIcon(def), def => pawn.story.bodyType == def, skin)
+                {
+                    // Mod-internal body types (e.g. Big and Small's animal body) can leave the pawn invisible.
+                    Warning = def => BodyTypeRules.WarningFor(def, pawn)
+                },
                 new StylePicker<HeadTypeDef>(this, "PawnEditor.Head".Translate().CapitalizeFirst(),
                     () => ("head", sourceFilter, pawn.gender, HARCompat.Active, ignoreXenotype), HeadTypes,
                     def => pawn.story.headType = def, def => def.GetGraphic(pawn, pawn.story.HairColor).MatSouth.mainTexture,
@@ -239,6 +230,9 @@ public partial class Dialog_AppearanceEditor
 
         public GridHook BeforeGrid { get; set; }
 
+        /// <summary>Optional warning shown in an option's tooltip; null or empty for none.</summary>
+        public Func<T, string> Warning { get; set; }
+
         public IEnumerable<Def> Candidates() => query(false).Cast<Def>();
 
         public void Draw(Rect inRect)
@@ -246,12 +240,33 @@ public partial class Dialog_AppearanceEditor
             BeforeGrid?.Invoke(ref inRect);
 
             var options = editor.CachedOptions(cacheKey(), () => query(true));
+            if (options.Count == 0 && editor.sourceFilter != null)
+            {
+                DrawEmptyBecauseOfSource(inRect);
+                return;
+            }
+
             editor.DoIconOptions(inRect, options, OnChosen, icon, isCurrent,
                 color == null ? 0 : 1,
                 color == null ? Array.Empty<Color>() : new[] { color.Current() },
                 color == null ? null : (Action<Color, int>)SetColor,
                 color?.Type ?? ColorType.Misc,
-                color == null ? null : editor.CachedColors(color.PaletteKey, color.Palette));
+                color == null ? null : editor.CachedColors(color.PaletteKey, color.Palette),
+                warningFor: Warning);
+        }
+
+        /// <summary>
+        /// An empty grid because the Source filter (shared by every tab) points at a mod with nothing
+        /// of this kind. Said out loud, with a way back, instead of looking like the editor broke.
+        /// </summary>
+        private void DrawEmptyBecauseOfSource(Rect inRect)
+        {
+            var box = new Rect(inRect.x, inRect.y + inRect.height / 3f, inRect.width, 70f);
+            using (new TextBlock(TextAnchor.MiddleCenter))
+                Widgets.Label(box.TakeTopPart(34f), "PawnEditor.NothingFromSource".Translate(editor.sourceFilter.Name));
+            var button = new Rect(0f, 0f, 200f, 30f).CenteredOnXIn(box).CenteredOnYIn(box);
+            if (Widgets.ButtonText(button, "PawnEditor.ShowAllSources".Translate()))
+                editor.sourceFilter = null;
         }
 
         private void OnChosen(T def)

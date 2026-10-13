@@ -471,7 +471,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                 else if (pawn.Ideo != null) compEquippable.parent.StyleDef = pawn.Ideo.GetStyleFor(thingWithComps.def);
             }
 
-            pawn.equipment.AddEquipment(thingWithComps);
+            EquipmentPlacement.Equip(pawn, thingWithComps);
             PawnEditor.RefreshPawnGraphics(pawn);
             ClearCaches();
         });
@@ -929,7 +929,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                     WearCandidateKeepingOriginalState((Apparel)candidate);
                     break;
                 case GearSlot.Equipment:
-                    Pawn.equipment.AddEquipment((ThingWithComps)candidate);
+                    EquipmentPlacement.Equip(Pawn, (ThingWithComps)candidate);
                     break;
                 case GearSlot.Possession:
                     Pawn.inventory.innerContainer.TryAdd(candidate, false);
@@ -1026,7 +1026,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
 
             foreach (var equipment in detachedEquipment)
             {
-                Pawn.equipment.AddEquipment(equipment);
+                EquipmentPlacement.Equip(Pawn, equipment);
             }
 
             foreach (var item in detachedInventory)

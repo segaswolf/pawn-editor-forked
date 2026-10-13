@@ -3,6 +3,80 @@
 All notable changes to this project will be documented in this file.
 
 
+## [v3.2.4] - 2026-10-13 — RimWorld 1.7 support, animated health bars and a big cleanup
+
+### Fixed
+- **Clicking outside the editor made the game unresponsive** (reported by rarirari). The click landed
+  on the dimmed background behind the editor, and RimWorld brought that background to the front,
+  covering the editor and catching every click after it. The editor now keeps the input around it,
+  so the background can never come forward. On the character creation screen a click outside no
+  longer closes the editor either; in a colony it still does.
+- **Dragging pawns in the list moved the whole window instead of reordering them** (reported by
+  rarirari). The editor window no longer moves by dragging its body; resize it from the corner.
+- **Combat Extended ammo could not be added to the starting resources** (reported by The Gentleman).
+  CE makes its ammo eligible while the game finishes loading, after Pawn Editor had already built that
+  list. The list is now read when the picker opens, so it also follows CE's "enable ammo system"
+  setting.
+- **Body types that mods use internally made pawns invisible.** Some mods add body types for their
+  own purposes (Big and Small's animal body points at a blank texture on purpose), and the Shape
+  button listed them like any other. They are now listed last, marked "(mod special)" with a warning
+  tooltip, and never picked by Randomize. A body type counts as ordinary when a backstory or the
+  pawn's HAR race uses it, so nothing is hardcoded.
+- **The Bio tab's Shape button and the appearance editor offered different body types.** The Shape
+  button ignored HAR race restrictions and showed internal names instead of labels. Both now use the
+  same list.
+- **Weapons refused by another mod vanished.** Progression: Education takes a weapon back when the
+  pawn lacks the proficiency, and drops it on the ground (in a colony) or nowhere at all (on the
+  character creation screen, when loading a blueprint or duplicating). Pawn Editor still respects that
+  rule, but now keeps the weapon in the pawn's possessions and says why.
+- **The bottom buttons touched each other on narrower windows** (Close next to Delete, Load next to
+  Teleport).
+- **Adding a backer pawn with "No faction" selected failed.** It now adds a plain colonist.
+- **Dragging a pawn to the end of the list failed** in a colony ("Could not reorder elements"). Dropping
+  it at the end now moves it to the last place.
+- **Bio > Groups: "Random faction" and "Random non-colonist" never picked the last faction** in the
+  list.
+- **Editing an item that nobody carries could fail when opening the colour picker.** The "Favorite
+  colour" shortcut is simply left out when there is no pawn.
+- **Adding a persona trait to a bladelink weapon didn't update the points.** Removing one already did.
+- "Randomize all - including faction" could call itself in a loop in some translations. It now works
+  from a fixed copy of the menu.
+
+### Added
+- **Custom xenotypes warn about missing genes.** When a saved custom xenotype uses genes from a mod
+  that isn't loaded anymore, the game silently drops them. The custom xenotypes list now marks it
+  "(N missing genes)", the tooltip names the genes and the mods that were active when you saved it
+  but aren't now, and applying it shows a message listing what was skipped.
+- **RimWorld 1.7 (Waylith) support.** Tested on the 1.7 unstable branch: the editor, its Harmony
+  patches and its compatibility layers load and work. Nothing changes for 1.6.
+- **Health tab: severity and immunity bars** for diseases, with a "Severity X% · Immunity Y%" label.
+  They glide to the new value when you edit them.
+- **"UI animations" setting** to turn those animations off.
+
+### Changed
+- **Appearance editor: the xenotype is now changed from a row at the top of the Cosmetic genes tab**,
+  next to the genes it sets, instead of a button under the preview. It opens the same xenotype list as
+  the Bio tab, with search and the custom xenotypes section. The preview panel gains the space.
+- **Custom xenotypes can be deleted from the custom xenotypes list**, with a confirmation.
+- **Appearance editor: the Source and Category filters open a searchable list** instead of a float
+  menu that, with many mods, filled the screen in columns. Mods are sorted alphabetically and show how
+  many options each one adds.
+- **Appearance editor: a grid left empty by the Source filter says so**, with a "Show all sources"
+  button. The filter is shared by every tab, so picking a gene mod in Cosmetic genes emptied the
+  hair and body grids with no explanation.
+- **Appearance editor: "Ignore xenotype restrictions" is shown on every tab**, the Cosmetic genes tab
+  included, and is the only control for that setting. That tab's own "Override unsupported genes"
+  checkbox, which did not respond to clicks, is gone.
+- **The developmental stage warning is translatable** (the list shown before turning a pawn into a
+  child or an adult).
+- **"Default colour" and "Favorite colour"** in the item colour picker are translatable, and "None" in
+  the style menu too.
+- The Bio tab's columns sit a little higher, so the skills list no longer touches the bottom buttons.
+- **Large internal cleanup** of the pawn list, bottom buttons, Bio tab, appearance editor, item editor,
+  settings and custom xenotypes list: long methods split into small named ones. No behaviour change
+  intended; it makes bug reports much faster to trace.
+
+
 ## [v3.2.3] - 2026-09-28 — Forced apparel, appearance editor fixes and sturdier compat
 
 ### Added

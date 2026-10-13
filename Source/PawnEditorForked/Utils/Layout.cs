@@ -52,6 +52,17 @@ public static class Layout
         return true;
     }
 
+    /// <summary>Takes a row off the bottom. Same contract as <see cref="TryTakeTop"/>.</summary>
+    public static bool TryTakeBottom(ref Rect rect, float height, out Rect row)
+    {
+        row = default;
+        if (height <= 0f || rect.height < height) return false;
+
+        row = new Rect(rect.x, rect.yMax - height, rect.width, height);
+        rect.yMax -= height;
+        return true;
+    }
+
     /// <summary>
     /// Takes a column of <paramref name="width"/> off the left of <paramref name="rect"/>.
     /// Same contract as <see cref="TryTakeTop"/>: false means there was no room, and nothing changed.

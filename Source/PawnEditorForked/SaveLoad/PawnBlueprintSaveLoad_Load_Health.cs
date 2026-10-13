@@ -401,7 +401,7 @@ public static partial class PawnBlueprintSaveLoad
                         weapon.TryGetComp<CompQuality>()?.SetQuality(
                             ParseEnum<QualityCategory>(qualStr, QualityCategory.Normal), ArtGenerationContext.Outsider);
 
-                    pawn.equipment.AddEquipment(weapon);
+                    EquipmentPlacement.Equip(pawn, weapon);
                 }
             }
             catch (Exception ex) { Warn($"Equipment: {ex.Message}"); }

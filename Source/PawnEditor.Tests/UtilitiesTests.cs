@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace PawnEditor.Tests;
@@ -45,17 +46,23 @@ public class UtilitiesTests
         Assert.That(list.Get(-4), Is.EqualTo("c"), "también con varias vueltas");
     }
 
-    [Test, Timeout(2000)]
+    [Test]
     public void Get_EmptyList_ThrowsInsteadOfHangingTheGame()
     {
-        // La implementación anterior restaba list.Count en un bucle. Con la lista vacía eso resta
-        // cero para siempre: no lanzaba nada, congelaba el juego. El Timeout está a propósito, para
-        // que una regresión aparezca como prueba fallida y no como suite colgada.
+        // La versión anterior restaba list.Count en un bucle: con la lista vacía giraba para siempre.
+        // Corre en otro hilo con plazo, para que una regresión falle la prueba en vez de colgar la suite.
+        // (No usa [Timeout]: .NET moderno no puede abortar hilos.)
         var empty = new List<string>();
+        var calls = Task.Run(() => new[] { Catch(() => empty.Get(0)), Catch(() => empty.Get(-1)), Catch(() => empty.Get(5)) });
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => empty.Get(0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => empty.Get(-1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => empty.Get(5));
+        Assert.That(calls.Wait(TimeSpan.FromSeconds(2)), Is.True, "Get con la lista vacía se quedó colgado");
+        Assert.That(calls.Result, Is.All.InstanceOf<ArgumentOutOfRangeException>());
+    }
+
+    private static Exception Catch(Action action)
+    {
+        try { action(); return null; }
+        catch (Exception ex) { return ex; }
     }
 
     // ── Set: asignación que extiende ──────────────────────────────────────────────────────────

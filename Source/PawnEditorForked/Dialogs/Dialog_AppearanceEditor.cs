@@ -14,10 +14,10 @@ namespace PawnEditor;
 /// <para>Split by responsibility across partial files:</para>
 /// <list type="bullet">
 /// <item><c>Dialog_AppearanceEditor.cs</c>: the window, its tabs and the bottom buttons.</item>
-/// <item><c>_LeftPanel</c>: preview, compat buttons, sex, developmental stage and xenotype buttons.</item>
+/// <item><c>_LeftPanel</c>: preview, compat buttons, sex and developmental stage buttons.</item>
 /// <item><c>_StylePickers</c>: what each style picker offers, and the Gradient Hair row.</item>
 /// <item><c>_OptionGrid</c>: the icon grid every picker draws with, its caches and missing-icon tracking.</item>
-/// <item><c>_Xenotype</c>: the cosmetic genes tab and applying xenotypes.</item>
+/// <item><c>_Xenotype</c>: the cosmetic genes tab, its xenotype row, and applying or deleting xenotypes.</item>
 /// <item><c>_FacialAnimation</c>: the Facial Animation tab.</item>
 /// <item><c>_Randomizer</c>: the Randomize button and its repeat arrow, drawing from the pickers' lists.</item>
 /// <item><c>_Filters</c>: which defs a pawn may pick, and what the Source menu lists.</item>
@@ -30,12 +30,7 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
     // Enforced by the resizer, so the panels never get laid out at an impossible size for one frame.
     public Vector2 MinWindowSize => new(900f, 620f);
 
-    // Always locked: the window moves only by its corner resizer, never by dragging its body, because
-    // dragging inside the preview rotates the pawn and the two drags would fight.
-    // HISTORY: until v3.2.3 a button at the top of the left panel toggled this ("Unlock window (move)" /
-    // "Lock window (resize)"). It existed for the old preview splitter, which was removed; the button was
-    // then dropped as confusing. To bring it back: restore a bool field, return it here, and draw a
-    // Widgets.ButtonText at the top of DoLeftSection that flips it (the resize patch reads DragLocked).
+    // Always locked: dragging the window body would fight the drag-to-rotate preview.
     public bool DragLocked => true;
 
     static Dialog_AppearanceEditor()
@@ -85,13 +80,21 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
     private const float ColorColumnBreakpoint = 720f;
     private const float ColorColumnWidth = 220f;
 
+    private const float BottomButtonsHeight = 50f;
+    private const float BottomButtonWidth = 210f;
+    private const float MinLeftPanelWidth = 150f;
+    private const float MinOptionsWidth = 300f;
+    private const float PanelGap = 8f;
+    private const float LeftPanelPadding = 6f;
+    private const float TabsMaxWidth = 400f;
+    private const float TabStripHeight = 40f;
+
     public Dialog_AppearanceEditor(Pawn pawn)
     {
         this.pawn = pawn;
         closeOnClickedOutside = false;
         doCloseX = false;
         doCloseButton = false;
-        closeOnCancel = false;
 
         forcePause = true;
         absorbInputAroundWindow = true;
@@ -109,9 +112,27 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
 
     public override void DoWindowContents(Rect inRect)
     {
-        // No size clamp here: MinWindowSize is handed to the game's own resizer, which refuses to shrink
-        // the window BEFORE the frame is laid out. Clamping windowRect in here was a frame too late.
+        // No size clamp here: MinWindowSize lets the game's resizer refuse a too-small window before layout.
         Widgets.BeginGroup(inRect);
+        // try/finally: the group must close even if a section throws, or the GUI state stays unbalanced.
+        try
+        {
+            DrawHeader(ref inRect);
+            using (new TextBlock(GameFont.Small))
+            {
+                DrawBottomButtons(inRect.TakeBottomPart(BottomButtonsHeight));
+                DrawLeftPanel(ref inRect);
+                DrawMainTabs(inRect);
+            }
+        }
+        finally
+        {
+            Widgets.EndGroup();
+        }
+    }
+
+    private void DrawHeader(ref Rect inRect)
+    {
         using (new TextBlock(GameFont.Medium))
         {
             var rect = inRect.TakeTopPart(Text.LineHeight * 2.5f);
@@ -126,86 +147,86 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
                     PawnEditor.GetPawnTex(pawn, new(rect.height, rect.height), Rot4.South));
             }
         }
+    }
 
-        using (new TextBlock(GameFont.Small))
+    /// <summary>Preview panel, sized as a fraction of the window so it reflows when resized.</summary>
+    private void DrawLeftPanel(ref Rect inRect)
+    {
+        var maxLeft = Mathf.Max(MinLeftPanelWidth, inRect.width - MinOptionsWidth);
+        leftPanelWidth = Mathf.Clamp(ProportionalLeftWidth(windowRect.width), MinLeftPanelWidth, maxLeft);
+        var leftRect = inRect.TakeLeftPart(leftPanelWidth);
+        inRect.xMin += PanelGap;
+        DoLeftSection(leftRect.ContractedBy(LeftPanelPadding, 0));
+    }
+
+    private void DrawMainTabs(Rect inRect)
+    {
+        RebuildMainTabs();
+        Widgets.DrawMenuSection(inRect);
+        TabDrawer.DrawTabs(inRect, mainTabs, TabsMaxWidth);
+        inRect.yMin += TabStripHeight;
+        DrawMainTabContent(inRect);
+    }
+
+    private void RebuildMainTabs()
+    {
+        mainTabs.Clear();
+        mainTabs.Add(new("PawnEditor.Shape".Translate(), () => SelectMainTab(MainTab.Shape), mainTab == MainTab.Shape));
+        mainTabs.Add(new("PawnEditor.Hair".Translate().CapitalizeFirst(), () => SelectMainTab(MainTab.Hair), mainTab == MainTab.Hair));
+        if (ModsConfig.IdeologyActive)
+            mainTabs.Add(new("Tattoos".Translate(), () => SelectMainTab(MainTab.Tattoos), mainTab == MainTab.Tattoos));
+        if (ModsConfig.BiotechActive)
+            // "Cosmetic genes", not "Xenotype": it edits single genes. The whole xenotype is a row inside it.
+            mainTabs.Add(new("PawnEditor.CosmeticGenes".Translate(), () => SelectMainTab(MainTab.Xenotype), mainTab == MainTab.Xenotype));
+        if (HARCompat.Active)
+            mainTabs.Add(new("HAR.RaceFeatures".Translate(), () => SelectMainTab(MainTab.HAR), mainTab == MainTab.HAR));
+        if (FacialAnimCompat.Active && FacialAnimCompat.HasFaceControls(pawn))
+            mainTabs.Add(new("PawnEditor.FA.Tab".Translate(), () => SelectMainTab(MainTab.FacialAnimation), mainTab == MainTab.FacialAnimation));
+
+        if (mainTab == MainTab.FacialAnimation && !FacialAnimCompat.HasFaceControls(pawn))
+            mainTab = MainTab.Shape;
+    }
+
+    private void DrawMainTabContent(Rect rect)
+    {
+        switch (mainTab)
         {
-            DrawBottomButtons(inRect.TakeBottomPart(50));
-
-            // The preview panel width is purely proportional to the window. Resize the whole editor from
-            // its bottom-right corner and everything reflows: bigger preview and more option columns as
-            // it widens. There is deliberately no splitter: it clashed with the drag-to-rotate preview.
-            var contentWidth = inRect.width;
-            var maxLeft = Mathf.Max(150f, contentWidth - 300f);
-            leftPanelWidth = Mathf.Clamp(ProportionalLeftWidth(windowRect.width), 150f, maxLeft);
-            var leftRect = inRect.TakeLeftPart(leftPanelWidth);
-            inRect.xMin += 8f; // small gap between the preview panel and the options
-            DoLeftSection(leftRect.ContractedBy(6, 0));
-
-            mainTabs.Clear();
-            mainTabs.Add(new("PawnEditor.Shape".Translate(), () => SelectMainTab(MainTab.Shape), mainTab == MainTab.Shape));
-            mainTabs.Add(new("PawnEditor.Hair".Translate().CapitalizeFirst(), () => SelectMainTab(MainTab.Hair), mainTab == MainTab.Hair));
-            if (ModsConfig.IdeologyActive)
-                mainTabs.Add(new("Tattoos".Translate(), () => SelectMainTab(MainTab.Tattoos), mainTab == MainTab.Tattoos));
-            if (ModsConfig.BiotechActive)
-                // Labelled "Cosmetic genes", not "Xenotype": this tab edits individual cosmetic genes by
-                // category. Changing the whole xenotype is a different action (the left-panel button).
-                mainTabs.Add(new("PawnEditor.CosmeticGenes".Translate(), () => SelectMainTab(MainTab.Xenotype), mainTab == MainTab.Xenotype));
-            if (HARCompat.Active)
-                mainTabs.Add(new("HAR.RaceFeatures".Translate(), () => SelectMainTab(MainTab.HAR), mainTab == MainTab.HAR));
-            if (FacialAnimCompat.Active && FacialAnimCompat.HasFaceControls(pawn))
-                mainTabs.Add(new("PawnEditor.FA.Tab".Translate(), () => SelectMainTab(MainTab.FacialAnimation), mainTab == MainTab.FacialAnimation));
-
-            if (mainTab == MainTab.FacialAnimation && !FacialAnimCompat.HasFaceControls(pawn))
-                mainTab = MainTab.Shape;
-
-            Widgets.DrawMenuSection(inRect);
-            TabDrawer.DrawTabs(inRect, mainTabs, 400f);
-            inRect.yMin += 40;
-
-            switch (mainTab)
-            {
-                // Body, hair and tattoo tabs are all style pickers described as data; see
-                // Dialog_AppearanceEditor_StylePickers.cs.
-                case MainTab.Shape:
-                case MainTab.Hair:
-                case MainTab.Tattoos:
-                    DrawStylePickers(inRect, StylePickersFor(mainTab));
-                    break;
-                // These three tabs depend on third-party mods, so they are the ones that break when a
-                // mod changes its API. With the boundary, the failure stays inside its tab, names
-                // itself in the log, and the rest of the editor stays usable.
-                case MainTab.Xenotype:
-                    Diagnostics.Run("Drawing the xenotype picker", pawn, () => DoXenotypePicker(inRect.ContractedBy(5)));
-                    break;
-                case MainTab.HAR:
-                    Diagnostics.Run("Drawing the Humanoid Alien Races tabs", pawn, () =>
-                    {
-                        HARCompat.DoRaceTabs(inRect.ContractedBy(5));
-                        if (Event.current.type is EventType.MouseDown or EventType.Used)
-                            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
-                    });
-                    break;
-                case MainTab.FacialAnimation:
-                    Diagnostics.Run("Drawing the Facial Animation tab", pawn, () => DoFacialAnimationOptions(inRect.ContractedBy(5)));
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            // Body, hair and tattoos are style pickers described as data (see _StylePickers).
+            case MainTab.Shape:
+            case MainTab.Hair:
+            case MainTab.Tattoos:
+                DrawStylePickers(rect, StylePickersFor(mainTab));
+                break;
+            // These depend on other mods' APIs: a failure stays inside its tab and names itself in the log.
+            case MainTab.Xenotype:
+                Diagnostics.Run("Drawing the xenotype picker", pawn, () => DoXenotypePicker(rect.ContractedBy(5)));
+                break;
+            case MainTab.HAR:
+                Diagnostics.Run("Drawing the Humanoid Alien Races tabs", pawn, () =>
+                {
+                    HARCompat.DoRaceTabs(rect.ContractedBy(5));
+                    if (Event.current.type is EventType.MouseDown or EventType.Used)
+                        TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+                });
+                break;
+            case MainTab.FacialAnimation:
+                Diagnostics.Run("Drawing the Facial Animation tab", pawn, () => DoFacialAnimationOptions(rect.ContractedBy(5)));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-
-        Widgets.EndGroup();
     }
 
     private void DrawBottomButtons(Rect inRect)
     {
-        if (Widgets.ButtonText(inRect.TakeLeftPart(210).ContractedBy(5), "PawnEditor.GotoGearTab".Translate()))
+        if (Widgets.ButtonText(inRect.TakeLeftPart(BottomButtonWidth).ContractedBy(5), "PawnEditor.GotoGearTab".Translate()))
         {
             Close();
             PawnEditor.Select(pawn);
             PawnEditor.GotoTab(PawnEditorDefOf.Gear);
         }
 
-        if (Widgets.ButtonText(inRect.TakeRightPart(210).ContractedBy(5), "Accept".Translate()))
+        if (Widgets.ButtonText(inRect.TakeRightPart(BottomButtonWidth).ContractedBy(5), "Accept".Translate()))
         {
             OnAcceptKeyPressed();
             Close();

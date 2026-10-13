@@ -44,6 +44,10 @@ public class PawnEditorSettings : ModSettings
     // it on to place anything anywhere on purpose, warnings included.
     public bool AllowIllegalPlacements;
 
+    // On by default. Turning it off makes bars and icons jump straight to their value, for slower PCs
+    // or players who don't want motion.
+    public bool Animations = true;
+
     public override void ExposeData()
     {
         base.ExposeData();
@@ -63,6 +67,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref AllowPolygamyOnLoad, nameof(AllowPolygamyOnLoad));
         Scribe_Values.Look(ref RememberWindowPositions, nameof(RememberWindowPositions));
         Scribe_Values.Look(ref AllowIllegalPlacements, nameof(AllowIllegalPlacements));
+        Scribe_Values.Look(ref Animations, nameof(Animations), true);
 
         if (HARCompat.Active)
         {

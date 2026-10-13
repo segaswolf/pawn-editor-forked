@@ -31,7 +31,6 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
     private static List<ThingDef> rangedWeapons;
     private static List<ThingDef> meleeWeapons;
     private static List<ThingDef> nonWeaponItems;
-    private static List<ThingDef> starting;
     private static List<ThingDef> all;
 
     private static readonly Func<ThingDef, string> labelGetter = t => t.LabelCap;
@@ -296,7 +295,7 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
                         return new ConditionalInfo(PawnEditor.CanUsePoints(newEquipment), new SuccessInfo(() =>
                         {
                             pawn.equipment.MakeRoomFor(newEquipment);
-                            pawn.equipment.AddEquipment(newEquipment);
+                            EquipmentPlacement.Equip(pawn, newEquipment);
                             PawnEditor.Notify_PointsUsed();
                             TabWorker_Gear.ClearCaches();
                         }));
@@ -420,14 +419,26 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
         rangedWeapons = equipment.Where(td => td.IsRangedWeapon).ToList();
         meleeWeapons = equipment.Where(td => td.IsMeleeWeapon).ToList();
         nonWeaponItems = items.Where(td => !td.IsApparel && !IsPrimaryWeapon(td)).ToList();
-        starting = DefDatabase<ThingDef>.AllDefs.Where(td =>
+        all = DefDatabase<ThingDef>.AllDefs.Where(td => td != null).ToList();
+    }
+
+    /// <summary>
+    /// What can be added to the starting resources, read from the defs as they are right now.
+    /// </summary>
+    /// <remarks>
+    /// Built on every open instead of once at startup, on purpose. Mods may change these flags after
+    /// our static constructor has run: Combat Extended ships its ammo with <c>destroyOnDrop</c> on and
+    /// turns it off in a long event queued from its mod constructor, which runs after static
+    /// constructors. A list cached at startup never saw CE ammo as eligible. It also follows CE's
+    /// "enable ammo system" setting when toggled mid-session.
+    /// </remarks>
+    internal static List<ThingDef> StartingCandidates() =>
+        DefDatabase<ThingDef>.AllDefs.Where(td =>
                 td != null &&
                 ((td.category == ThingCategory.Item && td.scatterableOnMapGen && !td.destroyOnDrop)
                 || (td.category == ThingCategory.Building && td.Minifiable)
                 || (td.category == ThingCategory.Building && td.scatterableOnMapGen)))
             .ToList();
-        all = DefDatabase<ThingDef>.AllDefs.Where(td => td != null).ToList();
-    }
 
     private static bool IsPrimaryWeapon(ThingDef thingDef)
     {
@@ -460,7 +471,7 @@ public class ListingMenu_Items : ListingMenu<ThingDef>
             case ItemType.Items:
                 return nonWeaponItems;
             case ItemType.Starting:
-                return starting;
+                return StartingCandidates();
             default:
                 Log.WarningOnce("No ItemType!", 15703);
                 return all;

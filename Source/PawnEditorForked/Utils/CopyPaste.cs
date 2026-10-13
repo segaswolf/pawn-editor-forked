@@ -33,7 +33,7 @@ public static partial class PawnEditor
         if (into.equipment != null && clipboard?.equipment != null)
         {
             into.equipment.DestroyAllEquipment();
-            foreach (var eq in clipboard.equipment.AllEquipmentListForReading) into.equipment.AddEquipment(eq.Clone());
+            foreach (var eq in clipboard.equipment.AllEquipmentListForReading) EquipmentPlacement.Equip(into, (ThingWithComps)eq.Clone());
         }
 
         if (into.inventory != null && clipboard?.inventory != null)

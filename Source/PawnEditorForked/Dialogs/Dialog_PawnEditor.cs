@@ -5,8 +5,16 @@ using Verse;
 
 namespace PawnEditor;
 
-public abstract class Dialog_PawnEditor : Window, IMinWindowSize
+public abstract class Dialog_PawnEditor : Window, IMinWindowSize, IDragLockable
 {
+    /// <summary>
+    /// Never dragged by its body. The pawn list reorders by dragging, and with the window draggable
+    /// RimWorld handed that drag to the window: "I cannot drag and move pawns; the entire window moves
+    /// instead" (rarirari). Same decision as the appearance editor, whose preview rotates by dragging.
+    /// The window still resizes from its corner.
+    /// </summary>
+    public bool DragLocked => true;
+
     /// <summary>
     /// Floor for the main editor window, enforced by the resizer itself (see IMinWindowSize).
     /// Without it the window could be shrunk past the point where the tab row and the bottom buttons
@@ -18,7 +26,12 @@ public abstract class Dialog_PawnEditor : Window, IMinWindowSize
     protected Dialog_PawnEditor()
     {
         forcePause = PawnEditorMod.Settings?.PauseWhileEditorOpen ?? true;
-        absorbInputAroundWindow = false;
+        // Must be true while the full-screen dim (Window_EditorBackdrop) sits behind us. RimWorld only
+        // lets a window take a click if no window above it absorbs input around itself
+        // (WindowStack.GetsInput). With this false, a click outside the editor landed on the dim, and
+        // RimWorld raised the dim to the front of the layer: it covered the editor and swallowed every
+        // click after that, which read as "clicking outside the window renders the game unresponsive".
+        absorbInputAroundWindow = true;
         closeOnAccept = false;
         closeOnCancel = true;
         forceCatchAcceptAndCancelEventEvenIfUnfocused = true;
@@ -76,7 +89,13 @@ public class Dialog_PawnEditor_Pregame : Dialog_PawnEditor
 {
     private readonly Action doNext;
 
-    public Dialog_PawnEditor_Pregame(Action doNext) => this.doNext = doNext;
+    public Dialog_PawnEditor_Pregame(Action doNext)
+    {
+        this.doNext = doNext;
+        // On the character creation screen a stray click outside must not throw away the setup; the
+        // editor closes with its own Back/Start buttons. In a colony, clicking outside still closes it.
+        closeOnClickedOutside = false;
+    }
 
     protected override bool Pregame => true;
 

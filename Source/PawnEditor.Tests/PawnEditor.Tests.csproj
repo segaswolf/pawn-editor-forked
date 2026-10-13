@@ -1,26 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Pruebas de la lógica pura del mod: la que NO depende de tipos del juego en ejecución.
+    Pruebas de la lógica pura del mod. No referencia el DLL del mod: enlaza los archivos que prueba
+    (ItemGroup de Compile al final), así no arrastra el Assembly-CSharp publicizado.
 
-    Deliberadamente NO referencia el ensamblado del mod. En su lugar enlaza los archivos fuente que
-    puede probar. Referenciar el DLL arrastraría el Assembly-CSharp publicizado y ataría las pruebas
-    al resultado del build del mod; enlazar un archivo las mantiene independientes y rápidas.
+    No usa Krafs.Rimworld.Ref porque son ensamblados de solo referencia y no se pueden ejecutar.
+    Usa el Unity REAL de la instalación del juego, y según lo que encuentre prueba una versión u otra:
+      - RimWorld 1.6 (Unity):   net472  contra RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll
+      - RimWorld 1.7 (Waylith): net10.0 contra UnityStubs.dll, en la raíz del juego
+    Si encuentra los dos, corre las pruebas en ambos.
 
-    Para agregar otra clase a la cobertura: una línea más en el ItemGroup de Compile. Si esa lista
-    crece mucho, es señal de que conviene mover la lógica pura a su propio proyecto.
-
-    POR QUÉ NO USA Krafs.Rimworld.Ref (que sí usa el mod): ese paquete entrega ensamblados de SOLO
-    REFERENCIA. Sirven para compilar, pero no contienen código ejecutable, así que el motor de
-    pruebas no puede cargar el resultado. Aquí se referencia el UnityEngine real del juego, con
-    Private=true para que se copie junto a las pruebas.
+    Rutas: por defecto, la instalación de Steam. Para otra ruta (o una copia guardada de la carpeta
+    Managed de 1.6), crea PawnEditor.Tests.csproj.user junto a este archivo:
+        <Project><PropertyGroup>
+          <RimWorldDir>D:\Steam\...\RimWorld</RimWorldDir>
+          <RimWorldManagedDir>C:\Git\RimWorld-1.6-Managed</RimWorldManagedDir>
+        </PropertyGroup></Project>
 
     Ejecutar con:  dotnet test Source\PawnEditor.Tests
-    No forma parte del build del mod ni se empaqueta con él.
   -->
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\RimWorld</RimWorldDir>
+    <RimWorldManagedDir Condition="'$(RimWorldManagedDir)' == ''">$(RimWorldDir)\RimWorldWin64_Data\Managed</RimWorldManagedDir>
+    <HasRimWorld16 Condition="Exists('$(RimWorldManagedDir)\UnityEngine.CoreModule.dll')">true</HasRimWorld16>
+    <HasRimWorld17 Condition="Exists('$(RimWorldDir)\UnityStubs.dll')">true</HasRimWorld17>
+
+    <TargetFrameworks Condition="'$(HasRimWorld16)' == 'true' And '$(HasRimWorld17)' == 'true'">net472;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(TargetFrameworks)' == '' And '$(HasRimWorld17)' == 'true'">net10.0</TargetFrameworks>
+    <!-- Solo 1.6, o nada encontrado (CheckRimWorldPath da el error claro). -->
+    <TargetFrameworks Condition="'$(TargetFrameworks)' == ''">net472</TargetFrameworks>
+
     <AssemblyName>PawnEditor.Tests</AssemblyName>
     <RootNamespace>PawnEditor.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
@@ -28,28 +38,9 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
-  <!--
-    Ruta a los ensamblados del juego.
-
-    El valor de abajo es solo el DEFECTO para una instalación normal de Steam en Windows. Es lo único
-    específico de una máquina en todo el repositorio, y por eso NO hay que editarlo aquí: si tu
-    RimWorld está en otro lado, crea un archivo `PawnEditor.Tests.csproj.user` junto a este, con
-
-        <Project><PropertyGroup>
-          <RimWorldManagedDir>D:\tu\ruta\Managed</RimWorldManagedDir>
-        </PropertyGroup></Project>
-
-    MSBuild lo importa solo, y `*.user` ya está en .gitignore, así que tu ruta nunca llega al
-    repositorio. Para una sola ejecución también sirve:
-        dotnet test Source\PawnEditor.Tests -p:RimWorldManagedDir="D:\tu\ruta\Managed"
-  -->
-  <PropertyGroup>
-    <RimWorldManagedDir Condition="'$(RimWorldManagedDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</RimWorldManagedDir>
-  </PropertyGroup>
-
   <Target Name="CheckRimWorldPath" BeforeTargets="BeforeBuild">
-    <Error Condition="!Exists('$(RimWorldManagedDir)\UnityEngine.CoreModule.dll')"
-           Text="No se encontró UnityEngine.CoreModule.dll en '$(RimWorldManagedDir)'. Pasa la ruta correcta con -p:RimWorldManagedDir=..." />
+    <Error Condition="'$(HasRimWorld16)' != 'true' And '$(HasRimWorld17)' != 'true'"
+           Text="No se encontró el Unity de RimWorld 1.6 ('$(RimWorldManagedDir)\UnityEngine.CoreModule.dll') ni el de 1.7 ('$(RimWorldDir)\UnityStubs.dll'). Pasa la ruta con -p:RimWorldDir=... o -p:RimWorldManagedDir=..." />
   </Target>
 
   <ItemGroup>
@@ -58,10 +49,16 @@
     <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Ensamblados REALES, no de referencia: Rect y Mathf tienen que poder ejecutarse. -->
+  <!-- Ensamblados REALES, no de referencia: Rect y Mathf tienen que poder ejecutarse. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(RimWorldManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Reference Include="UnityStubs">
+      <HintPath>$(RimWorldDir)\UnityStubs.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
@@ -69,6 +66,10 @@
   <ItemGroup>
     <Compile Include="..\PawnEditorForked\Utils\Layout.cs" Link="Linked\Layout.cs" />
     <Compile Include="..\PawnEditorForked\Utils\Utilities.cs" Link="Linked\Utilities.cs" />
+    <Compile Include="..\PawnEditorForked\Utils\SavedXenotypeFile.cs" Link="Linked\SavedXenotypeFile.cs" />
+    <Compile Include="..\PawnEditorForked\Utils\Motion\Easing.cs" Link="Linked\Easing.cs" />
+    <Compile Include="..\PawnEditorForked\Utils\Motion\AnimatedFloat.cs" Link="Linked\AnimatedFloat.cs" />
+    <Compile Include="..\PawnEditorForked\Utils\BottomButtonRow.cs" Link="Linked\BottomButtonRow.cs" />
   </ItemGroup>
 
 </Project>

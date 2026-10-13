@@ -185,8 +185,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
 
     private static void DoCapacities(Rect inRect, Pawn pawn)
     {
-        // using (new TextBlock(TextAnchor.MiddleLeft))
-        //     Widgets.Label(inRect.TakeTopPart(Text.LineHeightOf(GameFont.Small)), "Health".Translate().Colorize(ColoredText.TipSectionTitleColor));
         var listing = new Listing_Standard();
         listing.Begin(inRect);
         listing.ColumnWidth /= 2;
@@ -244,7 +242,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
     protected override List<UITable<Pawn>.Heading> GetHeadings() =>
         new()
         {
-            // new(32), // Info icon
             new(38), // Icon
             new("PawnEditor.BodyPart".Translate(), 140f, TextAnchor.LowerLeft),
             new("PawnEditor.HediffType".Translate(), 240f, TextAnchor.LowerLeft),
@@ -252,6 +249,28 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
             new(100),
             new(30)
         };
+
+    /// <summary>Draws the bleeding drop, or the hediff's state icon if it has one.</summary>
+    private static void DrawHediffIcon(Rect rowRect, Hediff hediff)
+    {
+        rowRect.width = 32f;
+        var iconRect = rowRect.ContractedBy(4f);
+        if (hediff.Bleeding)
+        {
+            var shrink = GenMath.LerpDouble(0.0f, 0.6f, 5f, 0.0f, Mathf.Min(hediff.BleedRate, 1f));
+            GUI.DrawTexture(iconRect.ContractedBy(shrink), HealthCardUtility.BleedingIcon);
+            return;
+        }
+
+        // Most hediffs have no state icon: they return TextureAndColor.None, with a null texture.
+        var stateIcon = hediff.StateIcon;
+        if (!stateIcon.HasValue)
+            return;
+
+        GUI.color = stateIcon.Color;
+        GUI.DrawTexture(iconRect, stateIcon.Texture);
+        GUI.color = Color.white;
+    }
 
     protected override List<UITable<Pawn>.Row> GetRows(Pawn pawn)
     {
@@ -262,26 +281,7 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
         {
             var items = new List<UITable<Pawn>.Row.Item>(4);
             var hediff = hediffs[i];
-            // items.Add(new(iconsRect =>
-            // {
-            //     iconsRect.x += 4f;
-            //     iconsRect = iconsRect.ContractedBy(4f);
-            //     Widgets.InfoCardButton(iconsRect, hediff);
-            // }));
-            items.Add(new(iconsRect =>
-            {
-                iconsRect.width = 32f;
-                iconsRect = iconsRect.ContractedBy(4f);
-                if (hediff.Bleeding)
-                    GUI.DrawTexture(iconsRect.ContractedBy(GenMath.LerpDouble(0.0f, 0.6f, 5f, 0.0f, Mathf.Min(hediff.BleedRate, 1f))),
-                        HealthCardUtility.BleedingIcon);
-                else
-                {
-                    GUI.color = hediff.StateIcon.color;
-                    GUI.DrawTexture(iconsRect, hediff.StateIcon.texture);
-                    GUI.color = Color.white;
-                }
-            }));
+            items.Add(new(iconsRect => DrawHediffIcon(iconsRect, hediff)));
             if (hediff.Part != null)
                 items.Add(new(hediff.Part.LabelCap.Colorize(HealthUtility.GetPartConditionLabel(pawn, hediff.Part).Second), hediff.Part.Index,
                     TextAnchor.MiddleLeft));
@@ -291,12 +291,9 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                 Mathf.RoundToInt(HealthCardUtility.GetListPriority(hediff.Part)), TextAnchor.MiddleLeft));
             items.Add(new(infoRect =>
             {
-                using (new TextBlock(TextAnchor.MiddleLeft))
-                {
-                    var immunizable = hediff.TryGetComp<HediffComp_Immunizable>();
-                    if (immunizable != null)
-                        Widgets.Label(infoRect, $"{hediff.Severity:0.##}% (immunity {immunizable.Immunity:0.##}%)".Colorize(ColoredText.SubtleGrayColor));
-                }
+                var immunizable = hediff.TryGetComp<HediffComp_Immunizable>();
+                if (immunizable != null)
+                    ImmunityRaceBar.Draw(infoRect, hediff, immunizable);
             }));
             items.Add(new(editRect => EditUtility.EditButton(editRect, hediff, pawn, table)));
             items.Add(new(TexButton.Delete, () =>

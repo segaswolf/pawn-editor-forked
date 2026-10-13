@@ -71,6 +71,32 @@ public class LayoutTests
         Assert.That(rect.height, Is.EqualTo(200f).Within(Tolerance));
     }
 
+    // ── TryTakeBottom ─────────────────────────────────────────────────────────────────────────
+
+    [Test]
+    public void TryTakeBottom_RowThatFits_ComesFromTheBottomAndShrinksTheRemainder()
+    {
+        var rect = Panel();
+
+        var taken = Layout.TryTakeBottom(ref rect, 30f, out var row);
+
+        Assert.That(taken, Is.True);
+        Assert.That(row.y, Is.EqualTo(190f).Within(Tolerance), "la fila termina donde terminaba el panel");
+        Assert.That(row.yMax, Is.EqualTo(220f).Within(Tolerance));
+        Assert.That(rect.y, Is.EqualTo(20f).Within(Tolerance), "el borde de arriba no se mueve");
+        Assert.That(rect.height, Is.EqualTo(170f).Within(Tolerance));
+    }
+
+    [Test]
+    public void TryTakeBottom_RowTallerThanWhatIsLeft_RefusesAndChangesNothing()
+    {
+        var rect = new Rect(0f, 0f, 100f, 4f);
+
+        Assert.That(Layout.TryTakeBottom(ref rect, 30f, out var row), Is.False);
+        Assert.That(row, Is.EqualTo(default(Rect)));
+        Assert.That(rect.height, Is.EqualTo(4f).Within(Tolerance));
+    }
+
     // ── TryTakeLeft ───────────────────────────────────────────────────────────────────────────
 
     [Test]
