@@ -65,13 +65,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
         });
     }
 
-    public override IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn)
-    {
-        yield return new("PawnEditor.Hediffs".Translate(), () => { });
-        if (pawn.RaceProps.Humanlike)
-            yield return new("PawnEditor.Prosthetics".Translate(), () => { });
-    }
-
     private void DoBottomOptions(Rect inRect, Pawn pawn)
     {
         if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.QuickActions".Translate(), 80f))
@@ -100,6 +93,38 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                     ResurrectionUtility.TryResurrect(pawn);
                     PawnEditor.RefreshPawnGraphics(pawn);
                 }));
+
+            // Remediation for a bug in v3.2: the Betrayer checkbox was drawn past the bottom of its panel,
+            // over the buttons, and a checkbox reacts to a click anywhere inside it — so players could
+            // flag pawns as betrayers without ever seeing it. The overlap is fixed, but flags already set
+            // stay set, and nothing in the data distinguishes an accidental flag from one the player meant
+            // or one Trauma & Integrity set through its own gameplay. So this is offered as an explicit,
+            // confirmed action rather than something we quietly do to someone's save.
+            if (TraumaIntegrityCompat.Available)
+                list.Add(new("PawnEditor.Development.ClearAllBetrayers".Translate(), () =>
+                {
+                    var flagged = PawnEditor.PawnList.GetList()
+                        .Where(p => p != null && TraumaIntegrityCompat.IsBetrayer(p))
+                        .ToList();
+
+                    if (flagged.Count == 0)
+                    {
+                        Messages.Message("PawnEditor.Development.NoBetrayers".Translate(), MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                        "PawnEditor.Development.ClearAllBetrayersConfirm".Translate(flagged.Count),
+                        () =>
+                        {
+                            var cleared = flagged.Count(p => TraumaIntegrityCompat.SetBetrayer(p, false));
+                            Messages.Message("PawnEditor.Development.BetrayersCleared".Translate(cleared),
+                                MessageTypeDefOf.TaskCompletion, false);
+                            PawnEditor.Notify_PointsUsed();
+                        },
+                        true));
+                }));
+
             Find.WindowStack.Add(new FloatMenu(list));
         }
 
@@ -109,8 +134,20 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
             Find.WindowStack.Add(new ListingMenu_Hediffs(pawn, table));
         inRect.xMin += 4f;
 
-        Widgets.CheckboxLabeled(inRect, "PawnEditor.ShowHidden.Hediffs".Translate(), ref HealthCardUtility.showAllHediffs,
+        // User report (duskdarter): "I can hover over the button and click but nothing happens."
+        // The checkbox WAS flipping the flag correctly — the problem is that the table only rebuilds its
+        // rows when the TARGET PAWN changes (UITable.CheckRecache compares hash codes). Toggling this
+        // doesn't change the pawn, so the cached rows stayed exactly as they were and the hidden hediffs
+        // never appeared. Flipping the flag has to invalidate the cache too.
+        var showHidden = HealthCardUtility.showAllHediffs;
+        Widgets.CheckboxLabeled(inRect, "PawnEditor.ShowHidden.Hediffs".Translate(), ref showHidden,
             placeCheckboxNearText: true);
+
+        if (showHidden != HealthCardUtility.showAllHediffs)
+        {
+            HealthCardUtility.showAllHediffs = showHidden;
+            table?.ClearCache();
+        }
     }
 
     private void DrawPreview(Rect inRect, Pawn pawn)
@@ -141,8 +178,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
 
     private static void DoCapacities(Rect inRect, Pawn pawn)
     {
-        // using (new TextBlock(TextAnchor.MiddleLeft))
-        //     Widgets.Label(inRect.TakeTopPart(Text.LineHeightOf(GameFont.Small)), "Health".Translate().Colorize(ColoredText.TipSectionTitleColor));
         var listing = new Listing_Standard();
         listing.Begin(inRect);
         listing.ColumnWidth /= 2;
@@ -200,7 +235,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
     protected override List<UITable<Pawn>.Heading> GetHeadings() =>
         new()
         {
-            // new(32), // Info icon
             new(38), // Icon
             new("PawnEditor.BodyPart".Translate(), 140f, TextAnchor.LowerLeft),
             new("PawnEditor.HediffType".Translate(), 240f, TextAnchor.LowerLeft),
@@ -208,6 +242,28 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
             new(100),
             new(30)
         };
+
+    /// <summary>Draws the bleeding drop, or the hediff's state icon if it has one.</summary>
+    private static void DrawHediffIcon(Rect rowRect, Hediff hediff)
+    {
+        rowRect.width = 32f;
+        var iconRect = rowRect.ContractedBy(4f);
+        if (hediff.Bleeding)
+        {
+            var shrink = GenMath.LerpDouble(0.0f, 0.6f, 5f, 0.0f, Mathf.Min(hediff.BleedRate, 1f));
+            GUI.DrawTexture(iconRect.ContractedBy(shrink), HealthCardUtility.BleedingIcon);
+            return;
+        }
+
+        // Most hediffs have no state icon: they return TextureAndColor.None, with a null texture.
+        var stateIcon = hediff.StateIcon;
+        if (!stateIcon.HasValue)
+            return;
+
+        GUI.color = stateIcon.Color;
+        GUI.DrawTexture(iconRect, stateIcon.Texture);
+        GUI.color = Color.white;
+    }
 
     protected override List<UITable<Pawn>.Row> GetRows(Pawn pawn)
     {
@@ -218,26 +274,7 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
         {
             var items = new List<UITable<Pawn>.Row.Item>(4);
             var hediff = hediffs[i];
-            // items.Add(new(iconsRect =>
-            // {
-            //     iconsRect.x += 4f;
-            //     iconsRect = iconsRect.ContractedBy(4f);
-            //     Widgets.InfoCardButton(iconsRect, hediff);
-            // }));
-            items.Add(new(iconsRect =>
-            {
-                iconsRect.width = 32f;
-                iconsRect = iconsRect.ContractedBy(4f);
-                if (hediff.Bleeding)
-                    GUI.DrawTexture(iconsRect.ContractedBy(GenMath.LerpDouble(0.0f, 0.6f, 5f, 0.0f, Mathf.Min(hediff.BleedRate, 1f))),
-                        HealthCardUtility.BleedingIcon);
-                else
-                {
-                    GUI.color = hediff.StateIcon.color;
-                    GUI.DrawTexture(iconsRect, hediff.StateIcon.texture);
-                    GUI.color = Color.white;
-                }
-            }));
+            items.Add(new(iconsRect => DrawHediffIcon(iconsRect, hediff)));
             if (hediff.Part != null)
                 items.Add(new(hediff.Part.LabelCap.Colorize(HealthUtility.GetPartConditionLabel(pawn, hediff.Part).Second), hediff.Part.Index,
                     TextAnchor.MiddleLeft));
@@ -247,12 +284,9 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
                 Mathf.RoundToInt(HealthCardUtility.GetListPriority(hediff.Part)), TextAnchor.MiddleLeft));
             items.Add(new(infoRect =>
             {
-                using (new TextBlock(TextAnchor.MiddleLeft))
-                {
-                    var immunizable = hediff.TryGetComp<HediffComp_Immunizable>();
-                    if (immunizable != null)
-                        Widgets.Label(infoRect, $"{hediff.Severity:0.##}% (immunity {immunizable.Immunity:0.##}%)".Colorize(ColoredText.SubtleGrayColor));
-                }
+                var immunizable = hediff.TryGetComp<HediffComp_Immunizable>();
+                if (immunizable != null)
+                    ImmunityRaceBar.Draw(infoRect, hediff, immunizable);
             }));
             items.Add(new(editRect => EditUtility.EditButton(editRect, hediff, pawn, table)));
             items.Add(new(TexButton.Delete, () =>

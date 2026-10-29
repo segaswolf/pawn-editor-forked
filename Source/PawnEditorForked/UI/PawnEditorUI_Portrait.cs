@@ -167,7 +167,7 @@ public static partial class PawnEditor
 
     // ── Graphics helpers ──
 
-    private static void EnsurePawnGraphicsInitialized(Pawn pawn)
+    internal static void EnsurePawnGraphicsInitialized(Pawn pawn)
     {
         if (pawn == null) return;
 

@@ -187,6 +187,7 @@ public static partial class PawnEditor
         CharacterDevelopmentCompat.CopyData(source, newPawn);
         TraumaIntegrityCompat.CopyData(source, newPawn);
         RJWCompat.CopyData(source, newPawn);
+        IsekaiLevelingCompat.CopyData(source, newPawn); // after traits: re-derives the rank trait
 
         // Miscellaneous fields too small for their own CopyDup_ method
         if (source.guest != null && newPawn.guest != null)

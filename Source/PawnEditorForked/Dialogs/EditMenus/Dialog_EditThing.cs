@@ -11,6 +11,14 @@ namespace PawnEditor;
 [UsedImplicitly]
 public class Dialog_EditThing : Dialog_EditItem<Thing>
 {
+    // Grid columns each field spans in the listing (relative width, not pixels).
+    private const int FieldColumns = 6;
+    private const float ColorSwatchSize = 24f;
+    private const float PersonaTraitsHeight = 60f;
+    private const float PersonaTraitRowHeight = 22f;
+    private const float AddTraitButtonHeight = 30f;
+    private const float RandomizeNameButtonWidth = 30f;
+
     private string _buffer;
 
     public Dialog_EditThing(Thing item, Pawn pawn = null, UIElement element = null) : base(item, pawn, element) => _buffer = "";
@@ -23,162 +31,170 @@ public class Dialog_EditThing : Dialog_EditItem<Thing>
 
     protected override void DoContents(Listing_Horizontal listing)
     {
-        // Stuff
-        if (Selected.def.MadeFromStuff)
-            if (listing.ButtonDefLabeled("StatsReport_Material".Translate(), Selected.Stuff, 6))
-                Find.WindowStack.Add(new FloatMenu(GenStuff.AllowedStuffsFor(Selected.def)
-                    .Select(stuff => new FloatMenuOption(stuff.LabelCap, () =>
-                    {
-                        Selected.SetStuffDirect(stuff);
-                        Selected.SetColor(stuff.stuffProps.color);
-                        Selected.Notify_ColorChanged();
-                        PawnEditor.Notify_PointsUsed();
-                    }, Widgets.GetIconFor(stuff), stuff.uiIconColor))
-                    .ToList()));
+        var apparel = Selected as Apparel;
+        if (Selected.def.MadeFromStuff) DrawStuffButton(listing);
+        if (Selected.TryGetComp<CompQuality>() is { } quality) DrawQualityButton(listing, quality);
+        if (apparel != null && Selected.TryGetComp<CompColorable>() != null) DrawColorPicker(listing, apparel);
+        if (StyleOptionsFor(Selected.def) is { } styles) DrawStyleButton(listing, styles);
+        DrawHitPointsSlider(listing);
+        if (apparel != null) DrawTaintedCheckbox(listing, apparel);
+        if (Selected.def.stackLimit > 1) DrawStackCount(listing);
+        if (Selected.TryGetComp<CompBladelinkWeapon>() is { } bladelink) DrawPersonaTraits(listing, bladelink);
+        if (Selected.TryGetComp<CompGeneratedNames>() is { } names) DrawGeneratedName(listing, names);
+    }
 
+    private void DrawStuffButton(Listing_Horizontal listing)
+    {
+        if (!listing.ButtonDefLabeled("StatsReport_Material".Translate(), Selected.Stuff, FieldColumns)) return;
+        Find.WindowStack.Add(new FloatMenu(GenStuff.AllowedStuffsFor(Selected.def)
+            .Select(stuff => new FloatMenuOption(stuff.LabelCap, () => SetStuff(stuff), Widgets.GetIconFor(stuff), stuff.uiIconColor))
+            .ToList()));
+    }
 
-        // Quality
-        if (Selected.TryGetComp<CompQuality>() is { } compQuality)
-        {
-            var buttonLabel = compQuality.Quality.GetLabel().CapitalizeFirst();
-            if (listing.ButtonTextLabeled("Quality".Translate(), buttonLabel, 6))
-                Find.WindowStack.Add(new FloatMenu(QualityUtility.AllQualityCategories.Select(quality =>
-                        new FloatMenuOption(quality.GetLabel().CapitalizeFirst(), () =>
-                        {
-                            buttonLabel = quality.GetLabel().CapitalizeFirst();
-                            compQuality.SetQuality(quality, ArtGenerationContext.Outsider);
-                            PawnEditor.Notify_PointsUsed();
-                        }))
-                    .ToList()));
-        }
+    private void SetStuff(ThingDef stuff)
+    {
+        Selected.SetStuffDirect(stuff);
+        Selected.SetColor(stuff.stuffProps.color);
+        Selected.Notify_ColorChanged();
+        PawnEditor.Notify_PointsUsed();
+    }
 
-
-        // Color
-        if (Selected is Apparel apparel2 && Selected.TryGetComp<CompColorable>() is { } colorComp)
-        {
-            var widgetRect = listing.RectLabeled("Color".Translate(), 6);
-            var colorRect = widgetRect.TakeRightPart(24f);
-            widgetRect.xMax -= 4f;
-            colorRect.height = 24f;
-            colorRect.y += 3f;
-            var curColor = apparel2.DrawColor;
-            var defaultColor = apparel2.Stuff != null ? apparel2.Stuff.stuffProps.color : apparel2.def.colorGenerator?.NewRandomizedColor() ?? Color.white;
-            if (Widgets.ButtonText(widgetRect, "PawnEditor.PickColor".Translate()))
+    private static void DrawQualityButton(Listing_Horizontal listing, CompQuality compQuality)
+    {
+        if (!listing.ButtonTextLabeled("Quality".Translate(), compQuality.Quality.GetLabel().CapitalizeFirst(), FieldColumns)) return;
+        Find.WindowStack.Add(new FloatMenu(QualityUtility.AllQualityCategories
+            .Select(quality => new FloatMenuOption(quality.GetLabel().CapitalizeFirst(), () =>
             {
-                var specialColors = new Dictionary<string, Color>
-                {
-                    { "Default", defaultColor }
-                };
-                if (Pawn.story.favoriteColor != null)
-                {
-                    specialColors.Add("Favorite", Pawn.story.favoriteColor.color);
-                }
-
-                Find.WindowStack.Add(new Dialog_ColorPicker(color => apparel2.SetColor(color),
-                    DefDatabase<ColorDef>.AllDefs.Select(cd => cd.color).ToList(), curColor, specialColors));
-            }
-
-            Widgets.DrawRectFast(colorRect, curColor);
-        }
-
-
-        // Style
-        if (ListingMenu_Items.ThingStyles.Select(ts => ts.ThingDef).Contains(Selected.def))
-        {
-            var styleOptions = ListingMenu_Items.ThingStyles.FirstOrDefault(ts => ts.ThingDef == Selected.def).StyleDefs;
-            if (listing.ButtonDefLabeled("Stat_Thing_StyleLabel".Translate(), styleOptions.FirstOrDefault(so => so.Key == Selected.GetStyleDef()).Value))
-                Find.WindowStack.Add(new FloatMenu(styleOptions.Select(style => new FloatMenuOption(style.Value.LabelCap, () =>
-                    {
-                        Selected.SetStyleDef(style.Key);
-                        Selected.Notify_ColorChanged();
-                    }, style.Value.Icon, Color.white))
-                    .Append(new("None", () =>
-                    {
-                        Selected.SetStyleDef(null);
-                        Selected.Notify_ColorChanged();
-                    }))
-                    .ToList()));
-        }
-
-
-        // Hit Points
-        float hitPoints = Selected.HitPoints;
-        float maxHitPoints = Selected.MaxHitPoints;
-        hitPoints = listing.SliderLabeled("HitPointsBasic".Translate().CapitalizeFirst(), hitPoints, 1, maxHitPoints, (hitPoints / maxHitPoints).ToStringPercent(), null, null, 6);
-        if (Selected.HitPoints != (int)hitPoints)
-        {
-            Selected.HitPoints = (int)hitPoints;
-            PawnEditor.Notify_PointsUsed();
-        }
-
-        // Tainted
-        if (Selected is Apparel apparel)
-        {
-            var isTainted = apparel.WornByCorpse;
-            listing.CheckboxLabeled("PawnEditor.Tainted".Translate(), ref isTainted, 6);
-            if (apparel.WornByCorpse != isTainted)
-            {
-                apparel.WornByCorpse = isTainted;
-                Selected.Notify_ColorChanged();
+                compQuality.SetQuality(quality, ArtGenerationContext.Outsider);
                 PawnEditor.Notify_PointsUsed();
-            }
-        }
+            }))
+            .ToList()));
+    }
 
-        // Count
-        if (Selected.def.stackLimit > 1)
+    private void DrawColorPicker(Listing_Horizontal listing, Apparel apparel)
+    {
+        var buttonRect = listing.RectLabeled("Color".Translate(), FieldColumns);
+        var swatchRect = buttonRect.TakeRightPart(ColorSwatchSize);
+        buttonRect.xMax -= 4f;
+        swatchRect.height = ColorSwatchSize;
+        swatchRect.y += 3f;
+        var currentColor = apparel.DrawColor;
+        if (Widgets.ButtonText(buttonRect, "PawnEditor.PickColor".Translate()))
+            Find.WindowStack.Add(new Dialog_ColorPicker(color => apparel.SetColor(color),
+                DefDatabase<ColorDef>.AllDefs.Select(cd => cd.color).ToList(), currentColor, SpecialColorsFor(apparel)));
+
+        Widgets.DrawRectFast(swatchRect, currentColor);
+    }
+
+    /// <summary>The "Default" and "Favorite" shortcuts shown under the palette.</summary>
+    private Dictionary<string, Color> SpecialColorsFor(Apparel apparel)
+    {
+        var defaultColor = apparel.Stuff != null
+            ? apparel.Stuff.stuffProps.color
+            : apparel.def.colorGenerator?.NewRandomizedColor() ?? Color.white;
+        var colors = new Dictionary<string, Color> { { "PawnEditor.DefaultColor".Translate(), defaultColor } };
+        // Pawn may be null: the dialog can edit an item nobody carries.
+        if (Pawn?.story?.favoriteColor is { } favorite) colors.Add("PawnEditor.FavoriteColor".Translate(), favorite.color);
+        return colors;
+    }
+
+    /// <summary>Styles available for the def, or null when it has none.</summary>
+    private static Dictionary<ThingStyleDef, StyleCategoryDef> StyleOptionsFor(ThingDef def) =>
+        ListingMenu_Items.ThingStyles.FirstOrDefault(ts => ts.ThingDef == def).StyleDefs;
+
+    private void DrawStyleButton(Listing_Horizontal listing, Dictionary<ThingStyleDef, StyleCategoryDef> styles)
+    {
+        var currentStyle = styles.FirstOrDefault(style => style.Key == Selected.GetStyleDef()).Value;
+        if (!listing.ButtonDefLabeled("Stat_Thing_StyleLabel".Translate(), currentStyle)) return;
+        Find.WindowStack.Add(new FloatMenu(styles
+            .Select(style => new FloatMenuOption(style.Value.LabelCap, () => SetStyle(style.Key), style.Value.Icon, Color.white))
+            .Append(new("None".Translate(), () => SetStyle(null)))
+            .ToList()));
+    }
+
+    private void SetStyle(ThingStyleDef style)
+    {
+        Selected.SetStyleDef(style);
+        Selected.Notify_ColorChanged();
+    }
+
+    private void DrawHitPointsSlider(Listing_Horizontal listing)
+    {
+        float maxHitPoints = Selected.MaxHitPoints;
+        var hitPoints = (int)listing.SliderLabeled("HitPointsBasic".Translate().CapitalizeFirst(), Selected.HitPoints, 1, maxHitPoints,
+            (Selected.HitPoints / maxHitPoints).ToStringPercent(), null, null, FieldColumns);
+        if (hitPoints == Selected.HitPoints) return;
+        Selected.HitPoints = hitPoints;
+        PawnEditor.Notify_PointsUsed();
+    }
+
+    private static void DrawTaintedCheckbox(Listing_Horizontal listing, Apparel apparel)
+    {
+        var isTainted = apparel.WornByCorpse;
+        listing.CheckboxLabeled("PawnEditor.Tainted".Translate(), ref isTainted, FieldColumns);
+        if (apparel.WornByCorpse == isTainted) return;
+        apparel.WornByCorpse = isTainted;
+        apparel.Notify_ColorChanged();
+        PawnEditor.Notify_PointsUsed();
+    }
+
+    private void DrawStackCount(Listing_Horizontal listing)
+    {
+        var fieldRect = listing.RectLabeled("PenFoodTab_Count".Translate(), FieldColumns);
+        var countBefore = Selected.stackCount;
+        UIUtility.IntField(fieldRect, ref Selected.stackCount, 1, Selected.def.stackLimit, ref _buffer, true);
+        if (countBefore != Selected.stackCount) PawnEditor.Notify_PointsUsed();
+    }
+
+    private void DrawPersonaTraits(Listing_Horizontal listing, CompBladelinkWeapon bladelink)
+    {
+        var traitsRect = listing.RectLabeled("Traits".Translate(), height: PersonaTraitsHeight);
+        string addLabel = "Add".Translate().CapitalizeFirst() + " " + "Trait".Translate();
+        var addRect = traitsRect.TakeRightPart(Text.CalcSize(addLabel).x + 48).TopPartPixels(AddTraitButtonHeight);
+        if (Widgets.ButtonText(addRect, addLabel))
+            Find.WindowStack.Add(new FloatMenu(DefDatabase<WeaponTraitDef>.AllDefs
+                .Select(traitDef => new FloatMenuOption(traitDef.LabelCap, () => TryAddPersonaTrait(bladelink, traitDef)))
+                .ToList()));
+
+        traitsRect.yMin += 4f;
+        GenUI.DrawElementStack(traitsRect, PersonaTraitRowHeight, bladelink.traits,
+            (rect, traitDef) => DrawPersonaTrait(rect, bladelink, traitDef),
+            traitDef => Text.CalcSize(traitDef.LabelCap).x + 10f, 5f);
+    }
+
+    private void TryAddPersonaTrait(CompBladelinkWeapon bladelink, WeaponTraitDef traitDef)
+    {
+        if (!bladelink.CanAddTrait(traitDef))
         {
-            var widgetRect = listing.RectLabeled("PenFoodTab_Count".Translate(), 6);
-            var stackCount = Selected.stackCount;
-            UIUtility.IntField(widgetRect, ref Selected.stackCount, 1, Selected.def.stackLimit, ref _buffer, true);
-            if (stackCount != Selected.stackCount) PawnEditor.Notify_PointsUsed();
+            Messages.Message("PawnEditor.TraitDisallowedByKind".Translate(traitDef.label, Selected.Label), MessageTypeDefOf.RejectInput);
+            return;
         }
 
-        // Persona traits
-        if (Selected.TryGetComp<CompBladelinkWeapon>() is { } bladelink)
-        {
-            var traitsRect = listing.RectLabeled("Traits".Translate(), height: 60f);
+        bladelink.traits.Add(traitDef);
+        PawnEditor.Notify_PointsUsed();
+    }
 
-            var options4 = DefDatabase<WeaponTraitDef>.AllDefs.Select(weaponTraitDef => new FloatMenuOption(weaponTraitDef.LabelCap, () =>
-                {
-                    if (bladelink.CanAddTrait(weaponTraitDef)) bladelink.traits.Add(weaponTraitDef);
-                    else Messages.Message("PawnEditor.TraitDisallowedByKind".Translate(weaponTraitDef.label, Selected.Label), MessageTypeDefOf.RejectInput);
-                }))
-                .ToList();
+    private static void DrawPersonaTrait(Rect rect, CompBladelinkWeapon bladelink, WeaponTraitDef traitDef)
+    {
+        GUI.color = CharacterCardUtility.StackElementBackground;
+        GUI.DrawTexture(rect, BaseContent.WhiteTex);
+        GUI.color = Color.white;
+        var hovered = Mouse.IsOver(rect);
+        if (hovered) Widgets.DrawHighlight(rect);
+        Widgets.Label(new(rect.x + 5f, rect.y, rect.width - 10f, rect.height), traitDef.LabelCap);
+        if (!hovered) return;
 
-            string label = "Add".Translate().CapitalizeFirst() + " " + "Trait".Translate();
-            var labelWidth = Text.CalcSize(label).x;
-            if (Widgets.ButtonText(traitsRect.TakeRightPart(labelWidth + 48).TopPartPixels(30f), label))
-                Find.WindowStack.Add(new FloatMenu(options4));
+        TooltipHandler.TipRegion(rect, traitDef.description);
+        if (!Widgets.ButtonImage(rect.RightPartPixels(rect.height).ContractedBy(4), TexButton.Delete)) return;
+        bladelink.traits.Remove(traitDef);
+        PawnEditor.Notify_PointsUsed();
+    }
 
-            traitsRect.yMin += 4f;
-            GenUI.DrawElementStack(traitsRect, 22f, bladelink.traits, delegate(Rect r, WeaponTraitDef weaponTraitDef)
-            {
-                GUI.color = CharacterCardUtility.StackElementBackground;
-                GUI.DrawTexture(r, BaseContent.WhiteTex);
-                GUI.color = Color.white;
-                if (Mouse.IsOver(r)) Widgets.DrawHighlight(r);
-
-                Widgets.Label(new(r.x + 5f, r.y, r.width - 10f, r.height), weaponTraitDef.LabelCap);
-                if (Mouse.IsOver(r))
-                {
-                    var weaponTraitDefLocal = weaponTraitDef;
-                    TooltipHandler.TipRegion(r, weaponTraitDefLocal.description);
-                    if (Widgets.ButtonImage(r.RightPartPixels(r.height).ContractedBy(4), TexButton.Delete))
-                    {
-                        bladelink.traits.Remove(weaponTraitDefLocal);
-                        PawnEditor.Notify_PointsUsed();
-                    }
-                }
-            }, weaponTraitDef => Text.CalcSize(weaponTraitDef.LabelCap).x + 10f, 5f);
-        }
-
-        // Name
-        var name = Selected.TryGetComp<CompGeneratedNames>();
-        if (name != null)
-        {
-            var widgetRect = listing.RectLabeled("PawnEditor.Name".Translate(), 6, grow: false);
-            if (Widgets.ButtonImage(widgetRect.TakeRightPart(30f).ContractedBy(4f), TexPawnEditor.Randomize)) name.Initialize(name.Props);
-            name.name = Widgets.TextField(widgetRect, name.name);
-        }
+    private static void DrawGeneratedName(Listing_Horizontal listing, CompGeneratedNames names)
+    {
+        var fieldRect = listing.RectLabeled("PawnEditor.Name".Translate(), FieldColumns, grow: false);
+        if (Widgets.ButtonImage(fieldRect.TakeRightPart(RandomizeNameButtonWidth).ContractedBy(4f), TexPawnEditor.Randomize))
+            names.Initialize(names.Props);
+        names.name = Widgets.TextField(fieldRect, names.name);
     }
 }

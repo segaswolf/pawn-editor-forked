@@ -397,6 +397,13 @@ public abstract class TabWorker_Table<T> : TabWorker<T>
         allTables[type].ClearCache();
     }
 
+    /// <summary>Like <see cref="ClearCacheFor(Type)"/>, but a tab that was never opened (no table yet) is skipped.</summary>
+    public static void ClearCacheIfBuilt(Type type)
+    {
+        if (allTables.TryGetValue(type, out var table))
+            table.ClearCache();
+    }
+
     protected abstract List<UITable<T>.Heading> GetHeadings();
     protected abstract List<UITable<T>.Row> GetRows(T target);
 

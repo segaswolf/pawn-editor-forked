@@ -91,6 +91,19 @@ public static partial class PawnBlueprintSaveLoad
         if (pawn.story.skinColorOverride.HasValue)
             WriteColor(w, "skinColorOverride", pawn.story.skinColorOverride.Value);
         WriteSimple(w, "melanin", pawn.story.melanin.ToString("F4"));
+
+        // Gradient Hair (optional mod): the vanilla HairColor above is colour A. Persist colour B and
+        // the enabled flag so a two-tone hairdo survives a save/load, not just an in-session edit.
+        if (GradientHairCompat.Active && GradientHairCompat.TryGet(pawn, out var gEnabled, out var gColorB))
+        {
+            w.WriteStartElement("gradientHair");
+            w.WriteAttributeString("enabled", gEnabled.ToString());
+            if (GradientHairCompat.CurrentPattern(pawn) is { } pattern)
+                w.WriteAttributeString("pattern", pattern.defName);
+            WriteColor(w, "colorB", gColorB);
+            w.WriteEndElement();
+        }
+
         w.WriteEndElement();
     }
 

@@ -18,6 +18,9 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
     private Vector2 leftScrollPos;
     private float traitsLastHeight = 60;
 
+    // Space between the portrait/basics header and the three columns.
+    private const float HeaderToColumnsGap = 10f;
+
     public override void DrawTabContents(Rect rect, Pawn pawn)
     {
         var headerHeight = RJWCompat.IsAvailableForPawn(pawn) ? 205f : 170f;
@@ -28,11 +31,30 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
         DoButtons(ref buttonRect, pawn);
         headerRect.xMin += 3;
         DoBasics(headerRect.ContractedBy(5, 0), pawn);
-        rect.yMin += 20;
-        var (left, skills, groups) = rect.Split1D(3, false, 15);
-        DoLeft(left, pawn);
-        DoSkills(skills, pawn);
-        DoGroups(groups, pawn);
+        rect.yMin += HeaderToColumnsGap;
+
+        // The Groups column carries Faction/Ideology/Certainty/Role AND any optional mod sections
+        // (Ferny's Trauma & Integrity). With an even three-way split those extra controls ended up
+        // squeezed against the right edge, so give that column more room when they're present.
+        // Layout.Columns guarantees the three always fit, however narrow the window gets.
+        const float columnSpacing = 15f;
+        const float minColumnWidth = 120f;
+        var groupsWeight = TraumaIntegrityCompat.AnyStatEnabled ? 1.2f : 1f;
+
+        var columns = Layout.Columns(
+            rect,
+            new[] { 1f, 1f, groupsWeight },
+            new[] { minColumnWidth, minColumnWidth, minColumnWidth },
+            columnSpacing);
+
+        var (left, skills, groups) = (columns[0], columns[1], columns[2]);
+
+        // One boundary per column. Groups hosts the mod sections, so it is the one most likely to fail
+        // when a mod changes its API. Without this, that failure would also take down traits and
+        // skills, which have nothing to do with it.
+        Diagnostics.Run("Drawing the traits column", pawn, () => DoLeft(left, pawn));
+        Diagnostics.Run("Drawing the skills column", pawn, () => DoSkills(skills, pawn));
+        Diagnostics.Run("Drawing the groups column", pawn, () => DoGroups(groups, pawn));
     }
 
     public override IEnumerable<SaveLoadItem> GetSaveLoadItems(Pawn pawn)
@@ -57,133 +79,6 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
 
             Messages.Message("PawnEditor.ImageExported".Translate(pawn.Name.ToStringFull, text), MessageTypeDefOf.TaskCompletion, false);
         });
-    }
-
-    private void DoSkills(Rect inRect, Pawn pawn)
-    {
-        var headerRect = inRect.TakeTopPart(Text.LineHeight);
-        Widgets.Label(headerRect, "Skills".Translate().Colorize(ColoredText.TipSectionTitleColor));
-        GUI.color = Color.white;
-        if (Widgets.ButtonText(headerRect.TakeRightPart(60), "PawnEditor.Preset".Translate()))
-            if (VSECompat.Active)
-            {
-                var floatMenuList = new List<FloatMenuOption>
-                {
-                    new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), 0), GetSetDelegate(pawn, false, 0)),
-                    new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), "PawnEditor.Max".Translate()), GetSetDelegate(pawn, false, 20)),
-                };
-                VSECompat.AddPassionPresets(floatMenuList, pawn);
-                Find.WindowStack.Add(new FloatMenu(floatMenuList));
-            }
-            else
-            {
-                Find.WindowStack.Add(new FloatMenu(new()
-                {
-                    new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), 0), GetSetDelegate(pawn, false, 0)),
-                    new("PawnEditor.SetAllTo".Translate("Skills".Translate().ToLower(), "PawnEditor.Max".Translate()), GetSetDelegate(pawn, false, 20)),
-                    new("PawnEditor.SetAllTo".Translate("PawnEditor.Passions".Translate(), Passion.None.GetLabel()), GetSetDelegate(pawn, true, 0)),
-                    new("PawnEditor.SetAllTo".Translate("PawnEditor.Passions".Translate(), Passion.Minor.GetLabel()), GetSetDelegate(pawn, true, 1)),
-                    new("PawnEditor.SetAllTo".Translate("PawnEditor.Passions".Translate(), Passion.Major.GetLabel()), GetSetDelegate(pawn, true, 2))
-                }));
-            }
-
-        inRect.xMin += 4;
-        inRect.yMin += 4f;
-        var leftWidth = SkillUI.skillDefsInListOrderCached.Select(def => Text.CalcSize(def.LabelCap.Resolve()).x).Max() + 16f;
-        using (new TextBlock(TextAnchor.MiddleLeft))
-            foreach (var def in SkillUI.skillDefsInListOrderCached)
-            {
-                var rect = inRect.TakeTopPart(26f);
-                var skill = pawn.skills.GetSkill(def);
-                Widgets.DrawHighlightIfMouseover(rect);
-                TooltipHandler.TipRegion(rect, () => SkillUI.GetSkillDescription(skill), def.GetHashCode() * 397945);
-                Widgets.Label(rect.TakeLeftPart(leftWidth), def.LabelCap);
-                var passionRect = rect.TakeLeftPart(30);
-                if (VSECompat.Active) {
-                    if (Widgets.ButtonImage(passionRect, VSECompat.GetPassionIcon(skill.passion)))
-                    {
-                        var passionOptions = VSECompat.GetPassionFloatMenuOptions(skill, pawn);
-                        Find.WindowStack.Add(new FloatMenu(passionOptions));
-                    }
-                    TooltipHandler.TipRegion(passionRect, VSECompat.GetPassionTooltip(skill.passion));
-                } else {
-                    if (Widgets.ButtonImage(passionRect, GetPassionIcon(skill.passion)))
-                        Find.WindowStack.Add(new FloatMenu(GetVanillaPassionOptions(skill)));
-                    TooltipHandler.TipRegion(passionRect, GetPassionTooltip(skill.passion));
-                }
-
-                var level = skill.GetLevel();
-                var disabled = skill.TotallyDisabled;
-                var texture2D = SkillUI.SkillBarFillTex;
-                if (ModsConfig.BiotechActive)
-                {
-                    if (skill.Aptitude > 0)
-                        texture2D = SkillUI.SkillBarAptitudePositiveTex;
-                    else if (skill.Aptitude < 0)
-                        texture2D = SkillUI.SkillBarAptitudeNegativeTex;
-                }
-
-                if (!disabled) Widgets.FillableBar(rect, Mathf.Max(0.01f, level / 20f), texture2D, TexPawnEditor.SkillBarBGTex, false);
-                rect.xMin += 3;
-                Widgets.Label(rect, disabled ? "-" : level.ToString());
-                if (!disabled && Widgets.ButtonImage(rect.TakeRightPart(30).ContractedBy(5), TexButton.Plus))
-                {
-                    skill.Level = skill.GetLevel(false) + 1;
-                    PawnEditor.Notify_PointsUsed();
-                }
-
-                if (!disabled && Widgets.ButtonImage(rect.TakeRightPart(30).ContractedBy(5), TexButton.Minus))
-                {
-                    skill.Level = skill.GetLevel(false) - 1;
-                    PawnEditor.Notify_PointsUsed();
-                }
-
-                inRect.yMin += 4;
-            }
-    }
-
-    private static List<FloatMenuOption> GetVanillaPassionOptions(SkillRecord skill) =>
-        new()
-        {
-            new(Passion.None.GetLabel(), () => SetVanillaPassion(skill, Passion.None), GetPassionIcon(Passion.None), Color.white),
-            new(Passion.Minor.GetLabel(), () => SetVanillaPassion(skill, Passion.Minor), GetPassionIcon(Passion.Minor), Color.white),
-            new(Passion.Major.GetLabel(), () => SetVanillaPassion(skill, Passion.Major), GetPassionIcon(Passion.Major), Color.white)
-        };
-
-    private static void SetVanillaPassion(SkillRecord skill, Passion passion)
-    {
-        skill.passion = passion;
-        PawnEditor.Notify_PointsUsed();
-    }
-
-    private static Texture2D GetPassionIcon(Passion passion) => passion switch
-    {
-        Passion.None => TexPawnEditor.PassionEmptyTex,
-        Passion.Minor => SkillUI.PassionMinorIcon,
-        Passion.Major => SkillUI.PassionMajorIcon,
-        _ => TexPawnEditor.PassionEmptyTex
-    };
-
-    private static string GetPassionTooltip(Passion passion) =>
-        passion.GetLabel() + "\n\n" +
-        "PawnEditor.PassionLearningSpeed".Translate(passion.GetLearningFactor().ToStringPercent());
-
-    public static Action GetSetDelegate(Pawn pawn, bool passions, int value)
-    {
-        return () =>
-        {
-            foreach (var skillRecord in pawn.skills.skills)
-                if (passions)
-                    skillRecord.passion = (Passion)value;
-                else
-                    skillRecord.Level = value;
-
-            // Bulk passion change: reconcile VSE passion hediffs (traumatic penalty, etc.) so removed
-            // passions don't leave orphan hediffs and added ones actually work.
-            if (passions && VSECompat.Active) VSECompat.SyncPassionHediffs(pawn);
-
-            PawnEditor.Notify_PointsUsed();
-        };
     }
 
     [HotSwappable]

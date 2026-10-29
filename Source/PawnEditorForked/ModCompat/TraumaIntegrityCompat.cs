@@ -112,6 +112,9 @@ public static class TraumaIntegrityCompat
     public static bool IntegrityEnabled => Available && enableIntegrityField.GetValue(null) is true;
     public static bool IntegrityHidden => Available && hideIntegrityField.GetValue(null) is true;
 
+    /// <summary>At least one of the two stats is on in the mod's settings; with both off there's nothing to edit.</summary>
+    public static bool AnyStatEnabled => TraumaEnabled || IntegrityEnabled;
+
     public static bool SetTrauma(Pawn pawn, float value)
     {
         var data = GetData(pawn);

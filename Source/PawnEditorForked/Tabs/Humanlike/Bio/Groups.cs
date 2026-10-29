@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -6,211 +7,203 @@ using Verse;
 
 namespace PawnEditor;
 
+// The Groups section of the Bio tab: faction, ideology, certainty, role, and Trauma and Integrity.
 public partial class TabWorker_Bio_Humanlike
 {
+    private const float GroupRowHeight = 30f;
+    private const float GroupRowGap = 4f;
+    private const float GroupSectionGap = 16f;
+    private const float IdeoCardGap = 10f;
+    private const float GroupIconSize = 30f;
+    private const float SliderHeight = 10f;
+
     private void DoGroups(Rect inRect, Pawn pawn)
     {
-        Widgets.Label(inRect.TakeTopPart(Text.LineHeight), "PawnEditor.Groups".Translate().Colorize(ColoredText.TipSectionTitleColor));
+        if (Layout.TryTakeTop(ref inRect, Text.LineHeight, out var title))
+            Widgets.Label(title, "PawnEditor.Groups".Translate().Colorize(ColoredText.TipSectionTitleColor));
         inRect.xMin += 6;
         inRect.yMin += 4f;
 
-        var faction = "Faction".Translate();
-        var ideo = "DifficultyIdeologySection".Translate();
-        var certainty = "Certainty".Translate().CapitalizeFirst();
-        var role = "Role".Translate().CapitalizeFirst();
-        var leftWidth = UIUtility.ColumnWidth(3, faction, ideo, certainty, role) + 4f;
-        var factionRect = inRect.TakeTopPart(30);
-        inRect.yMin += 4;
-        using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(factionRect.TakeLeftPart(leftWidth), faction);
+        var leftWidth = UIUtility.ColumnWidth(3, "Faction".Translate(), "DifficultyIdeologySection".Translate(),
+            "Certainty".Translate().CapitalizeFirst(), "Role".Translate().CapitalizeFirst()) + 4f;
 
-        //Creates the dropdown menu of the factions. On selection, it calls a Lambda Func. In this case it selects the faction.
-        if (Widgets.ButtonText(factionRect, "PawnEditor.SelectFaction".Translate()))
-        {
-            //create dropdown options
-            List<FloatMenuOption> options = PawnEditor_PawnsFinder.GetAllFactionsContainingAtLeastOneHumanLike().Select(newFaction =>
-                    new FloatMenuOption(newFaction.Name, delegate
-                    {
-                        if (newFaction != pawn.Faction) pawn.SetFaction(newFaction);
-                        PawnEditor.selectedFaction = newFaction;
-                        PawnEditor.DoRecache();
-                    }, newFaction.def.FactionIcon, newFaction.Color)).ToList();
-
-            //Create a new option for each of the random faction selectors
-            var randomAllyOption = new FloatMenuOption("PawnEditor.RandomAlly".Translate(), () =>
-            {
-                var randFac = Find.FactionManager.RandomAlliedFaction();
-                if (randFac != pawn.Faction) pawn.SetFaction(randFac);
-                PawnEditor.selectedFaction = randFac;
-                PawnEditor.DoRecache();
-
-            });
-            randomAllyOption.Disabled = Find.FactionManager.RandomAlliedFaction() == null;
-            options.Add(randomAllyOption);
-
-            var randomEnemyFactionOption = new FloatMenuOption("PawnEditor.RandomEnemy".Translate(), () =>
-            {
-
-                var randFac = Find.FactionManager.RandomEnemyFaction();
-                if (randFac != pawn.Faction) pawn.SetFaction(randFac);
-                    PawnEditor.selectedFaction = randFac;
-                PawnEditor.DoRecache();
-            });
-            randomEnemyFactionOption.Disabled = Find.FactionManager.RandomEnemyFaction() == null;
-            options.Add(randomEnemyFactionOption);
-
-            var randomNonHostileOption = new FloatMenuOption("PawnEditor.RandomNonHostile".Translate(), () =>
-            {
-                var randFac = Find.FactionManager.RandomNonHostileFaction();
-
-                if (randFac != pawn.Faction) pawn.SetFaction(randFac);
-                    PawnEditor.selectedFaction = randFac;
-                PawnEditor.DoRecache();
-
-            });
-            randomNonHostileOption.Disabled = Find.FactionManager.RandomNonHostileFaction() == null;
-            options.Add(randomNonHostileOption);
-
-            var randomNonColonistOption = new FloatMenuOption("PawnEditor.RandomNonColonist".Translate(), () =>
-            {
-
-                List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                Faction randFac = factions[Random.Range(0, factions.Count - 1)];
-                if (randFac != pawn.Faction) pawn.SetFaction(randFac);
-                    PawnEditor.selectedFaction = randFac;
-                PawnEditor.DoRecache();
-
-            });
-            randomNonColonistOption.Disabled = !(Find.FactionManager.RandomEnemyFaction() != null && Find.FactionManager.RandomNonHostileFaction() != null);
-            options.Add(randomNonColonistOption);
-
-            //All factions including colony
-            var randomOption = new FloatMenuOption("PawnEditor.RandomFaction".Translate(), () =>
-            {
-                List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                factions.Add(Find.FactionManager.ofPlayer);
-                var randFac = factions[Random.Range(0, factions.Count - 1)];
-                pawn.SetFaction(randFac);
-                PawnEditor.selectedFaction = randFac;
-                PawnEditor.DoRecache();
-
-            });
-            randomOption.Disabled = (Find.FactionManager.AllFactionsVisibleInViewOrder.ToList().Count <= 1);
-            options.Add(randomOption);
-
-            //add option to faction to null 
-            options.Add(new FloatMenuOption("PawnEditor.NoFaction".Translate(), () =>
-            {
-                pawn.SetFaction(null);
-                PawnEditor.selectedFaction = null;
-                PawnEditor.DoRecache();
-            }));
-
-            //add dropdown to window stack
-            Find.WindowStack.Add(new FloatMenu(options));
-        }
-
-        factionRect = inRect.TakeTopPart(30);
-        inRect.yMin += 4;
-        factionRect.TakeLeftPart(leftWidth);
-
-        //How to draw the faction label depending on mod options
-        if (pawn.Faction != null)
-        {
-            if (PawnEditor.Pregame)
-            {
-                if (!PawnEditorMod.Settings.HideFactions)
-                {
-                    DrawFactionLabel(factionRect, pawn);
-                }
-                else
-                {
-                    if (pawn.Faction != Find.FactionManager.ofPlayer) 
-                        Widgets.Label(factionRect, "PawnEditor.FactionHidden".Translate());
-                    else 
-                        DrawFactionLabel(factionRect, pawn);
-                }
-
-            }
-            else 
-                DrawFactionLabel(factionRect, pawn);
-        }
-        else 
-            Widgets.Label(factionRect, "PawnEditor.NoFaction".Translate());
-        
-        inRect.yMin += 16;
+        DrawFactionPicker(ref inRect, pawn, leftWidth);
+        DrawFactionCard(ref inRect, pawn, leftWidth);
+        inRect.yMin += GroupSectionGap;
 
         if (ModsConfig.IdeologyActive && pawn.Ideo != null)
         {
-            var ideoRect = inRect.TakeTopPart(30);
-            inRect.yMin += 4;
-            using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(ideoRect.TakeLeftPart(leftWidth), ideo);
-            if (Widgets.ButtonText(ideoRect, "PawnEditor.SelectIdeo".Translate()))
-                Find.WindowStack.Add(new FloatMenu(Find.IdeoManager.IdeosInViewOrder.Select(newIdeo =>
-                        new FloatMenuOption(newIdeo.name, delegate { pawn.ideo.SetIdeo(newIdeo); }, newIdeo.Icon, newIdeo.Color))
-                   .ToList()));
-
-            ideoRect = inRect.TakeTopPart(30);
-            inRect.yMin += 10f;
-            ideoRect.TakeLeftPart(leftWidth);
-            Widgets.DrawHighlight(ideoRect);
-            Widgets.DrawHighlightIfMouseover(ideoRect);
-            if (Widgets.ButtonInvisible(ideoRect)) IdeoUIUtility.OpenIdeoInfo(pawn.Ideo);
-
-            GUI.color = pawn.Ideo.Color;
-            GUI.DrawTexture(ideoRect.TakeLeftPart(30).ContractedBy(6), pawn.Ideo.Icon);
-            GUI.color = Color.white;
-            using (new TextBlock(TextAnchor.MiddleLeft))
-                Widgets.Label(ideoRect, pawn.Ideo.name.Truncate(ideoRect.width, truncateCache));
-
-            var certaintyRect = inRect.TakeTopPart(30);
-            using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(certaintyRect.TakeLeftPart(leftWidth), certainty);
-            certaintyRect.yMax -= Mathf.Round((certaintyRect.height - 10f) / 2f);
-            pawn.ideo.certaintyInt = Widgets.HorizontalSlider(certaintyRect, pawn.ideo.certaintyInt, 0, 1, true, pawn.ideo.Certainty.ToStringPercent(),
-                "0%", "100%");
-
-
-            var roleRect = inRect.TakeTopPart(30);
-            inRect.yMin += 4;
-            using (new TextBlock(TextAnchor.MiddleLeft)) Widgets.Label(roleRect.TakeLeftPart(leftWidth), role);
-            var curTitle = pawn.Ideo.GetRole(pawn);
-            if (Widgets.ButtonText(roleRect, curTitle?.LabelForPawn(pawn) ?? "None".Translate()))
-            {
-                var list = new List<FloatMenuOption>
-                {
-                    // ToDo: Removing roles has some odd behaviour where it sometimes changes the role to a different one instead of removing it.
-                    new("None".Translate(), () => { curTitle?.Unassign(pawn, false); })
-                };
-                list.AddRange(pawn.Ideo.cachedPossibleRoles.Select(ideoRole =>
-                    new FloatMenuOption(ideoRole.LabelForPawn(pawn),
-                    delegate
-                    {
-                        if (curTitle != ideoRole)
-                        {
-                            curTitle?.Unassign(pawn, false);
-                            ideoRole.Assign(pawn, true);
-                        }
-                    }
-                    )));
-                Find.WindowStack.Add(new FloatMenu(list));
-            }
-
-            inRect.yMin += 16;
+            DrawIdeoPicker(ref inRect, pawn, leftWidth);
+            DrawIdeoCard(ref inRect, pawn, leftWidth);
+            DrawCertaintySlider(ref inRect, pawn, leftWidth);
+            DrawRoleButton(ref inRect, pawn, leftWidth);
+            inRect.yMin += GroupSectionGap;
         }
 
-        if (TraumaIntegrityCompat.Available)
+        // Hidden when both stats are off in the mod's settings (request: Kimo', Steam, 8 Oct).
+        if (TraumaIntegrityCompat.AnyStatEnabled)
             DrawTraumaIntegrityControls(ref inRect, pawn);
     }
 
-    void DrawFactionLabel(Rect factionRect, Pawn pawn)
+    /// <summary>Takes a row, writes <paramref name="label"/> in its left column, and returns the rest.</summary>
+    private static bool TryTakeLabeledRow(ref Rect rect, float leftWidth, string label, out Rect field)
     {
-        Widgets.DrawHighlight(factionRect);
-        Widgets.DrawHighlightIfMouseover(factionRect);
-        if (Widgets.ButtonInvisible(factionRect)) Find.WindowStack.Add(new Dialog_InfoCard(pawn.Faction));
+        if (!Layout.TryTakeTop(ref rect, GroupRowHeight, out field)) return false;
+
+        using (new TextBlock(TextAnchor.MiddleLeft))
+            Widgets.Label(field.TakeLeftPart(leftWidth), label);
+        return true;
+    }
+
+    // ── Faction ──
+
+    private static void DrawFactionPicker(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!TryTakeLabeledRow(ref rect, leftWidth, "Faction".Translate(), out var field)) return;
+        rect.yMin += GroupRowGap;
+
+        if (Widgets.ButtonText(field, "PawnEditor.SelectFaction".Translate()))
+            Find.WindowStack.Add(new FloatMenu(FactionOptions(pawn)));
+    }
+
+    /// <summary>Every faction with a humanlike, the random pickers, and "No faction".</summary>
+    private static List<FloatMenuOption> FactionOptions(Pawn pawn)
+    {
+        var manager = Find.FactionManager;
+        var options = PawnEditor_PawnsFinder.GetAllFactionsContainingAtLeastOneHumanLike()
+            .Select(faction => new FloatMenuOption(faction.Name, () => AssignFaction(pawn, faction), faction.def.FactionIcon, faction.Color))
+            .ToList();
+
+        options.Add(RandomFactionOption("PawnEditor.RandomAlly".Translate(), pawn,
+            () => manager.RandomAlliedFaction(), manager.RandomAlliedFaction() == null));
+        options.Add(RandomFactionOption("PawnEditor.RandomEnemy".Translate(), pawn,
+            () => manager.RandomEnemyFaction(), manager.RandomEnemyFaction() == null));
+        options.Add(RandomFactionOption("PawnEditor.RandomNonHostile".Translate(), pawn,
+            () => manager.RandomNonHostileFaction(), manager.RandomNonHostileFaction() == null));
+        options.Add(RandomFactionOption("PawnEditor.RandomNonColonist".Translate(), pawn,
+            () => manager.AllFactionsVisibleInViewOrder.RandomElement(),
+            manager.RandomEnemyFaction() == null || manager.RandomNonHostileFaction() == null));
+        options.Add(RandomFactionOption("PawnEditor.RandomFaction".Translate(), pawn,
+            AnyFactionIncludingColony, manager.AllFactionsVisibleInViewOrder.Count() <= 1));
+        options.Add(new FloatMenuOption("PawnEditor.NoFaction".Translate(), () => AssignFaction(pawn, null)));
+        return options;
+    }
+
+    private static FloatMenuOption RandomFactionOption(string label, Pawn pawn, Func<Faction> pick, bool disabled) =>
+        new(label, () => AssignFaction(pawn, pick())) { Disabled = disabled };
+
+    // RandomElement covers the whole list. The old Random.Range(0, Count - 1) is max-exclusive, so the
+    // last faction could never come up (same bug as the one fixed in Randomization and the bottom buttons).
+    private static Faction AnyFactionIncludingColony()
+    {
+        var factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
+        factions.Add(Find.FactionManager.ofPlayer);
+        return factions.RandomElement();
+    }
+
+    private static void AssignFaction(Pawn pawn, Faction faction)
+    {
+        if (faction != pawn.Faction)
+            pawn.SetFaction(faction);
+        PawnEditor.selectedFaction = faction;
+        PawnEditor.DoRecache();
+    }
+
+    private static void DrawFactionCard(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!Layout.TryTakeTop(ref rect, GroupRowHeight, out var row)) return;
+        rect.yMin += GroupRowGap;
+        row.xMin += leftWidth;
+
+        if (pawn.Faction == null)
+            Widgets.Label(row, "PawnEditor.NoFaction".Translate());
+        else if (IsFactionHidden(pawn))
+            Widgets.Label(row, "PawnEditor.FactionHidden".Translate());
+        else
+            DrawFactionLabel(row, pawn);
+    }
+
+    /// <summary>Before the game starts, the "hide factions" setting hides every faction but the player's.</summary>
+    private static bool IsFactionHidden(Pawn pawn) =>
+        PawnEditor.Pregame && PawnEditorMod.Settings.HideFactions && pawn.Faction != Find.FactionManager.ofPlayer;
+
+    private static void DrawFactionLabel(Rect rect, Pawn pawn)
+    {
+        Widgets.DrawHighlight(rect);
+        Widgets.DrawHighlightIfMouseover(rect);
+        if (Widgets.ButtonInvisible(rect))
+            Find.WindowStack.Add(new Dialog_InfoCard(pawn.Faction));
 
         GUI.color = pawn.Faction.Color;
-        GUI.DrawTexture(factionRect.TakeLeftPart(30).ContractedBy(6), pawn.Faction.def.FactionIcon);
+        GUI.DrawTexture(rect.TakeLeftPart(GroupIconSize).ContractedBy(6), pawn.Faction.def.FactionIcon);
         GUI.color = Color.white;
         using (new TextBlock(TextAnchor.MiddleLeft))
-            Widgets.Label(factionRect, pawn.Faction.Name);
+            Widgets.Label(rect, pawn.Faction.Name);
+    }
+
+    // ── Ideology ──
+
+    private static void DrawIdeoPicker(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!TryTakeLabeledRow(ref rect, leftWidth, "DifficultyIdeologySection".Translate(), out var field)) return;
+        rect.yMin += GroupRowGap;
+
+        if (Widgets.ButtonText(field, "PawnEditor.SelectIdeo".Translate()))
+            Find.WindowStack.Add(new FloatMenu(Find.IdeoManager.IdeosInViewOrder
+                .Select(ideo => new FloatMenuOption(ideo.name, () => pawn.ideo.SetIdeo(ideo), ideo.Icon, ideo.Color))
+                .ToList()));
+    }
+
+    private void DrawIdeoCard(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!Layout.TryTakeTop(ref rect, GroupRowHeight, out var row)) return;
+        rect.yMin += IdeoCardGap;
+        row.xMin += leftWidth;
+
+        Widgets.DrawHighlight(row);
+        Widgets.DrawHighlightIfMouseover(row);
+        if (Widgets.ButtonInvisible(row))
+            IdeoUIUtility.OpenIdeoInfo(pawn.Ideo);
+
+        GUI.color = pawn.Ideo.Color;
+        GUI.DrawTexture(row.TakeLeftPart(GroupIconSize).ContractedBy(6), pawn.Ideo.Icon);
+        GUI.color = Color.white;
+        using (new TextBlock(TextAnchor.MiddleLeft))
+            Widgets.Label(row, pawn.Ideo.name.Truncate(row.width, truncateCache));
+    }
+
+    private static void DrawCertaintySlider(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!TryTakeLabeledRow(ref rect, leftWidth, "Certainty".Translate().CapitalizeFirst(), out var field)) return;
+
+        field.yMax -= Mathf.Round((field.height - SliderHeight) / 2f);
+        pawn.ideo.certaintyInt = Widgets.HorizontalSlider(field, pawn.ideo.certaintyInt, 0, 1, true,
+            pawn.ideo.Certainty.ToStringPercent(), "0%", "100%");
+    }
+
+    private static void DrawRoleButton(ref Rect rect, Pawn pawn, float leftWidth)
+    {
+        if (!TryTakeLabeledRow(ref rect, leftWidth, "Role".Translate().CapitalizeFirst(), out var field)) return;
+        rect.yMin += GroupRowGap;
+
+        var current = pawn.Ideo.GetRole(pawn);
+        if (Widgets.ButtonText(field, current?.LabelForPawn(pawn) ?? "None".Translate()))
+            Find.WindowStack.Add(new FloatMenu(RoleOptions(pawn, current)));
+    }
+
+    private static List<FloatMenuOption> RoleOptions(Pawn pawn, Precept_Role current)
+    {
+        // ToDo: removing a role sometimes switches it to a different one instead of removing it.
+        var options = new List<FloatMenuOption> { new("None".Translate(), () => current?.Unassign(pawn, false)) };
+        options.AddRange(pawn.Ideo.cachedPossibleRoles.Select(role =>
+            new FloatMenuOption(role.LabelForPawn(pawn), () => SwitchRole(pawn, current, role))));
+        return options;
+    }
+
+    private static void SwitchRole(Pawn pawn, Precept_Role current, Precept_Role role)
+    {
+        if (current == role) return;
+        current?.Unassign(pawn, false);
+        role.Assign(pawn, true);
     }
 }

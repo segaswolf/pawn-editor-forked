@@ -169,12 +169,14 @@ public static partial class PawnEditor
         }
         else
         {
-            List<FloatMenuOption> options = curTab.GetRandomizationOptions(selectedPawn).Select(option => new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + option.Label.ToLower(), () =>
-            {
-                lastRandomization = option;
-                option.action();
-                Notify_PointsUsed();
-            })).ToList();
+            // The list is rebuilt every frame, each entry closing over the selected pawn, so the repeat
+            // button remembers the label and re-runs this frame's entry.
+            List<FloatMenuOption> options = curTab.GetRandomizationOptions(selectedPawn)
+                .Select(option =>
+                {
+                    var label = "PawnEditor.Randomize".Translate() + " " + option.Label.ToLower();
+                    return new FloatMenuOption(label, () => RunRandomization(label, option.action));
+                }).ToList();
             return options as IEnumerable<FloatMenuOption>;
         }
     }

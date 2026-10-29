@@ -6,8 +6,6 @@
     <Description>A mod for RimWorld that allows you to edit pawns.</Description>
     <Company>SegasWolf</Company>
     <Product>PawnEditorForked</Product>
-    <AssemblyVersion>1.2.0</AssemblyVersion>
-    <FileVersion>1.2.0</FileVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 
     <Nullable>disable</Nullable>
@@ -50,10 +48,29 @@
       <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
+    <!-- Polyfills de C# moderno (records, init, required...) generados en compilación: no agrega DLLs al mod. -->
+    <PackageReference Include="PolySharp">
+      <Version>1.16.0</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
     <Publicize Include="Assembly-CSharp" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Utils\RimUI\ReadMe.txt" />
   </ItemGroup>
+  <!-- La versión del DLL sale de About.xml (modVersion): una sola fuente de verdad. -->
+  <Target Name="ReadModVersion" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo">
+    <XmlPeek XmlInputPath="$(MSBuildProjectDirectory)\..\..\About\About.xml" Query="/ModMetaData/modVersion/text()">
+      <Output TaskParameter="Result" PropertyName="ModVersion" />
+    </XmlPeek>
+    <PropertyGroup>
+      <AssemblyVersion>$(ModVersion)</AssemblyVersion>
+      <FileVersion>$(ModVersion)</FileVersion>
+      <InformationalVersion>$(ModVersion)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
 </Project>

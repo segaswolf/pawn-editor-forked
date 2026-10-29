@@ -59,6 +59,16 @@ public partial class TabWorker_Bio_Humanlike
         using (new TextBlock(TextAnchor.MiddleLeft))
             Widgets.Label(nameRect.TakeLeftPart(leftWidth), "PawnEditor.Name".Translate());
 
+        // The blinking text caret is drawn by Unity from a GLOBAL skin setting, not by the field itself.
+        // Users reported being able to type here while seeing no caret at all — with a heavy UI-mod
+        // stack, something else can leave cursorColor transparent (or the flash speed at zero), and our
+        // fields inherit it. Force a visible, blinking caret while we draw, then restore whatever was
+        // there so we don't change how any other window looks.
+        // NOTE: the argument is required. For a struct, `new CaretVisibilityScope()` would call the
+        // implicit default constructor and skip our logic entirely.
+        using (new CaretVisibilityScope(true))
+        {
+
         if (pawn.Name is NameTriple nameTriple)
         {
             var thirdWidth = nameRect.width * 0.333f;
@@ -96,6 +106,35 @@ public partial class TabWorker_Bio_Humanlike
         else
         {
             Widgets.Label(nameRect, pawn.NameFullColored);
+        }
+        } // CaretVisibilityScope
+    }
+
+    /// <summary>
+    /// Makes sure the text caret is actually visible while text fields are drawn, then puts the global
+    /// skin settings back exactly as they were. Unity keeps the caret colour and flash speed on the
+    /// shared GUISkin, so another mod (or an odd skin) can leave it invisible for everyone; this scope
+    /// keeps our input fields usable without permanently changing anyone else's UI.
+    /// </summary>
+    private readonly struct CaretVisibilityScope : System.IDisposable
+    {
+        private readonly Color previousCursorColor;
+        private readonly float previousFlashSpeed;
+
+        public CaretVisibilityScope(bool _ = true)
+        {
+            previousCursorColor = GUI.skin.settings.cursorColor;
+            previousFlashSpeed = GUI.skin.settings.cursorFlashSpeed;
+
+            // Only override when it would be invisible: a transparent caret, or one that never blinks on.
+            if (previousCursorColor.a < 0.5f) GUI.skin.settings.cursorColor = Color.white;
+            if (previousFlashSpeed <= 0f) GUI.skin.settings.cursorFlashSpeed = 1f;
+        }
+
+        public void Dispose()
+        {
+            GUI.skin.settings.cursorColor = previousCursorColor;
+            GUI.skin.settings.cursorFlashSpeed = previousFlashSpeed;
         }
     }
 
@@ -147,12 +186,13 @@ public partial class TabWorker_Bio_Humanlike
 
     /// <summary>
     /// Applies a new biological age to a pawn and handles dev stage transitions.
-    /// If the age change crosses a dev stage boundary (e.g., adult→child at 13),
-    /// removes or generates the adult backstory and adjusts body type.
+    /// Crossing a dev stage boundary (e.g., adult→child at 13) removes the adult backstory and adjusts body type;
+    /// reaching 20 gives one, as vanilla does (<see cref="BackstoryUtility.VanillaAdulthoodAge"/>).
     /// </summary>
     private void ApplyBiologicalAge(Pawn pawn, int newAge)
     {
         var oldDevStage = pawn.DevelopmentalStage;
+        var oldAge = pawn.ageTracker.AgeBiologicalYears;
         pawn.ageTracker.AgeBiologicalTicks = newAge * TicksPerYear;
         var newDevStage = pawn.DevelopmentalStage;
 
@@ -166,6 +206,7 @@ public partial class TabWorker_Bio_Humanlike
         // Handle backstory transitions when dev stage changes
         if (oldDevStage != newDevStage)
             BackstoryUtility.HandleDevStageTransition(pawn, newDevStage);
+        BackstoryUtility.GiveAdulthoodOnReachingVanillaAge(pawn, oldAge);
 
         PawnEditor.Notify_PointsUsed();
     }
@@ -188,16 +229,21 @@ public partial class TabWorker_Bio_Humanlike
                 (TipSignal)pawn.story.childhood.FullDescriptionFor(pawn).Resolve());
         }
 
-        if (pawn.story.Adulthood != null)
+        // Shown for every adult, even without an adulthood: vanilla leaves adults of 13 to 19 without one
+        // (BackstoryUtility.VanillaAdulthoodAge), and the player must still be able to pick one.
+        if (pawn.story.Adulthood != null || pawn.DevelopmentalStage == DevelopmentalStage.Adult)
         {
             inRect.yMin += 3;
             var adultRect = inRect.TakeTopPart(30);
             using (new TextBlock(TextAnchor.MiddleLeft))
                 Widgets.Label(adultRect.TakeLeftPart(leftWidth), adulthoodLabel);
-            if (Widgets.ButtonText(adultRect.LeftPart(0.6f), pawn.story.Adulthood.TitleCapFor(pawn.gender)))
+            var adulthood = pawn.story.Adulthood;
+            var buttonLabel = adulthood?.TitleCapFor(pawn.gender) ?? "None".Translate().CapitalizeFirst();
+            if (Widgets.ButtonText(adultRect.LeftPart(0.6f), buttonLabel))
                 Find.WindowStack.Add(new ListingMenu_Backstories(pawn, BackstorySlot.Adulthood));
-            TooltipHandler.TipRegion(adultRect.LeftPart(0.6f),
-                (TipSignal)pawn.story.adulthood.FullDescriptionFor(pawn).Resolve());
+            TooltipHandler.TipRegion(adultRect.LeftPart(0.6f), adulthood != null
+                ? (TipSignal)adulthood.FullDescriptionFor(pawn).Resolve()
+                : (TipSignal)"PawnEditor.AdulthoodNoneDesc".Translate(BackstoryUtility.VanillaAdulthoodAge));
         }
     }
 

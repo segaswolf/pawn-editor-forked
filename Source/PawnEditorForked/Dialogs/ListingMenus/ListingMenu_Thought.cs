@@ -7,7 +7,7 @@ using Verse;
 
 namespace PawnEditor;
 
-[StaticConstructorOnStartup]
+// Built on first open (no [StaticConstructorOnStartup]), so defs other mods add late are included.
 [HotSwappable]
 public class ListingMenu_Thoughts : ListingMenu<ThoughtDef>
 {

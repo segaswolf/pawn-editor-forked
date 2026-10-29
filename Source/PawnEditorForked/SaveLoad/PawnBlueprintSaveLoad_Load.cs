@@ -195,6 +195,7 @@ public static partial class PawnBlueprintSaveLoad
             () => LoadExpertise(pawn, root));      // VSE
         PawnEditorProfiler.Measure("Load.Proficiencies", PawnEditorProfiler.Cadence.PerAction,
             () => LoadProficiencies(pawn, root));  // Life Lessons
+        IsekaiLevelingCompat.LoadBlueprint(pawn, root); // after traits: re-derives the rank trait
 
         // Ideo certainty LAST — other steps trigger ideo recalculation
         if (ModsConfig.IdeologyActive && pawn.ideo != null)

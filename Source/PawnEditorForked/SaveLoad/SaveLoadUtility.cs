@@ -172,6 +172,12 @@ public static partial class SaveLoadUtility
         var type = typeof(T).Name;
         Find.WindowStack.Add(new Dialog_PawnEditorFiles_Save(typePostfix.NullOrEmpty() ? type : Path.Combine(type, typePostfix!), path =>
         {
+            // CRITICAL: ApplyPatches installs GLOBAL Harmony patches (Scribe_Values.Look, Thing/Pawn
+            // ExposeData, PostLoadIniter...). They must come back off no matter what happens in between.
+            // Without the try/finally, a single exception mid-save (a modded comp throwing in ExposeData,
+            // a file error) left those patches installed for the REST OF THE SESSION — so ReassignLoadID
+            // then rewrote IDs during unrelated loads and world generation. That is exactly the class of
+            // "but we don't even touch that" bug we've chased before. The load path already did this.
             currentlyWorking = true;
             currentItem = item as ILoadReferenceable;
             currentPawn = parentPawn;
@@ -179,22 +185,35 @@ public static partial class SaveLoadUtility
             prepare?.Invoke(item);
             ApplyPatches();
 
-            var tempFile = Path.GetTempFileName();
-            Scribe.saver.InitSaving(tempFile, typePostfix.NullOrEmpty() ? type : type + "." + typePostfix);
-            item.ExposeData();
-            Scribe.saver.FinalizeSaving();
-            File.Delete(tempFile);
+            try
+            {
+                var tempFile = Path.GetTempFileName();
+                Scribe.saver.InitSaving(tempFile, typePostfix.NullOrEmpty() ? type : type + "." + typePostfix);
+                item.ExposeData();
+                Scribe.saver.FinalizeSaving();
+                File.Delete(tempFile);
 
-            Scribe.saver.InitSaving(path, typePostfix.NullOrEmpty() ? type : type + "." + typePostfix);
-            ScribeMetaHeaderUtility.WriteMetaHeader();
-            item.ExposeData();
-            Scribe.saver.FinalizeSaving();
-
-            savedItems.Clear();
-            currentItem = null;
-            currentlyWorking = false;
-            currentPawn = null;
-            UnApplyPatches();
+                Scribe.saver.InitSaving(path, typePostfix.NullOrEmpty() ? type : type + "." + typePostfix);
+                ScribeMetaHeaderUtility.WriteMetaHeader();
+                item.ExposeData();
+                Scribe.saver.FinalizeSaving();
+            }
+            catch (Exception ex)
+            {
+                // Don't fail silently: a half-written blueprint should say so.
+                Log.Error($"[Pawn Editor] Saving '{type}' failed: {ex}");
+                Messages.Message("Pawn Editor: save failed, check the log.", MessageTypeDefOf.RejectInput, false);
+                throw;
+            }
+            finally
+            {
+                savedItems.Clear();
+                currentItem = null;
+                currentlyWorking = false;
+                currentPawn = null;
+                try { UnApplyPatches(); }
+                catch (Exception ex) { Log.Error($"[Pawn Editor] Failed to remove save patches: {ex}"); }
+            }
 
             if (item is Pawn pawn) PawnEditor.SavePawnTex(pawn, Path.ChangeExtension(path, ".png"), Rot4.South);
 

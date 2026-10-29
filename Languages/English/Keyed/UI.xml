@@ -44,7 +44,10 @@
     <PawnEditor.Randomize>Randomize</PawnEditor.Randomize>
     <PawnEditor.AllIncludingFaction>all - including faction</PawnEditor.AllIncludingFaction>
     <PawnEditor.AllKeepXenotype>all - keep xenotype</PawnEditor.AllKeepXenotype>
+    <PawnEditor.AllFactionXenotype>all - faction's usual xenotype</PawnEditor.AllFactionXenotype>
     <PawnEditor.SelectRandomFaction>Randomize faction</PawnEditor.SelectRandomFaction>
+    <PawnEditor.UndoRandomize>Undo last randomize</PawnEditor.UndoRandomize>
+    <PawnEditor.RandomizeRelationsWarning>This removes {0}'s family relations (parents, partners, children), also from the related pawns, and lets the game generate new ones. It often generates none.\n\nThis can't be undone. Continue?</PawnEditor.RandomizeRelationsWarning>
     <PawnEditor.WithRandomFaction>With random faction</PawnEditor.WithRandomFaction>
     <PawnEditor.FactionHidden>Faction hidden</PawnEditor.FactionHidden>
     <PawnEditor.NoFaction>No faction</PawnEditor.NoFaction>
@@ -69,6 +72,7 @@
     <PawnEditor.Body>Body</PawnEditor.Body>
     <PawnEditor.Head>Head</PawnEditor.Head>
     <PawnEditor.IgnoreXenotype>Ignore xenotype restrictions</PawnEditor.IgnoreXenotype>
+    <PawnEditor.IgnoreXenotypeDesc>Lets you pick heads, body types and cosmetic genes that the pawn's xenotype or race would normally not allow.</PawnEditor.IgnoreXenotypeDesc>
     <PawnEditor.Ears>Ears</PawnEditor.Ears>
     <PawnEditor.Headbone>Forehead (horns)</PawnEditor.Headbone>
     <PawnEditor.BodyType>Body type</PawnEditor.BodyType>
@@ -94,6 +98,21 @@
     <PawnEditor.Shape>Shape</PawnEditor.Shape>
     <PawnEditor.Weight>Weight</PawnEditor.Weight>
     <PawnEditor.Hair>Hair</PawnEditor.Hair>
+    <PawnEditor.CosmeticGenes>Cosmetic genes</PawnEditor.CosmeticGenes>
+    <PawnEditor.CustomizeFace>Customize face</PawnEditor.CustomizeFace>
+    <PawnEditor.ChooseSource>Choose source mod</PawnEditor.ChooseSource>
+    <PawnEditor.ChooseCategory>Choose category</PawnEditor.ChooseCategory>
+    <PawnEditor.NothingFromSource>Nothing here comes from {0}. The Source filter applies to every tab.</PawnEditor.NothingFromSource>
+    <PawnEditor.ShowAllSources>Show all sources</PawnEditor.ShowAllSources>
+    <PawnEditor.EquipRefusedKeptAsPossession>{0} can't equip {1} (another mod doesn't allow it, for example for lack of proficiency). It was added to their possessions instead.</PawnEditor.EquipRefusedKeptAsPossession>
+    <PawnEditor.MissingGenesShort>({0} missing genes)</PawnEditor.MissingGenesShort>
+    <PawnEditor.MissingGenesTip>These genes come from mods that aren't loaded, so they will be skipped: {0}</PawnEditor.MissingGenesTip>
+    <PawnEditor.MissingGenesMods>Mods active when this xenotype was saved that aren't loaded now:\n{0}</PawnEditor.MissingGenesMods>
+    <PawnEditor.MissingGenesManyMods>{0} mods that were active when this xenotype was saved aren't loaded now.</PawnEditor.MissingGenesManyMods>
+    <PawnEditor.AppliedWithMissingGenes>{0} applied without {1} genes from mods that aren't loaded: {2}</PawnEditor.AppliedWithMissingGenes>
+    <PawnEditor.SpecialBodyType>{0} (mod special)</PawnEditor.SpecialBodyType>
+    <PawnEditor.SpecialBodyTypeDesc>No backstory or race uses this body type: a mod adds it for its own purposes. It may draw wrong or leave the pawn invisible.</PawnEditor.SpecialBodyTypeDesc>
+    <PawnEditor.NothingToRandomize>Nothing to randomize with the current filters.</PawnEditor.NothingToRandomize>
     <PawnEditor.All>All</PawnEditor.All>
     <PawnEditor.ShowHeadgear>Show headgear</PawnEditor.ShowHeadgear>
     <PawnEditor.ShowApparel>Show apparel</PawnEditor.ShowApparel>
@@ -273,6 +292,25 @@
     <PawnEditor.MechsSection>Mechs</PawnEditor.MechsSection>
     <PawnEditor.SelectedLocation>Selected location</PawnEditor.SelectedLocation>
     <PawnEditor.SelectedSide>Side</PawnEditor.SelectedSide>
+    <PawnEditor.TraitsIncludingForced>Traits (including forced ones)</PawnEditor.TraitsIncludingForced>
+    <PawnEditor.GradientHair>Gradient hair</PawnEditor.GradientHair>
+    <PawnEditor.GradientHairSecondColor>Second color</PawnEditor.GradientHairSecondColor>
+    <PawnEditor.GradientHairPattern>Gradient pattern</PawnEditor.GradientHairPattern>
+    <PawnEditor.GradientHairPatternUnknown>Choose a pattern</PawnEditor.GradientHairPatternUnknown>
+    <PawnEditor.IsekaiStats>Isekai stats</PawnEditor.IsekaiStats>
+    <PawnEditor.IsekaiStatsDesc>Opens Isekai RPG Leveling's own editor: level, stats and constellation. Changes apply when you press Apply in that window.</PawnEditor.IsekaiStatsDesc>
+    <PawnEditor.AdulthoodNoneDesc>No adulthood backstory yet. RimWorld only gives one to pawns generated at {0} or older, so younger adults have a childhood only. Click to pick one if you want.</PawnEditor.AdulthoodNoneDesc>
+    <PawnEditor.EditExpertise>Edit expertise</PawnEditor.EditExpertise>
+    <PawnEditor.ExpertiseToPick>Click to add</PawnEditor.ExpertiseToPick>
+    <PawnEditor.ExpertiseAvailable>Available</PawnEditor.ExpertiseAvailable>
+    <PawnEditor.ExpertiseUnavailable>Not available yet</PawnEditor.ExpertiseUnavailable>
+    <PawnEditor.ExpertiseOwned>Current expertise</PawnEditor.ExpertiseOwned>
+    <PawnEditor.ExpertiseNone>No expertise yet</PawnEditor.ExpertiseNone>
+    <PawnEditor.ExpertisePerLevel>Per level:</PawnEditor.ExpertisePerLevel>
+    <PawnEditor.ExpertiseAtLevel>At level {0}:</PawnEditor.ExpertiseAtLevel>
+    <PawnEditor.SortBySkill>Sort: by skill</PawnEditor.SortBySkill>
+    <PawnEditor.SortAlphabetical>Sort: A-Z</PawnEditor.SortAlphabetical>
+    <PawnEditor.GradientHairFixesHint>Some older hairs may render blank with Gradient Hair. The "Gradient Hair Fixes" mod resolves this.</PawnEditor.GradientHairFixesHint>
     <PawnEditor.RemoveFilter>Remove this filter</PawnEditor.RemoveFilter>
     <PawnEditor.FilterInverted>(inverted)</PawnEditor.FilterInverted>
     <PawnEditor.BmModuleNeedsPart>{0} goes into a modular {1}. This pawn doesn't have one installed there yet, so install the modular part first and then add the module to it.</PawnEditor.BmModuleNeedsPart>
@@ -321,6 +359,8 @@
     <PawnEditor.ColonySaveScopeNote>Only colonists, animals and mechs currently on this map are saved. Anyone away from the map (caravans, travelers) is not included.</PawnEditor.ColonySaveScopeNote>
     <PawnEditor.RememberWindowPositions>Remember window position and size</PawnEditor.RememberWindowPositions>
     <PawnEditor.RememberWindowPositions.Desc>When on, editor windows reopen at the position and size you last left them. When off (default), they open centered, so a window left off-screen always comes back reachable.</PawnEditor.RememberWindowPositions.Desc>
+    <PawnEditor.Animations>UI animations</PawnEditor.Animations>
+    <PawnEditor.Animations.Desc>Bars glide to new values instead of jumping. Turn off for slower PCs or if you prefer no motion.</PawnEditor.Animations.Desc>
 
     <!-- VAspirE Aspirations -->
     <PawnEditor.ClickToComplete>Click to mark as completed</PawnEditor.ClickToComplete>
@@ -339,6 +379,7 @@
     <!-- Xenotype change -->
     <PawnEditor.XenotypeChangeWarning>Changing xenotype from {0} to {1} will reset all current genes.</PawnEditor.XenotypeChangeWarning>
     <PawnEditor.ResetGenesToBase>All existing endogenes and xenogenes will be removed and replaced with the new xenotype's genes. This cannot be undone.</PawnEditor.ResetGenesToBase>
+    <PawnEditor.Inheritable>Inheritable</PawnEditor.Inheritable>
     <PawnEditor.NotInheritable>Not inheritable</PawnEditor.NotInheritable>
     <PawnEditor.CustomXenotypes>Custom xenotypes</PawnEditor.CustomXenotypes>
     <PawnEditor.NoCustomXenotypes>No custom xenotypes found. Use the Xenotype editor to create one.</PawnEditor.NoCustomXenotypes>
@@ -447,8 +488,25 @@
     <PawnEditor.Development.IntegrityApplyDesc>Applying integrity rerolls betrayal status through Trauma &amp; Integrity's native behavior.</PawnEditor.Development.IntegrityApplyDesc>
     <PawnEditor.Development.Betrayer>Betrayer</PawnEditor.Development.Betrayer>
     <PawnEditor.Development.BetrayerDesc>This is hidden gameplay state. Enabling it makes the pawn immediately eligible for betrayal.</PawnEditor.Development.BetrayerDesc>
-    <PawnEditor.Development.TraumaDisabled>Trauma is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.TraumaDisabled>
-    <PawnEditor.Development.IntegrityDisabled>Integrity is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.IntegrityDisabled>
+    <PawnEditor.Thought.SituationalCannotRemove>This is a situational thought, not a memory. The game recalculates it from the pawn's current state, so removing it would have no effect — it would come straight back. It goes away when whatever causes it does.</PawnEditor.Thought.SituationalCannotRemove>
+    <PawnEditor.Thought.NotAMemoryCannotRemove>Only memories can be removed. This thought is generated by the game or by another mod rather than stored on the pawn, so there is nothing here to delete.</PawnEditor.Thought.NotAMemoryCannotRemove>
+    <PawnEditor.Development.BetrayalIn>Betrayal in</PawnEditor.Development.BetrayalIn>
+    <PawnEditor.Development.BetrayalInDesc>Days left before this pawn's betrayal fires. Trauma and Integrity rolls this at random when a pawn becomes a betrayer, so it can be anywhere from immediate to hundreds of days away. Set it to 0 to make the betrayal due right now.</PawnEditor.Development.BetrayalInDesc>
+    <PawnEditor.Development.DaysShort>d</PawnEditor.Development.DaysShort>
+    <PawnEditor.Development.ClearAllBetrayers>Clear betrayer flag on all pawns</PawnEditor.Development.ClearAllBetrayers>
+    <PawnEditor.Development.ClearAllBetrayersConfirm>{0} pawn(s) are currently flagged as betrayers.\n\nClear the flag on all of them? This also clears flags you set on purpose, and any set by Trauma and Integrity's own gameplay.</PawnEditor.Development.ClearAllBetrayersConfirm>
+    <PawnEditor.Development.BetrayersCleared>Cleared the betrayer flag on {0} pawn(s).</PawnEditor.Development.BetrayersCleared>
+    <PawnEditor.Development.NoBetrayers>No pawns are flagged as betrayers.</PawnEditor.Development.NoBetrayers>
     <PawnEditor.Development.IntegrityHidden>Integrity is hidden in normal gameplay by the mod's settings. Pawn Editor still exposes it here.</PawnEditor.Development.IntegrityHidden>
     <PawnEditor.Development.IntegrityUninitialized>This pawn's integrity has not been initialized. Applying a value will initialize and roll its betrayal state.</PawnEditor.Development.IntegrityUninitialized>
+    <!-- Developmental stage change warning -->
+    <PawnEditor.DevStage.WarnHeader>Changing to {0} will:</PawnEditor.DevStage.WarnHeader>
+    <PawnEditor.DevStage.WarnFooter>This cannot be undone. Continue?</PawnEditor.DevStage.WarnFooter>
+    <PawnEditor.DevStage.WarnAdulthood>- Remove adulthood backstory ({0})</PawnEditor.DevStage.WarnAdulthood>
+    <PawnEditor.DevStage.WarnRomance>- Remove romantic relations (Spouse, Lover, Fiancée, Ex)</PawnEditor.DevStage.WarnRomance>
+    <PawnEditor.DevStage.WarnPregnancy>- Remove pregnancy / parasitic infestation</PawnEditor.DevStage.WarnPregnancy>
+    <PawnEditor.DevStage.WarnWeapons>- Move weapons to inventory</PawnEditor.DevStage.WarnWeapons>
+    <PawnEditor.DevStage.WarnAspirations>- Remove all aspirations (children cannot have them)</PawnEditor.DevStage.WarnAspirations>
+    <PawnEditor.DevStage.WarnNewAdulthood>- Generate a random adulthood backstory</PawnEditor.DevStage.WarnNewAdulthood>
+    <PawnEditor.DevStage.WarnBodyType>- Change body type to adult</PawnEditor.DevStage.WarnBodyType>
 </LanguageData>

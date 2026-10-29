@@ -17,6 +17,19 @@ public static class StartingThingsManager
     private static Scenario cachedScenario;
     private static bool scenarioIsProcessed;
 
+    /// <summary>Takes over the scenario's starting items, once, the first time the pregame editor opens.</summary>
+    /// <remarks>
+    /// Not on page open: once taken, other mods that read those scenario parts (Prepare Carefully's
+    /// equipment tab) no longer see them and can only add items. Report: IkeFanboy64, Steam, 1 Oct.
+    /// </remarks>
+    public static void EnsureScenarioProcessed()
+    {
+        if (!scenarioIsProcessed)
+        {
+            ProcessScenario();
+        }
+    }
+
     /// <summary>
     /// Load all items from the cached scenario into the static starting things lists, Starting, Near, and Far items, animals, and mechs.
     /// </summary>

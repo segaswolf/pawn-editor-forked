@@ -471,7 +471,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                 else if (pawn.Ideo != null) compEquippable.parent.StyleDef = pawn.Ideo.GetStyleFor(thingWithComps.def);
             }
 
-            pawn.equipment.AddEquipment(thingWithComps);
+            EquipmentPlacement.Equip(pawn, thingWithComps);
             PawnEditor.RefreshPawnGraphics(pawn);
             ClearCaches();
         });
@@ -497,16 +497,20 @@ public class TabWorker_Gear : TabWorker<Pawn>
 
     private sealed class GearEditSession
     {
+        /// <summary>
+        /// Apparel temporarily taken off the pawn so the edit preview can be drawn without it, together
+        /// with the wearing state captured BEFORE it came off (see <see cref="ApparelWearingState"/>).
+        /// </summary>
         private readonly struct DetachedApparel
         {
-            public DetachedApparel(Apparel apparel, bool locked)
+            public DetachedApparel(Apparel apparel, ApparelWearingState state)
             {
                 Apparel = apparel;
-                Locked = locked;
+                State = state;
             }
 
             public Apparel Apparel { get; }
-            public bool Locked { get; }
+            public ApparelWearingState State { get; }
         }
 
         private readonly GearSlot slot;
@@ -922,15 +926,41 @@ public class TabWorker_Gear : TabWorker<Pawn>
             switch (slot)
             {
                 case GearSlot.Apparel:
-                    Pawn.apparel.Wear((Apparel)candidate, false);
+                    WearCandidateKeepingOriginalState((Apparel)candidate);
                     break;
                 case GearSlot.Equipment:
-                    Pawn.equipment.AddEquipment((ThingWithComps)candidate);
+                    EquipmentPlacement.Equip(Pawn, (ThingWithComps)candidate);
                     break;
                 case GearSlot.Possession:
                     Pawn.inventory.innerContainer.TryAdd(candidate, false);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Wears the edited copy carrying over the wearing state the original had.
+        ///
+        /// Editing an item (colour, style, quality) does not modify it in place: it builds a fresh copy
+        /// and wears that. <c>Wear</c> defaults to neither locked nor forced, so the edit quietly dropped
+        /// both — the same un-forcing bug as merely selecting an item, reached by a different path.
+        /// Reported by OxTailSafu, after the select-path fix had already shipped.
+        /// </summary>
+        private void WearCandidateKeepingOriginalState(Apparel apparel) =>
+            OriginalWearingState().WearOn(Pawn, apparel);
+
+        /// <summary>
+        /// The state captured when the item being edited was detached, or <see cref="ApparelWearingState.None"/>
+        /// when this session is adding a new item rather than editing an existing one.
+        /// </summary>
+        private ApparelWearingState OriginalWearingState()
+        {
+            if (original is not Apparel originalApparel) return ApparelWearingState.None;
+
+            foreach (var detached in detachedApparel)
+                if (ReferenceEquals(detached.Apparel, originalApparel))
+                    return detached.State;
+
+            return ApparelWearingState.None;
         }
 
         private void DetachItemsForPreview()
@@ -943,7 +973,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
             switch (slot)
             {
                 case GearSlot.Apparel when original is Apparel apparel && Pawn.apparel.Contains(apparel):
-                    detachedApparel.Add(new(apparel, Pawn.apparel.IsLocked(apparel)));
+                    detachedApparel.Add(new(apparel, ApparelWearingState.Capture(Pawn, apparel)));
                     Pawn.apparel.Remove(apparel);
                     break;
                 case GearSlot.Apparel when original == null:
@@ -951,7 +981,7 @@ public class TabWorker_Gear : TabWorker<Pawn>
                                  .Where(apparel => !ApparelUtility.CanWearTogether(ThingDef, apparel.def, Pawn.RaceProps.body))
                                  .ToList())
                     {
-                        detachedApparel.Add(new(worn, Pawn.apparel.IsLocked(worn)));
+                        detachedApparel.Add(new(worn, ApparelWearingState.Capture(Pawn, worn)));
                         Pawn.apparel.Remove(worn);
                     }
                     break;
@@ -992,13 +1022,11 @@ public class TabWorker_Gear : TabWorker<Pawn>
         private void RestoreDetachedItems()
         {
             foreach (var apparel in detachedApparel)
-            {
-                Pawn.apparel.Wear(apparel.Apparel, false, apparel.Locked);
-            }
+                apparel.State.WearOn(Pawn, apparel.Apparel);
 
             foreach (var equipment in detachedEquipment)
             {
-                Pawn.equipment.AddEquipment(equipment);
+                EquipmentPlacement.Equip(Pawn, equipment);
             }
 
             foreach (var item in detachedInventory)

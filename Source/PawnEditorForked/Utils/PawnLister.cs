@@ -165,10 +165,11 @@ public class PawnLister : PawnListerBase
         else
         {
             var from = locations[fromIndex];
-            var to = locations[toIndex];
+            // toIndex == Count means "dropped at the end": that slot belongs to the last location.
+            var to = locations[Math.Min(toIndex, locations.Count - 1)];
             locations.Insert(toIndex, to);
             locations.RemoveAt(fromIndex < toIndex ? fromIndex : fromIndex + 1);
-            if (sections[toIndex] != null) toIndex++;
+            if (toIndex < sections.Count && sections[toIndex] != null) toIndex++;
             sections.Insert(toIndex, null);
             if (sections.Pop() != null) sectionCount--;
             DoTeleport(pawn, from, to);

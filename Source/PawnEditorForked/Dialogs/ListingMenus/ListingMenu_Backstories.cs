@@ -6,7 +6,9 @@ using Verse;
 
 namespace PawnEditor;
 
-[StaticConstructorOnStartup]
+// No [StaticConstructorOnStartup]: the list is built on first open, after every mod has added its
+// defs. Backstory Constructor adds its backstories from its own startup constructor, which can run
+// after ours depending on load order.
 public class ListingMenu_Backstories : ListingMenu<BackstoryDef>
 {
     private static readonly Dictionary<BackstorySlot, List<BackstoryDef>> backstoriesBySlot = new();

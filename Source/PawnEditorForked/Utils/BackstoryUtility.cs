@@ -12,28 +12,43 @@ namespace PawnEditor;
 /// </summary>
 public static class BackstoryUtility
 {
+    /// <summary>The age from which vanilla gives a pawn an adulthood backstory.</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>PawnBioAndNameGenerator.MinAgeForAdulthood</c> in 1.7: pawns generated at 20 or older get one; adults of 13
+    /// to 19 only have a childhood. Turning 13 in game gives none either (<c>Pawn_AgeTracker.BirthdayBiological</c> and
+    /// the growth moment do not touch backstories). Pawn Editor follows the same rule so an edited pawn looks like one
+    /// the game made; the player can still pick an adulthood by hand at any adult age.
+    /// </para>
+    /// </remarks>
+    public const int VanillaAdulthoodAge = 20;
+
     /// <summary>
-    /// Handles backstory changes when a pawn transitions between developmental stages.
-    /// - Adult → Child/Baby: removes adult backstory
-    /// - Child/Baby → Adult: generates a contextual adult backstory based on childhood categories
-    /// Also adjusts body type and refreshes graphics.
+    /// Applies what a change of developmental stage implies: children and babies lose the adulthood backstory, and the
+    /// body type and graphics follow the new stage. Becoming adult does NOT add an adulthood backstory: that only
+    /// happens at <see cref="VanillaAdulthoodAge"/> (<see cref="GiveAdulthoodOnReachingVanillaAge"/>).
     /// </summary>
     public static void HandleDevStageTransition(Pawn pawn, DevelopmentalStage newStage)
     {
-        if (newStage != DevelopmentalStage.Adult && pawn.story.Adulthood != null)
-        {
-            // Transitioned to child/baby — remove adult backstory
+        if (newStage != DevelopmentalStage.Adult)
             pawn.story.Adulthood = null;
-            pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
-            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
-        }
-        else if (newStage == DevelopmentalStage.Adult && pawn.story.Adulthood == null)
-        {
-            // Transitioned to adult — generate a contextual adult backstory
-            pawn.story.Adulthood = GenerateAdultBackstory(pawn);
-            pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
-            TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
-        }
+        pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
+        TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+    }
+
+    /// <summary>
+    /// Gives an adult without an adulthood backstory a fitting one when its age goes from below
+    /// <see cref="VanillaAdulthoodAge"/> to that age or above, as a pawn generated at that age would have.
+    /// Only on crossing the line, so editing the age of an older pawn never adds one behind the player's back.
+    /// </summary>
+    public static void GiveAdulthoodOnReachingVanillaAge(Pawn pawn, int oldAge)
+    {
+        var reachedIt = oldAge < VanillaAdulthoodAge && pawn.ageTracker.AgeBiologicalYears >= VanillaAdulthoodAge;
+        if (!reachedIt || pawn.DevelopmentalStage != DevelopmentalStage.Adult || pawn.story.Adulthood != null) return;
+
+        pawn.story.Adulthood = GenerateAdultBackstory(pawn);
+        pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
+        TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
     }
 
     /// <summary>

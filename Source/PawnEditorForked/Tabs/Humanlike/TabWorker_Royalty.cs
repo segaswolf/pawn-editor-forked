@@ -18,6 +18,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
     }
 
     private RoyaltyPage page;
+    private Faction titleFaction;
     private Vector2 permitScroll;
     private string permitSearch = string.Empty;
     private string favorBuffer;
@@ -55,8 +56,8 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         rect.yMin += TabDrawer.TabHeight + 8f;
         rect = rect.ContractedBy(8f, 4f);
 
-        var empire = Faction.OfEmpire;
-        if (page != RoyaltyPage.Psycasts && empire == null)
+        var faction = CurrentTitleFaction();
+        if (page != RoyaltyPage.Psycasts && faction == null)
         {
             using (new TextBlock(TextAnchor.MiddleCenter))
                 Widgets.Label(rect, "PawnEditor.Royalty.NoFaction".Translate());
@@ -66,18 +67,18 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         switch (page)
         {
             case RoyaltyPage.Titles:
-                DrawTitles(rect, pawn, empire);
+                DrawTitles(rect, pawn, faction);
                 break;
             case RoyaltyPage.Psycasts:
                 DrawPsycasts(rect, pawn);
                 break;
             case RoyaltyPage.Permits:
-                DrawPermits(rect, pawn, empire);
+                DrawPermits(rect, pawn, faction);
                 break;
         }
     }
 
-    private void DrawTitles(Rect inRect, Pawn pawn, Faction empire)
+    private void DrawTitles(Rect inRect, Pawn pawn, Faction faction)
     {
         using (new TextBlock(GameFont.Medium, TextAnchor.MiddleLeft))
             Widgets.Label(inRect.TakeTopPart(42f), pawn.LabelCap);
@@ -85,20 +86,25 @@ public class TabWorker_Royalty : TabWorker<Pawn>
 
         DrawValueRow(ref inRect, "PawnEditor.Royalty.Faction".Translate(), row =>
         {
-            using (new TextBlock(TextAnchor.MiddleLeft))
-                Widgets.Label(row, empire.Name);
+            if (TitleFactions().Count() < 2)
+            {
+                using (new TextBlock(TextAnchor.MiddleLeft))
+                    Widgets.Label(row, faction.Name);
+            }
+            else if (Widgets.ButtonText(row, faction.Name))
+                OpenTitleFactionMenu();
         });
 
-        var currentTitle = pawn.royalty.GetCurrentTitle(empire);
+        var currentTitle = pawn.royalty.GetCurrentTitle(faction);
         DrawValueRow(ref inRect, "PawnEditor.Royalty.CurrentTitle".Translate(), row =>
         {
             if (Widgets.ButtonText(row, currentTitle?.GetLabelCapFor(pawn) ?? "None".Translate()))
-                OpenTitleMenu(pawn, empire);
+                OpenTitleMenu(pawn, faction);
         });
 
         DrawValueRow(ref inRect, "PawnEditor.Honor".Translate(), row =>
         {
-            var currentFavor = pawn.royalty.GetFavor(empire);
+            var currentFavor = pawn.royalty.GetFavor(faction);
             if (favorBufferPawn != pawn)
             {
                 favorBufferPawn = pawn;
@@ -109,13 +115,13 @@ public class TabWorker_Royalty : TabWorker<Pawn>
             Widgets.TextFieldNumeric(row, ref editedFavor, ref favorBuffer);
             editedFavor = Mathf.Max(0, editedFavor);
             if (editedFavor != currentFavor)
-                pawn.royalty.SetFavor(empire, editedFavor, false);
+                pawn.royalty.SetFavor(faction, editedFavor, false);
         });
 
         DrawValueRow(ref inRect, "PawnEditor.Royalty.AvailablePermitPoints".Translate(), row =>
         {
             using (new TextBlock(TextAnchor.MiddleLeft))
-                Widgets.Label(row, pawn.royalty.GetPermitPoints(empire).ToString());
+                Widgets.Label(row, pawn.royalty.GetPermitPoints(faction).ToString());
         });
 
         inRect.yMin += 12f;
@@ -128,7 +134,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         }
 
         inRect.yMin += 18f;
-        DrawSuccessors(inRect, pawn, empire);
+        DrawSuccessors(inRect, pawn, faction);
     }
 
     private void DrawPsycasts(Rect inRect, Pawn pawn)
@@ -308,34 +314,51 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         pawn.psychicEntropy.Notify_GainedPsylink();
     }
 
-    private void OpenTitleMenu(Pawn pawn, Faction empire)
+    /// <summary>Factions that grant royal titles: the Empire and modded ones (e.g. DMS2's military ranks).</summary>
+    private static IEnumerable<Faction> TitleFactions() =>
+        Find.FactionManager.AllFactionsListForReading.Where(f => !f.IsPlayer && !f.defeated && f.def.HasRoyalTitles);
+
+    /// <summary>The faction whose titles the tab shows. Defaults to the Empire.</summary>
+    private Faction CurrentTitleFaction()
+    {
+        if (titleFaction == null || !TitleFactions().Contains(titleFaction))
+            titleFaction = Faction.OfEmpire ?? TitleFactions().FirstOrDefault();
+        return titleFaction;
+    }
+
+    private void OpenTitleFactionMenu() =>
+        Find.WindowStack.Add(new FloatMenu(TitleFactions()
+            .Select(f => new FloatMenuOption(f.Name, () => titleFaction = f))
+            .ToList()));
+
+    private void OpenTitleMenu(Pawn pawn, Faction faction)
     {
         var options = new List<FloatMenuOption>
         {
             new("None".Translate(), () =>
             {
-                pawn.royalty.SetTitle(empire, null, false, false, false);
+                pawn.royalty.SetTitle(faction, null, false, false, false);
                 favorBuffer = "0";
                 PawnEditor.Notify_PointsUsed();
             })
         };
 
-        options.AddRange(empire.def.RoyalTitlesAllInSeniorityOrderForReading.Select(title =>
+        options.AddRange(faction.def.RoyalTitlesAllInSeniorityOrderForReading.Select(title =>
             new FloatMenuOption(title.GetLabelCapFor(pawn), () =>
             {
-                pawn.royalty.SetTitle(empire, title, false, false, false);
+                pawn.royalty.SetTitle(faction, title, false, false, false);
                 favorBuffer = "0";
                 PawnEditor.Notify_PointsUsed();
             })));
         Find.WindowStack.Add(new FloatMenu(options));
     }
 
-    private void DrawPermits(Rect inRect, Pawn pawn, Faction empire)
+    private void DrawPermits(Rect inRect, Pawn pawn, Faction faction)
     {
         var summaryRect = inRect.TakeTopPart(34f);
         using (new TextBlock(TextAnchor.MiddleLeft))
             Widgets.Label(summaryRect.TakeLeftPart(summaryRect.width * 0.5f),
-                "PawnEditor.Royalty.AvailablePermitPointsValue".Translate(pawn.royalty.GetPermitPoints(empire)));
+                "PawnEditor.Royalty.AvailablePermitPointsValue".Translate(pawn.royalty.GetPermitPoints(faction)));
 
         var searchRect = summaryRect.TakeRightPart(Mathf.Min(360f, summaryRect.width));
         permitSearch = Widgets.TextField(searchRect, permitSearch ?? string.Empty);
@@ -343,7 +366,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         inRect.yMin += 8f;
 
         var permits = DefDatabase<RoyalTitlePermitDef>.AllDefsListForReading
-            .Where(permit => permit.permitPointCost > 0 && (permit.faction == null || permit.faction == empire.def))
+            .Where(permit => permit.permitPointCost > 0 && (permit.faction == null || permit.faction == faction.def))
             .Where(permit => Matches(permitSearch, permit.LabelCap.ToString(), permit.defName, permit.description))
             .OrderBy(permit => permit.minTitle?.seniority ?? -1)
             .ThenBy(permit => permit.uiPosition.y)
@@ -365,15 +388,15 @@ public class TabWorker_Royalty : TabWorker<Pawn>
                 Widgets.DrawAltRect(row);
             Widgets.DrawHighlightIfMouseover(row);
             TooltipHandler.TipRegion(row, permit.description);
-            DrawPermitRow(row, pawn, empire, permit);
+            DrawPermitRow(row, pawn, faction, permit);
         }
         Widgets.EndScrollView();
     }
 
-    private static void DrawPermitRow(Rect row, Pawn pawn, Faction empire, RoyalTitlePermitDef permit)
+    private static void DrawPermitRow(Rect row, Pawn pawn, Faction faction, RoyalTitlePermitDef permit)
     {
-        var directPermit = pawn.royalty.GetPermit(permit, empire);
-        var held = pawn.royalty.HasPermit(permit, empire);
+        var directPermit = pawn.royalty.GetPermit(permit, faction);
+        var held = pawn.royalty.HasPermit(permit, faction);
         var includedWithTitle = held && directPermit == null;
 
         var status = directPermit != null
@@ -398,13 +421,13 @@ public class TabWorker_Royalty : TabWorker<Pawn>
                     return;
 
                 if (Widgets.ButtonText(actionRect, action))
-                    pawn.royalty.AddPermit(permit, empire);
+                    pawn.royalty.AddPermit(permit, faction);
             });
     }
 
-    private void DrawSuccessors(Rect inRect, Pawn pawn, Faction empire)
+    private void DrawSuccessors(Rect inRect, Pawn pawn, Faction faction)
     {
-        var title = pawn.royalty.GetCurrentTitle(empire);
+        var title = pawn.royalty.GetCurrentTitle(faction);
         using (new TextBlock(GameFont.Medium, TextAnchor.MiddleLeft))
             Widgets.Label(inRect.TakeTopPart(42f), "PawnEditor.Royalty.Successors".Translate());
         inRect.yMin += 10f;
@@ -421,7 +444,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
             return;
         }
 
-        var heir = pawn.royalty.GetHeir(empire);
+        var heir = pawn.royalty.GetHeir(faction);
         var card = inRect.TakeTopPart(110f);
         Widgets.DrawLightHighlight(card);
         var iconRect = card.TakeLeftPart(100f).ContractedBy(10f);
@@ -439,7 +462,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         var clearRect = buttons.TakeRightPart(150f);
         buttons.xMax -= 8f;
         if (Widgets.ButtonText(buttons, "PawnEditor.Royalty.ChooseSuccessor".Translate()))
-            OpenSuccessorPicker(pawn, empire);
+            OpenSuccessorPicker(pawn, faction);
 
         var oldColor = GUI.color;
         if (heir == null)
@@ -447,10 +470,10 @@ public class TabWorker_Royalty : TabWorker<Pawn>
         var clear = Widgets.ButtonText(clearRect, "PawnEditor.Royalty.ClearSuccessor".Translate());
         GUI.color = oldColor;
         if (clear && heir != null)
-            pawn.royalty.SetHeir(null, empire);
+            pawn.royalty.SetHeir(null, faction);
     }
 
-    private static void OpenSuccessorPicker(Pawn pawn, Faction empire)
+    private static void OpenSuccessorPicker(Pawn pawn, Faction faction)
     {
         var candidates = PawnBlueprintSaveLoad.GetAllReachablePawnsPublic()
             .Where(candidate => candidate != null && candidate != pawn && !candidate.Dead && candidate.RaceProps.Humanlike)
@@ -459,7 +482,7 @@ public class TabWorker_Royalty : TabWorker<Pawn>
 
         Find.WindowStack.Add(new ListingMenu_Pawns(candidates, pawn, "PawnEditor.Royalty.Select".Translate(), selected =>
         {
-            pawn.royalty.SetHeir(selected, empire);
+            pawn.royalty.SetHeir(selected, faction);
             return true;
         }));
     }

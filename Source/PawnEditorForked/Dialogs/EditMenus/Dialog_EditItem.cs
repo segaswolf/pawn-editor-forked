@@ -49,6 +49,14 @@ public abstract class Dialog_EditItem : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        // This panel deliberately does NOT absorb input (it floats over the editor, which stays usable
+        // behind it). The side effect was that typing in one of its text fields also fired RimWorld's
+        // hotkeys — typing "m" while searching for a "monosword" was handled as a shortcut and stole
+        // focus. Swallowing key events only WHILE a text field has focus fixes the typing without
+        // making the panel modal.
+        if (GUIUtility.keyboardControl != 0 && Event.current.type == EventType.KeyDown && Event.current.character != '\0')
+            Event.current.Use();
+
         listing.Begin(inRect);
         using (new TextBlock(GameFont.Small, TextAnchor.MiddleLeft))
         {

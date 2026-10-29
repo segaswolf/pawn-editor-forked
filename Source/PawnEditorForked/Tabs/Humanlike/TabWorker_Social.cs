@@ -35,6 +35,28 @@ public class TabWorker_Social : TabWorker_Table<Pawn>
         DoRelations(rect.ContractedBy(4f), pawn);
     }
 
+    /// <summary>Rerolls family ties (parents, partners, children). Friend or Rival come from opinion, not from these.</summary>
+    /// <remarks>
+    /// Lives here, not in Bio, so the result shows in this tab's table. Asks first and has no undo: the
+    /// change also rewrites the related pawns, and putting that back safely isn't worth the risk.
+    /// </remarks>
+    public override IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn)
+    {
+        yield return new("Relations".Translate(), () =>
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                "PawnEditor.RandomizeRelationsWarning".Translate(pawn.LabelShort),
+                () => RandomizeRelations(pawn),
+                destructive: true)));
+    }
+
+    private void RandomizeRelations(Pawn pawn)
+    {
+        var request = new PawnGenerationRequest(pawn.kindDef, pawn.Faction);
+        pawn.relations.ClearAllRelations();
+        PawnGenerator.GeneratePawnRelations(pawn, ref request);
+        table?.ClearCache();
+    }
+
     private void DoBottomOptions(Rect inRect, Pawn pawn)
     {
         if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.QuickActions".Translate(), 80f))

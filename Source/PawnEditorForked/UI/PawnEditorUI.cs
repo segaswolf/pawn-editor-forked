@@ -8,17 +8,27 @@ using Verse;
 
 namespace PawnEditor;
 
-/// <summary>
-/// Main UI orchestrator for the Pawn Editor window.
-/// Split into partial classes by responsibility:
-///   PawnEditorUI.cs            — Fields, DoUI layout, DoBottomButtons, CanExit
-///   PawnEditorUI_SaveLoad.cs   — GetSaveLoadItems, GetRandomizationOptions
-///   PawnEditorUI_PawnManagement.cs — RecachePawnList, Select, CheckChangeTabGroup, tabs/widgets
-///   PawnEditorUI_Portrait.cs   — GetPawnTex, SavePawnTex, DrawPawnPortrait, graphics helpers
-/// </summary>
+/// <summary>The Pawn Editor window: shared state, layout and the bottom buttons.</summary>
+/// <remarks>
+/// <para>Split by responsibility across partial files:</para>
+/// <list type="bullet">
+/// <item><c>PawnEditorUI.cs</c>: shared state, window layout, bottom buttons.</item>
+/// <item><c>LeftPanel.cs</c>: faction and category pickers, Add button.</item>
+/// <item><c>PawnList.cs</c>: the scrollable, reorderable pawn list.</item>
+/// <item><c>PawnEditorUI_AddRemovePawns.cs</c>: adding and deleting pawns.</item>
+/// <item><c>PawnEditorUI_SaveLoad.cs</c>: save, load and randomization menus.</item>
+/// <item><c>PawnEditorUI_PawnManagement.cs</c>: list recaching, selection, tabs and widgets.</item>
+/// <item><c>PawnEditorUI_Portrait.cs</c>: portraits and graphics helpers.</item>
+/// </list>
+/// </remarks>
 [HotSwappable]
 public static partial class PawnEditor
 {
+    private const float HeaderHeight = 50f;
+    private const float LeftPanelWidth = 134f;
+    private const float TabStripReserve = 40f;
+    private const float RepeatButtonSize = 24f;
+
     // ── Shared state (accessible from all partial files) ──
     public static bool RenderClothes = true;
     public static bool RenderHeadgear = true;
@@ -29,7 +39,11 @@ public static partial class PawnEditor
     private static bool showFactionInfo;
     public static PawnCategory selectedCategory;
     private static float cachedValue;
-    private static FloatMenuOption lastRandomization;
+    // Label of the last randomization option used (null = none yet). Matched by label, not index,
+    // because the option list changes with the pawn (some entries are conditional).
+    private static string lastRandomizationLabel;
+    // The selected pawn as it was before the last randomization, for the undo button.
+    private static PawnSnapshot randomizeUndo;
     private static TabGroupDef tabGroup;
     private static List<TabRecord> tabs;
     private static TabDef curTab;
@@ -55,188 +69,252 @@ public static partial class PawnEditor
 
     public static void DoUI(Rect inRect, Action onClose, Action onNext)
     {
-        var headerRect = inRect.TakeTopPart(50f);
+        var headerRect = inRect.TakeTopPart(HeaderHeight);
         headerRect.xMax -= 10f;
         headerRect.yMax -= 20f;
-        using (new TextBlock(GameFont.Medium))
-            Widgets.Label(headerRect, $"{(Pregame ? "Create" : "PawnEditor.Edit")}Characters".Translate());
-
+        DrawTitle(headerRect);
         if (ModsConfig.IdeologyActive)
-        {
-            Text.Font = GameFont.Small;
-            string text = "ShowHeadgear".Translate();
-            string text2 = "ShowApparel".Translate();
-            var width = Mathf.Max(Text.CalcSize(text).x, Text.CalcSize(text2).x) + 4f + 24f;
-            var rect2 = headerRect.TakeRightPart(width).TopPartPixels(Text.LineHeight * 2f);
-            Widgets.CheckboxLabeled(rect2.TopHalf(), text, ref RenderHeadgear);
-            Widgets.CheckboxLabeled(rect2.BottomHalf(), text2, ref RenderClothes);
-            headerRect.xMax -= 4f;
-        }
-
-        string text3 = "PawnEditor.UsePointLimit".Translate();
-        string text4 = "PawnEditor.PointsRemaining".Translate();
-        var text5 = "$" + Mathf.RoundToInt(remainingPoints).ToString();
-        var num = Text.CalcSize(text4).x;
-        var width2 = Mathf.Max(Text.CalcSize(text3).x, num) + 4f + Mathf.Max(Text.CalcSize(text3).x, 24f);
-        var rect3 = headerRect.TakeRightPart(width2).TopPartPixels(Text.LineHeight * 2f);
-        UIUtility.CheckboxLabeledCentered(rect3.TopHalf(), text3, ref usePointLimit);
-        rect3 = rect3.BottomHalf();
-        Widgets.Label(rect3.TakeLeftPart(num), text4);
-        var pointColor = usePointLimit ? ColoredText.CurrencyColor : ColoredText.SubtleGrayColor;
-        using (new TextBlock(TextAnchor.MiddleCenter)) Widgets.Label(rect3, text5.Colorize(pointColor));
+            DrawRenderToggles(ref headerRect);
+        DrawPointsDisplay(ref headerRect);
 
         var bottomButtonsRect = inRect.TakeBottomPart(Page.BottomButHeight);
+        DrawBody(inRect);
 
+        Action onRightButton = Pregame ? onNext : () => OpenTeleportMenu(onClose);
+        DoBottomButtons(bottomButtonsRect, onClose, onRightButton);
+    }
+
+    private static void DrawTitle(Rect rect)
+    {
+        using (new TextBlock(GameFont.Medium))
+            Widgets.Label(rect, $"{(Pregame ? "Create" : "PawnEditor.Edit")}Characters".Translate());
+    }
+
+    private static void DrawRenderToggles(ref Rect headerRect)
+    {
+        Text.Font = GameFont.Small;
+        string headgear = "ShowHeadgear".Translate();
+        string apparel = "ShowApparel".Translate();
+        var width = Mathf.Max(Text.CalcSize(headgear).x, Text.CalcSize(apparel).x) + 4f + 24f;
+        var rect = headerRect.TakeRightPart(width).TopPartPixels(Text.LineHeight * 2f);
+        Widgets.CheckboxLabeled(rect.TopHalf(), headgear, ref RenderHeadgear);
+        Widgets.CheckboxLabeled(rect.BottomHalf(), apparel, ref RenderClothes);
+        headerRect.xMax -= 4f;
+    }
+
+    private static void DrawPointsDisplay(ref Rect headerRect)
+    {
+        string useLimit = "PawnEditor.UsePointLimit".Translate();
+        string remaining = "PawnEditor.PointsRemaining".Translate();
+        var remainingWidth = Text.CalcSize(remaining).x;
+        var width = Mathf.Max(Text.CalcSize(useLimit).x, remainingWidth) + 4f + Mathf.Max(Text.CalcSize(useLimit).x, 24f);
+        var rect = headerRect.TakeRightPart(width).TopPartPixels(Text.LineHeight * 2f);
+        UIUtility.CheckboxLabeledCentered(rect.TopHalf(), useLimit, ref usePointLimit);
+
+        var valueRow = rect.BottomHalf();
+        Widgets.Label(valueRow.TakeLeftPart(remainingWidth), remaining);
+        var color = usePointLimit ? ColoredText.CurrencyColor : ColoredText.SubtleGrayColor;
+        using (new TextBlock(TextAnchor.MiddleCenter))
+            Widgets.Label(valueRow, ("$" + Mathf.RoundToInt(remainingPoints)).Colorize(color));
+    }
+
+    /// <summary>Left panel, then the tab strip and the current tab's contents.</summary>
+    private static void DrawBody(Rect inRect)
+    {
         inRect.yMin -= 10f;
-        DoLeftPanel(inRect.TakeLeftPart(134), Pregame);
+        DoLeftPanel(inRect.TakeLeftPart(LeftPanelWidth), Pregame);
         inRect.xMin += 12f;
         inRect = inRect.ContractedBy(6);
-        inRect.TakeTopPart(40);
+        inRect.TakeTopPart(TabStripReserve);
         Widgets.DrawMenuSection(inRect);
         if (!tabs.NullOrEmpty() && (showFactionInfo || selectedPawn != null))
             TabDrawer.DrawTabs(inRect, tabs);
-        inRect = inRect.ContractedBy(6);
-        if (curTab != null)
-        {
-            if (curTab == widgetTab)
-                DoWidgets(inRect);
-            else if (showFactionInfo && selectedFaction != null)
-                curTab.DrawTabContents(inRect, selectedFaction);
-            else if (selectedPawn != null)
-                curTab.DrawTabContents(inRect, selectedPawn);
-        }
-
-        // v3d9 fix: explicit (Action) cast so the ternary can resolve the target type
-        DoBottomButtons(bottomButtonsRect, onClose, Pregame
-            ? onNext
-            : (Action)(() =>
-            {
-                if (!showFactionInfo && selectedPawn != null)
-                    Find.WindowStack.Add(new FloatMenu(Find.Maps.Select(map => PawnList.GetTeleportOption(map, selectedPawn))
-                        .Concat(Find.WorldObjects.Caravans.Select(caravan => PawnList.GetTeleportOption(caravan, selectedPawn)))
-                        .Append(PawnList.GetTeleportOption(Find.World, selectedPawn))
-                        .Append(new("PawnEditor.Teleport.Specific".Translate(), delegate
-                        {
-                            onClose();
-                            DebugTools.curTool = new("PawnEditor.Teleport".Translate(), () =>
-                            {
-                                var cell = UI.MouseCell();
-                                var map = Find.CurrentMap;
-                                if (!cell.Standable(map) || cell.Fogged(map)) return;
-                                PawnList.TeleportFromTo(selectedPawn, PawnList.GetLocation(selectedPawn), map);
-                                selectedPawn.Position = cell;
-                                selectedPawn.Notify_Teleported();
-                                DebugTools.curTool = null;
-                            });
-                        }))
-                        .ToList()));
-            }));
+        DrawCurrentTab(inRect.ContractedBy(6));
     }
 
-    // ── Bottom buttons (Close/Start, Save, Load, Randomize, Teleport) ──
+    private static void DrawCurrentTab(Rect rect)
+    {
+        if (curTab == null) return;
+
+        if (curTab == widgetTab)
+            DoWidgets(rect);
+        else if (showFactionInfo && selectedFaction != null)
+            curTab.DrawTabContents(rect, selectedFaction);
+        else if (selectedPawn != null)
+            curTab.DrawTabContents(rect, selectedPawn);
+    }
+
+    // ── Teleport (the right button in game) ──
+
+    private static void OpenTeleportMenu(Action onClose)
+    {
+        if (showFactionInfo || selectedPawn == null) return;
+        Find.WindowStack.Add(new FloatMenu(TeleportOptions(onClose)));
+    }
+
+    /// <summary>Every map, every caravan, the world, and "pick a cell" on the current map.</summary>
+    private static List<FloatMenuOption> TeleportOptions(Action onClose) =>
+        Find.Maps.Select(map => PawnList.GetTeleportOption(map, selectedPawn))
+            .Concat(Find.WorldObjects.Caravans.Select(caravan => PawnList.GetTeleportOption(caravan, selectedPawn)))
+            .Append(PawnList.GetTeleportOption(Find.World, selectedPawn))
+            .Append(new FloatMenuOption("PawnEditor.Teleport.Specific".Translate(), () =>
+            {
+                onClose();
+                DebugTools.curTool = new("PawnEditor.Teleport".Translate(), TeleportSelectedPawnToMouseCell);
+            }))
+            .ToList();
+
+    private static void TeleportSelectedPawnToMouseCell()
+    {
+        var cell = UI.MouseCell();
+        var map = Find.CurrentMap;
+        if (!cell.Standable(map) || cell.Fogged(map)) return;
+
+        PawnList.TeleportFromTo(selectedPawn, PawnList.GetLocation(selectedPawn), map);
+        selectedPawn.Position = cell;
+        selectedPawn.Notify_Teleported();
+        DebugTools.curTool = null;
+    }
+
+    // ── Bottom buttons: Close/Back, Delete, Randomize, Save, Load, Teleport/Start ──
 
     public static void DoBottomButtons(Rect inRect, Action onLeftButton, Action onRightButton)
     {
         Text.Font = GameFont.Small;
-        if (Widgets.ButtonText(inRect.TakeLeftPart(Page.BottomButSize.x), Pregame ? "Back".Translate() : "Close".Translate()) && CanExit()) onLeftButton();
+        DrawExitButtons(ref inRect, onLeftButton, onRightButton);
 
-        if (Widgets.ButtonText(inRect.TakeRightPart(Page.BottomButSize.x), Pregame ? "Start".Translate() : "PawnEditor.Teleport".Translate())
-            && CanExit()) onRightButton();
+        var row = BottomButtonRow.Within(inRect, Page.BottomButSize);
+        var options = RandomizeMenuOptions();
+        var randomizeRect = row.Randomize;
+        // Right to left: repeat at the edge, undo to its left, as in a text editor's undo/redo pair.
+        DrawRepeatRandomizeButton(ref randomizeRect, options);
+        DrawUndoRandomizeButton(ref randomizeRect);
+        DrawRandomizeButton(randomizeRect, options);
+        DrawDeleteButton(row.Delete);
+        DrawSaveLoadButton(row.Save, "Save".Translate(), item => item.MakeSaveOption());
+        DrawSaveLoadButton(row.Load, "Load".Translate(), item => item.MakeLoadOption());
+    }
 
-        var standardWidth = Page.BottomButSize.x;
-        var spacing = Mathf.Min(5f, inRect.width / 20f);
-        var randomWidth = Mathf.Min(standardWidth, Mathf.Max(1f, inRect.width / 5f));
-        var buttonY = inRect.y + (inRect.height - Page.BottomButSize.y) / 2f;
-        var randomRect = new Rect(inRect.center.x - randomWidth / 2f, buttonY, randomWidth, Page.BottomButSize.y);
-        var sideRegionWidth = Mathf.Max(0f, (inRect.width - randomWidth) / 2f);
-        var deleteMargin = Mathf.Min(40f, sideRegionWidth * 0.2f);
-        var deleteWidth = Mathf.Min(standardWidth, Mathf.Max(1f, sideRegionWidth - deleteMargin * 2f));
-        var deleteRect = new Rect(inRect.x + (sideRegionWidth - deleteWidth) / 2f, buttonY, deleteWidth, Page.BottomButSize.y);
-        var saveLoadWidth = Mathf.Min(standardWidth, Mathf.Max(1f, (sideRegionWidth - spacing) / 2f));
-        var saveLoadGroupWidth = saveLoadWidth * 2f + spacing;
-        var saveRect = new Rect(inRect.xMax - saveLoadGroupWidth, buttonY, saveLoadWidth, Page.BottomButSize.y);
-        var loadRect = new Rect(saveRect.xMax + spacing, buttonY, saveLoadWidth, Page.BottomButSize.y);
+    private static void DrawExitButtons(ref Rect inRect, Action onLeftButton, Action onRightButton)
+    {
+        var leftLabel = Pregame ? "Back".Translate() : "Close".Translate();
+        if (Widgets.ButtonText(inRect.TakeLeftPart(Page.BottomButSize.x), leftLabel) && CanExit())
+            onLeftButton();
+
+        var rightLabel = Pregame ? "Start".Translate() : "PawnEditor.Teleport".Translate();
+        if (Widgets.ButtonText(inRect.TakeRightPart(Page.BottomButSize.x), rightLabel) && CanExit())
+            onRightButton();
+    }
+
+    /// <summary>The current tab's options, plus the faction options on the main Bio tab.</summary>
+    private static List<FloatMenuOption> RandomizeMenuOptions()
+    {
         var options = GetRandomizationOptions().ToList();
+        if (showFactionInfo || selectedPawn == null || curTab != TabGroupDefOf.Humanlike.tabs[0]
+            || !curTab.GetRandomizationOptions(selectedPawn).Any())
+            return options;
 
-        // Add randomize options for factions
-        if (!showFactionInfo && selectedPawn != null && curTab == TabGroupDefOf.Humanlike.tabs[0])
-        {
-            var randomizeAllWithFactionOption = curTab.GetRandomizationOptions(selectedPawn).Select(option => new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + "PawnEditor.AllIncludingFaction".Translate(), () =>
-            {
-                foreach (var option in options)
-                {
-                    if (option.Label.Contains("all"))
-                        continue;
+        // A copy taken before adding the faction options, so "all - including faction" can never run itself.
+        var tabOptions = options.ToList();
+        AddRepeatable(options, "PawnEditor.Randomize".Translate() + " " + "PawnEditor.AllIncludingFaction".Translate(),
+            () => RandomizeAllIncludingFaction(tabOptions));
+        AddRepeatable(options, "PawnEditor.SelectRandomFaction".Translate(), RandomizeSelectedPawnFaction);
+        return options;
+    }
 
-                    option.action();
-                }
-                lastRandomization = option;
-                Notify_PointsUsed();
-                List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                var chosenFaction = factions[Rand.Range(0, factions.Count - 1)];
-                selectedFaction = chosenFaction;
-                if (chosenFaction != selectedPawn.Faction) selectedPawn.SetFaction(chosenFaction);
-                DoRecache();
-            })).ToList();
+    private static void AddRepeatable(List<FloatMenuOption> options, string label, Action action)
+    {
+        options.Add(new FloatMenuOption(label, () => RunRandomization(label, action)));
+    }
 
-            if (randomizeAllWithFactionOption.Any())
-            {
-                options.Add(randomizeAllWithFactionOption[0]);
+    /// <summary>Runs a randomization, remembering it for the repeat button and the pawn for undo.</summary>
+    /// <remarks>
+    /// Undo only for the Bio tab: <see cref="PawnSnapshot"/> covers Bio fields, not apparel (Gear) or
+    /// relations (Social), and an undo button that restores nothing is worse than none.
+    /// </remarks>
+    private static void RunRandomization(string label, Action action)
+    {
+        var snapshotCovers = selectedPawn != null && curTab == TabGroupDefOf.Humanlike.tabs[0];
+        randomizeUndo = snapshotCovers ? new PawnSnapshot(selectedPawn) : null;
+        action();
+        Notify_PointsUsed();
+        lastRandomizationLabel = label; // after: the action may run other repeatable options
+    }
 
-                options.Add(new FloatMenuOption("PawnEditor.SelectRandomFaction".Translate(), () =>
-                {
-                    List<Faction> factions = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList();
-                    var chosenFaction = factions[Rand.Range(0, factions.Count - 1)];
-                    selectedFaction = chosenFaction;
-                    if (chosenFaction != selectedPawn.Faction) selectedPawn.SetFaction(chosenFaction);
-                    DoRecache();
-                }));
-            }
-        }
+    /// <summary>Small square in the Randomize slot, left of repeat, that undoes the last randomization.</summary>
+    private static void DrawUndoRandomizeButton(ref Rect randomizeRect)
+    {
+        if (randomizeUndo?.IsValidFor(selectedPawn) != true || showFactionInfo) return;
+        if (randomizeRect.width < BottomButtonRow.MinButtonWidth + RepeatButtonSize) return;
 
-        if (lastRandomization != null && randomRect.width > 24f
-                                      && Widgets.ButtonImageWithBG(randomRect.TakeRightPart(20), TexUI.RotRightTex, new Vector2(12, 12)))
-        {
-            var label = lastRandomization.Label.ToLower();
-            var matched = options.FirstOrDefault(op => op.Label.Contains(label));
-            if (matched != null)
-            {
-                lastRandomization = matched;
-                lastRandomization.action();
-            }
-            randomRect.TakeRightPart(1);
-        }
+        var undoRect = randomizeRect.TakeRightPart(RepeatButtonSize);
+        TooltipHandler.TipRegion(undoRect, "PawnEditor.UndoRandomize".Translate());
+        if (!Widgets.ButtonImageWithBG(undoRect, TexUI.RotLeftTex, new Vector2(12, 12))) return;
 
-        if (options.Count > 0 && (selectedPawn != null && selectedFaction != null))
-            if (Widgets.ButtonText(randomRect, "Randomize".Translate()))
-            {
-                Find.WindowStack.Add(new FloatMenu(options));
-            }
+        randomizeUndo.Restore();
+        randomizeUndo = null;
+        if (selectedPawn.Faction != null) selectedFaction = selectedPawn.Faction;
+        DoRecache();
+        Notify_PointsUsed();
+    }
 
+    private static void RandomizeAllIncludingFaction(List<FloatMenuOption> tabOptions)
+    {
+        // The first entry is the tab's "all", which already covers every other entry.
+        tabOptions[0].action();
+        RandomizeSelectedPawnFaction();
+    }
+
+    private static void RandomizeSelectedPawnFaction()
+    {
+        var faction = Find.FactionManager.AllFactionsVisibleInViewOrder.ToList().RandomElement();
+        selectedFaction = faction;
+        if (faction != selectedPawn.Faction)
+            selectedPawn.SetFaction(faction);
+        DoRecache();
+    }
+
+    /// <summary>Small square at the right end of the Randomize slot that repeats the last option.</summary>
+    private static void DrawRepeatRandomizeButton(ref Rect randomizeRect, List<FloatMenuOption> options)
+    {
+        var last = lastRandomizationLabel == null ? null : options.FirstOrDefault(option => option.Label == lastRandomizationLabel);
+        if (last == null || randomizeRect.width < BottomButtonRow.MinButtonWidth + RepeatButtonSize) return;
+
+        var repeatRect = randomizeRect.TakeRightPart(RepeatButtonSize);
+        TooltipHandler.TipRegion(repeatRect, last.Label);
+        if (Widgets.ButtonImageWithBG(repeatRect, TexPawnEditor.Randomize, new Vector2(16, 16)))
+            last.action();
+    }
+
+    private static void DrawRandomizeButton(Rect rect, List<FloatMenuOption> options)
+    {
+        if (options.Count == 0 || selectedPawn == null || selectedFaction == null) return;
+        if (Widgets.ButtonText(rect, "Randomize".Translate()))
+            Find.WindowStack.Add(new FloatMenu(options));
+    }
+
+    private static void DrawDeleteButton(Rect rect)
+    {
         var canDelete = !showFactionInfo && selectedPawn != null;
-        if (Widgets.ButtonText(deleteRect, "Delete".Translate(), active: canDelete))
+        if (Widgets.ButtonText(rect, "Delete".Translate(), active: canDelete))
             ConfirmDeletePawn(selectedPawn);
+    }
 
-        if (Widgets.ButtonText(saveRect, "Save".Translate()))
-            Find.WindowStack.Add(new FloatMenu(GetSaveLoadItems()
-                .Select(static item => item.MakeSaveOption())
-                .Where(static option => option != null)
-                .ToList()));
+    private static void DrawSaveLoadButton(Rect rect, string label, Func<SaveLoadItem, FloatMenuOption> makeOption)
+    {
+        if (!Widgets.ButtonText(rect, label)) return;
 
-        if (Widgets.ButtonText(loadRect, "Load".Translate()))
-            Find.WindowStack.Add(new FloatMenu(GetSaveLoadItems()
-                .Select(static item => item.MakeLoadOption())
-                .Where(static option => option != null)
-                .ToList()));
+        Find.WindowStack.Add(new FloatMenu(GetSaveLoadItems()
+            .Select(makeOption)
+            .Where(static option => option != null)
+            .ToList()));
     }
 
     public static bool CanExit()
     {
-        if (Pregame && usePointLimit && remainingPoints < 0)
-        {
-            Messages.Message("PawnEditor.NegativePoints".Translate(), MessageTypeDefOf.RejectInput, false);
-            return false;
-        }
-        return true;
+        if (!Pregame || !usePointLimit || remainingPoints >= 0) return true;
+
+        Messages.Message("PawnEditor.NegativePoints".Translate(), MessageTypeDefOf.RejectInput, false);
+        return false;
     }
 }

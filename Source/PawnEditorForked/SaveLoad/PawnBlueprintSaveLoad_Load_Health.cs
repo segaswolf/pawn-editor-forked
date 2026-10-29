@@ -360,8 +360,10 @@ public static partial class PawnBlueprintSaveLoad
                         }
                     }
 
-                    pawn.apparel.Wear(apparel, dropReplacedApparel: false,
-                        locked: li.Attributes?["locked"]?.Value == "true");
+                    new ApparelWearingState(
+                            locked: li.Attributes?["locked"]?.Value == "true",
+                            forced: li.Attributes?["forced"]?.Value == "true")
+                        .WearOn(pawn, apparel);
                 }
             }
             catch (Exception ex) { Warn($"Apparel: {ex.Message}"); }
@@ -399,7 +401,7 @@ public static partial class PawnBlueprintSaveLoad
                         weapon.TryGetComp<CompQuality>()?.SetQuality(
                             ParseEnum<QualityCategory>(qualStr, QualityCategory.Normal), ArtGenerationContext.Outsider);
 
-                    pawn.equipment.AddEquipment(weapon);
+                    EquipmentPlacement.Equip(pawn, weapon);
                 }
             }
             catch (Exception ex) { Warn($"Equipment: {ex.Message}"); }

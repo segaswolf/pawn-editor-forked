@@ -139,7 +139,7 @@ public class ListingMenu_Xenotypes : ListingMenu<XenotypeDef>
         if (xenotype.inheritable)
         {
             sb.AppendLine();
-            sb.AppendLine("Inheritable".Translate().Colorize(ColoredText.SubtleGrayColor));
+            sb.AppendLine("PawnEditor.Inheritable".Translate().Colorize(ColoredText.SubtleGrayColor));
         }
 
         if (xenotype.genes != null && xenotype.genes.Count > 0)

@@ -19,9 +19,9 @@ namespace PawnEditor;
 /// layouts are drawn relative to the window rect, so they adapt to the new size. Setting the flags in
 /// the postfix means the resize handle appears one frame after the window opens (imperceptible).
 /// </summary>
-/// <summary>A Pawn Editor window that can lock itself in place (so an inner splitter can be dragged
-/// without the whole window moving). When DragLocked is true, the resizable-windows patch leaves it
-/// non-draggable.</summary>
+/// <summary>A Pawn Editor window that can lock itself in place (so an inner drag, like rotating the
+/// appearance preview, doesn't move the whole window). When DragLocked is true, the resizable-windows
+/// patch leaves it non-draggable.</summary>
 public interface IDragLockable
 {
     bool DragLocked { get; }
@@ -38,6 +38,15 @@ public interface IMinWindowSize
     Vector2 MinWindowSize { get; }
 }
 
+/// <summary>
+/// A Pawn Editor window that must NOT be made resizable/draggable by the patch below. The patch keys
+/// off the namespace, which is right for editor windows but wrong for purely decorative ones (the
+/// full-screen backdrop): making those resizable gave two systems ownership of one rect.
+/// </summary>
+public interface IExcludeFromResizePatch
+{
+}
+
 public static class Patch_ResizableWindows
 {
     // Window.resizer is private and created lazily, the first frame after resizeable turns true.
@@ -52,6 +61,10 @@ public static class Patch_ResizableWindows
 
     public static void SetResizable(Window __instance)
     {
+        // Opted-out windows first: a decorative overlay has no business being resizable, and letting
+        // this patch track its rect while it manages its own was a genuine conflict.
+        if (__instance is IExcludeFromResizePatch) return;
+
         var type = __instance.GetType();
         var ns = type.Namespace;
         if (ns == null || !ns.StartsWith("PawnEditor", StringComparison.Ordinal)) return;
@@ -78,6 +91,14 @@ public static class Patch_ResizableWindows
             Positioned.Add(__instance, Marker);
             if (LastRects.TryGetValue(type, out var saved))
             {
+                // A rect remembered from BEFORE this window declared a minimum (or from an older build)
+                // could restore it too small to lay out. Honour the floor on restore too.
+                if (__instance is IMinWindowSize floor)
+                {
+                    saved.width = Mathf.Max(saved.width, floor.MinWindowSize.x);
+                    saved.height = Mathf.Max(saved.height, floor.MinWindowSize.y);
+                }
+
                 saved.x = Mathf.Clamp(saved.x, 0f, UI.screenWidth - 50f);
                 saved.y = Mathf.Clamp(saved.y, 0f, UI.screenHeight - 50f);
                 __instance.windowRect = saved;

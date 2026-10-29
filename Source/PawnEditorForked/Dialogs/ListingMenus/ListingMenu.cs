@@ -78,6 +78,13 @@ public class ListingMenu<T> : Window, IMinWindowSize
         draggable = true;
         closeOnClickedOutside = true;
         onlyOneOfTypeAllowed = true;
+
+        // User report: typing in the search box fired the game's keyboard shortcuts — searching for a
+        // "monosword" broke as soon as you typed "m" because RimWorld handled it as a hotkey and stole
+        // focus. Without absorbInputAroundWindow the keystrokes leak straight through to the map.
+        // preventCameraMotion also stops WASD/arrow keys from panning the camera while you type.
+        absorbInputAroundWindow = true;
+        preventCameraMotion = true;
     }
 
     public override void PreOpen()

@@ -22,10 +22,11 @@ namespace PawnEditor;
 ///            fallback. A modder can rename their category freely, but cannot change how the game
 ///            draws an eye -> the eye render node class is reliable where names aren't. Modded
 ///            genes that match none of these fall into "Other cosmetic" (safe, never broken).
-///   AXIS 2 - "cosmetic vs mechanical" (for FILTERING): a gene is shown only if it is PURELY
-///            cosmetic (no stat offsets/factors, no capacity mods, no abilities, no aptitudes,
-///            no forced/suppressed traits, no work disables, zero biostats). Anything that
-///            gives or takes a stat/ability is left out of the cosmetic tab.
+///   AXIS 2 - "appearance vs mechanical" (for FILTERING): a gene with a STRONG appearance signal
+///            (its own render node, or a known appearance-region tag like Ears/Tail/Eyes) is shown
+///            even if it carries a minor stat — hiding those made modded tails/ears vanish. Genes
+///            with only a WEAK signal (e.g. a skin tint) still pass the strict "purely cosmetic"
+///            check so mechanical genes don't leak in. See IsAppearanceGene.
 ///
 /// This runs ONCE at startup ([StaticConstructorOnStartup]); it is not a per-frame or hot-path
 /// operation, so it has no bearing on the runtime GC pressure that must stay controlled
@@ -69,24 +70,34 @@ public static class CosmeticGeneDiscovery
             .Where(g => g != null
                 && !g.defName.StartsWith("VREA_")
                 && !g.defName.EndsWith("_Astrogene")
-                && IsPurelyCosmetic(g))
+                && IsAppearanceGene(g))
             .ToList();
     }
 
     /// <summary>
-    /// True when a gene has NO mechanical effect on the pawn: zero biostats, and none of the
-    /// common effect fields. Such a gene only changes appearance. Genes with even a minor effect
-    /// (e.g. +2 Beauty) are intentionally excluded from the cosmetic tab (design decision).
+    /// True when a gene should appear in the appearance editor.
+    ///
+    /// v3.3 (user report): we used to require a gene be PURELY cosmetic — any stat/biostat and it was
+    /// hidden. That silently dropped whole categories of modded tails/ears/eyes that carry a tiny
+    /// side-effect (a tail that also nudges movement, etc.), so users saw "some tails missing". Now a
+    /// gene with a STRONG appearance signal (its own render node, or a known appearance-region tag like
+    /// Ears/Tail/Eyes) is shown regardless of a minor mechanical effect — because in the appearance tab
+    /// the player is picking how the pawn LOOKS and doesn't care about a small stat.
+    ///
+    /// The strict "purely cosmetic" filter is kept only for WEAK signals (e.g. a gene that just tints
+    /// skin), so a genuinely mechanical gene that happens to recolour skin doesn't leak into the tab.
     /// </summary>
-    private static bool IsPurelyCosmetic(GeneDef g)
+    private static bool IsAppearanceGene(GeneDef g)
     {
-        // Any biostat cost/benefit means it is not "free" cosmetic.
-        if (g.biostatCpx != 0 || g.biostatMet != 0 || g.biostatArc != 0) return false;
-
-        // Must have at least one appearance signal, otherwise it isn't cosmetic at all.
+        // Must change appearance at all, otherwise it's not for this tab.
         if (!HasAppearanceSignal(g)) return false;
 
-        // Reject anything that gives or takes a mechanical effect.
+        // Strong signal: it visibly draws/replaces a body part -> show it even with a minor effect.
+        if (HasStrongAppearanceSignal(g)) return true;
+
+        // Weak signal only: keep the strict filter so mechanical genes don't leak in via a skin tint.
+        if (g.biostatCpx != 0 || g.biostatMet != 0 || g.biostatArc != 0) return false;
+
         var hasMechanical = !g.statOffsets.NullOrEmpty()
             || !g.statFactors.NullOrEmpty()
             || !g.capMods.NullOrEmpty()
@@ -99,6 +110,20 @@ public static class CosmeticGeneDiscovery
             || g.passionMod != null
             || g.makeImmuneTo != null && g.makeImmuneTo.Count > 0;
         return !hasMechanical;
+    }
+
+    /// <summary>
+    /// A gene that clearly, visibly changes a body part: it has its own render node, a known
+    /// appearance-region exclusionTag (Ears, Tail, Eyes...), fur, or forces a head type. These are
+    /// unmistakably appearance genes, so we show them in the tab even if they carry a small stat.
+    /// (A purely mechanical gene like "super strength" has none of these.)
+    /// </summary>
+    private static bool HasStrongAppearanceSignal(GeneDef g)
+    {
+        return !g.renderNodeProperties.NullOrEmpty()
+            || HasKnownAppearanceTag(g)
+            || g.fur != null
+            || !g.forcedHeadTypes.NullOrEmpty();
     }
 
     /// <summary>True when a gene has any signal that it changes appearance.</summary>

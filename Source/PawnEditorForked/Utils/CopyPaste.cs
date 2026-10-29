@@ -25,13 +25,15 @@ public static partial class PawnEditor
         if (into.apparel != null && clipboard?.apparel != null)
         {
             into.apparel.DestroyAll();
-            foreach (var apparel in clipboard.apparel.WornApparel) into.apparel.Wear(apparel.Clone(), false, clipboard.apparel.IsLocked(apparel));
+            // Captured from the clipboard pawn, applied to the clone: keeps "forced" as well as "locked".
+            foreach (var apparel in clipboard.apparel.WornApparel)
+                ApparelWearingState.Capture(clipboard, apparel).WearOn(into, apparel.Clone());
         }
 
         if (into.equipment != null && clipboard?.equipment != null)
         {
             into.equipment.DestroyAllEquipment();
-            foreach (var eq in clipboard.equipment.AllEquipmentListForReading) into.equipment.AddEquipment(eq.Clone());
+            foreach (var eq in clipboard.equipment.AllEquipmentListForReading) EquipmentPlacement.Equip(into, (ThingWithComps)eq.Clone());
         }
 
         if (into.inventory != null && clipboard?.inventory != null)
