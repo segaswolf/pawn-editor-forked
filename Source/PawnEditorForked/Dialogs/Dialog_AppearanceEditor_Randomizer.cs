@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -26,7 +26,7 @@ public partial class Dialog_AppearanceEditor
         {
             var repeatRect = randomRect.TakeRightPart(RepeatButtonWidth);
             randomRect.xMax -= RepeatButtonGap;
-            if (Widgets.ButtonImageWithBG(repeatRect, TexUI.RotRightTex, new Vector2(12, 12)))
+            if (Widgets.ButtonImageWithBG(repeatRect, TexPawnEditor.Randomize, new Vector2(16, 16)))
                 lastRandomization();
         }
 

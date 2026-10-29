@@ -47,10 +47,18 @@ public partial class TabWorker_Bio_Humanlike
         var graceLabel = "PawnEditor.Development.BetrayalIn".Translate().ToString();
         var labelWidth = UIUtility.ColumnWidth(4f, traumaLabel, stateLabel, integrityLabel, betrayerLabel, graceLabel);
 
+        // Each stat is shown only while it is on in the mod's settings, as the mod's own panel does: a row for a
+        // switched-off stat edits a value that does nothing in game. Betrayal is rolled from integrity
+        // (RollBetrayal runs when integrity changes), so the betrayal rows go with integrity.
         // Layout.TryTakeTop refuses to hand back a row that doesn't fit, which is what kept the
         // Betrayer checkbox from being drawn on top of the bottom buttons.
-        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var traumaRow)) DrawTraumaControl(traumaRow, pawn, traumaLabel, labelWidth);
-        if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var stateRow)) DrawTraumaState(stateRow, pawn, stateLabel, labelWidth);
+        if (TraumaIntegrityCompat.TraumaEnabled)
+        {
+            if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var traumaRow)) DrawTraumaControl(traumaRow, pawn, traumaLabel, labelWidth);
+            if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var stateRow)) DrawTraumaState(stateRow, pawn, stateLabel, labelWidth);
+        }
+
+        if (!TraumaIntegrityCompat.IntegrityEnabled) return;
         if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var integrityRow)) DrawIntegrityControl(integrityRow, pawn, integrityLabel, labelWidth);
         if (Layout.TryTakeTop(ref rect, TraumaRowHeight, out var betrayerRow)) DrawBetrayerControl(betrayerRow, pawn, betrayerLabel);
 
@@ -180,19 +188,11 @@ public partial class TabWorker_Bio_Humanlike
         graceDaysBuffer = graceDaysValue.ToString("0.#");
     }
 
-    private static string GetTraumaTooltip()
-    {
-        var tooltip = "PawnEditor.Development.TraumaApplyDesc".Translate().ToString();
-        if (!TraumaIntegrityCompat.TraumaEnabled)
-            tooltip += "\n\n" + "PawnEditor.Development.TraumaDisabled".Translate();
-        return tooltip;
-    }
+    private static string GetTraumaTooltip() => "PawnEditor.Development.TraumaApplyDesc".Translate().ToString();
 
     private static string GetIntegrityTooltip(Pawn pawn)
     {
         var tooltip = "PawnEditor.Development.IntegrityApplyDesc".Translate().ToString();
-        if (!TraumaIntegrityCompat.IntegrityEnabled)
-            tooltip += "\n\n" + "PawnEditor.Development.IntegrityDisabled".Translate();
         if (TraumaIntegrityCompat.IntegrityHidden)
             tooltip += "\n\n" + "PawnEditor.Development.IntegrityHidden".Translate();
         if (TraumaIntegrityCompat.GetIntegrity(pawn) < 0f)

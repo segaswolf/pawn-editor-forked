@@ -221,7 +221,9 @@ namespace PawnEditor
             var range = (inRect.xMax - inRect.xMin);
             var xPosition = inRect.xMin + range * color.GetComponent(colorComponent);
 
-            if (Event.current.button == 0 && UnityEngine.Input.GetKey(KeyCode.Mouse0))
+            // GetMouseButton, not GetKey(KeyCode.Mouse0): on 1.7 the UnityStubs Input maps only keyboard keys,
+            // so GetKey(Mouse0) is always false and the sliders ignored every click (Kita, Steam, 25 Oct).
+            if (Event.current.button == 0 && UnityEngine.Input.GetMouseButton(0))
             {
                 if (Widgets.ClickedInsideRect(originalRect) || (MouseDrag() && lastFocusedSlider == hashCode))
                 {

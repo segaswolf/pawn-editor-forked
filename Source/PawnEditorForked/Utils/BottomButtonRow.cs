@@ -13,6 +13,9 @@ public readonly struct BottomButtonRow
 {
     public const float MinButtonWidth = 60f;
 
+    /// <summary>The gap after Delete, in normal gaps: wider so a slip toward Randomize can't hit Delete.</summary>
+    public const float DeleteGapFactor = 3f;
+
     public readonly Rect Delete;
     public readonly Rect Randomize;
     public readonly Rect Save;
@@ -33,13 +36,20 @@ public readonly struct BottomButtonRow
         area.xMin += spacing;
         area.xMax -= spacing;
 
-        var slotWidth = Mathf.Clamp((area.width - spacing * 3f) / 4f, MinButtonWidth, buttonSize.x);
-        var groupWidth = slotWidth * 4f + spacing * 3f;
+        var deleteGap = spacing * DeleteGapFactor;
+        var gaps = deleteGap + spacing * 2f;
+        var slotWidth = Mathf.Clamp((area.width - gaps) / 4f, MinButtonWidth, buttonSize.x);
+        var groupWidth = slotWidth * 4f + gaps;
         var x = area.x + Mathf.Max(0f, (area.width - groupWidth) / 2f);
         var y = area.y + (area.height - buttonSize.y) / 2f;
 
-        Rect Slot(int index) => new(x + index * (slotWidth + spacing), y, slotWidth, buttonSize.y);
-        return new BottomButtonRow(Slot(0), Slot(1), Slot(2), Slot(3));
+        Rect Slot(float left) => new(left, y, slotWidth, buttonSize.y);
+        var randomizeX = x + slotWidth + deleteGap;
+        return new BottomButtonRow(
+            Slot(x),
+            Slot(randomizeX),
+            Slot(randomizeX + slotWidth + spacing),
+            Slot(randomizeX + (slotWidth + spacing) * 2f));
     }
 
     /// <summary>Gap between slots, also kept at both ends so the group never touches Close or Teleport.</summary>

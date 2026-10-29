@@ -31,3 +31,4 @@ desktop.ini
 
 # ─── Keep the compiled DLL (Steam Workshop needs it) ───
 # 1.6/Assemblies/PawnEditor.dll is intentionally tracked
+artifacts/

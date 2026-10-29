@@ -64,9 +64,15 @@ public static class HARCompat
         canUseXenotype = AccessTools.Method(raceRestrictionSettings, "CanUseXenotype").CreateDelegate<Func<XenotypeDef, ThingDef, bool>>();
     }
 
+    /// <remarks>
+    /// HAR's postfix copies <c>AlienComp.addonVariants</c>, which stays null until the pawn's render tree is
+    /// built (<c>AlienComp.CompRenderNodes</c>). The vanilla styling station only opens on pawns already drawn;
+    /// ours can open first, and the throw took the whole editor down (in-game tests, 19 Oct 2026).
+    /// </remarks>
     public static void Notify_AppearanceEditorOpen(Pawn pawn)
     {
-        constructorPostfix(pawn);
+        PawnEditor.EnsurePawnGraphicsInitialized(pawn);
+        Diagnostics.Run("Preparing HAR's styling data", pawn, () => constructorPostfix(pawn));
     }
 
     public static void DoRaceTabs(Rect inRect)

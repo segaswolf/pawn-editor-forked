@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
@@ -78,6 +79,13 @@ public static class VSECompat
         expertiseTrackerType = AccessTools.TypeByName("VSE.ExpertiseTracker");
         expertiseRecordType = AccessTools.TypeByName("VSE.ExpertiseRecord");
         expertiseDefType = AccessTools.TypeByName("VSE.Expertise.ExpertiseDef");
+        if (expertiseDefType != null)
+        {
+            canApplyOnMethod = AccessTools.Method(expertiseDefType, "CanApplyOn", new[] { typeof(Pawn), typeof(string).MakeByRefType() });
+            expertiseHideField = AccessTools.Field(expertiseDefType, "hide");
+            expertiseSkillField = AccessTools.Field(expertiseDefType, "skill");
+            expertiseEffectsMethod = AccessTools.Method(expertiseDefType, "Effects", new[] { typeof(int), typeof(string) });
+        }
 
         if (expertiseTrackersType != null)
         {
@@ -92,6 +100,7 @@ public static class VSECompat
                 expertiseDefField = AccessTools.Field(expertiseRecordType, "def");
                 expertiseLevelProperty = AccessTools.Property(expertiseRecordType, "Level");
                 expertiseXpField = AccessTools.Field(expertiseRecordType, "XpSinceLastLevel");
+                xpRequiredField = AccessTools.Field(expertiseRecordType, "XpRequiredForLevelUp");
             }
         }
     }
@@ -268,18 +277,26 @@ public static class VSECompat
     public static bool RestoreExpertise(Pawn pawn, List<ExpertiseSnapshot> snapshots)
     {
         if (!HasExpertiseSupport || snapshots == null || snapshots.Count == 0) return false;
+        return SetExpertise(pawn, snapshots);
+    }
+
+    /// <summary>
+    /// Replaces the pawn's expertise with exactly these records. Unlike <see cref="RestoreExpertise"/>, an
+    /// empty list is valid: Cancel uses it to take the pawn back to "no expertise".
+    /// </summary>
+    public static bool SetExpertise(Pawn pawn, List<ExpertiseSnapshot> snapshots)
+    {
+        if (!HasExpertiseSupport || snapshots == null) return false;
 
         try
         {
             var tracker = GetExpertiseTracker(pawn);
             if (tracker == null) return false;
 
-            // Clear existing
             clearExpertiseMethod?.Invoke(tracker, Array.Empty<object>());
 
             foreach (var snap in snapshots)
             {
-                // Resolve ExpertiseDef by defName
                 var def = GenDefDatabase.GetDefSilentFail(expertiseDefType, snap.DefName, false);
                 if (def == null)
                 {
@@ -287,18 +304,15 @@ public static class VSECompat
                     continue;
                 }
 
-                // AddExpertise(ExpertiseDef)
                 addExpertiseMethod?.Invoke(tracker, new object[] { def });
 
-                // Now set level and XP on the newly added record
+                // AddExpertise appends, so the new record is the last one.
                 var allExpertise = allExpertiseProperty?.GetValue(tracker) as System.Collections.IList;
                 if (allExpertise == null || allExpertise.Count == 0) continue;
-
-                // The one we just added is the last one
                 var record = allExpertise[allExpertise.Count - 1];
                 if (record == null) continue;
 
-                expertiseLevelProperty?.SetValue(record, snap.Level);
+                SetRecordLevel(record, snap.Level);
                 expertiseXpField?.SetValue(record, snap.XpSinceLastLevel);
             }
 
@@ -306,9 +320,151 @@ public static class VSECompat
         }
         catch (Exception ex)
         {
-            Log.Warning($"[Pawn Editor] VSE RestoreExpertise: {ex.Message}");
+            Log.Warning($"[Pawn Editor] VSE SetExpertise: {ex.Message}");
             return false;
         }
+    }
+
+    // ── Expertise editing (Skills column) ──
+    // What a pawn may take is VSE's call, through its own ExpertiseDef.CanApplyOn: no "bad" passion on the
+    // skill, skill level at least LevelToGetExpertise (15 by default), fewer than MaxExpertise (1 by
+    // default), and no two of the same skill unless AllowExpertiseOverlap. Those are VSE settings, so we ask
+    // VSE rather than copy the numbers. Verified against VSE's decompiled source (Dev Notes, Oct 2026).
+
+    /// <summary>VSE stops levelling an expertise at 20 (ExpertiseRecord level-up loop).</summary>
+    public const int MaxExpertiseLevel = 20;
+
+    /// <summary>VSE's "max expertise" setting (1 by default, up to 75), or null if it can't be read.</summary>
+    public static int? MaxExpertise
+    {
+        get
+        {
+            try
+            {
+                var settings = AccessTools.Field(AccessTools.TypeByName("VSE.SkillsMod"), "Settings")?.GetValue(null);
+                return settings == null ? null : AccessTools.Field(settings.GetType(), "MaxExpertise")?.GetValue(settings) as int?;
+            }
+            catch { return null; }
+        }
+    }
+
+    private static MethodInfo canApplyOnMethod;
+    private static FieldInfo expertiseHideField;
+    private static FieldInfo expertiseSkillField;
+    private static FieldInfo xpRequiredField;
+    private static MethodInfo expertiseEffectsMethod;
+    private static List<Def> expertiseDefs;
+
+    /// <summary>The installed VSE exposes everything the expertise row needs.</summary>
+    public static bool CanEditExpertise => HasExpertiseSupport && canApplyOnMethod != null && expertiseDefField != null
+        && expertiseLevelProperty != null && addExpertiseMethod != null && allExpertiseProperty != null;
+
+    /// <summary>Every expertise a player could pick (VSE's hidden ones left out), in skill-list order.</summary>
+    public static List<Def> ExpertiseDefs => expertiseDefs ??= LoadExpertiseDefs();
+
+    private static List<Def> LoadExpertiseDefs()
+    {
+        if (expertiseDefType == null) return new List<Def>();
+        return GenDefDatabase.GetAllDefsInDatabaseForDef(expertiseDefType)
+            .Where(def => expertiseHideField?.GetValue(def) is not true)
+            .OrderByDescending(def => SkillOf(def)?.listOrder ?? 0)
+            .ThenBy(def => def.label)
+            .ToList();
+    }
+
+    /// <summary>
+    /// What the expertise changes at that level, in VSE's own words (ExpertiseDef.Effects: one line per stat).
+    /// Empty if the installed VSE doesn't expose it. Effects grow linearly with the level.
+    /// </summary>
+    public static string ExpertiseEffects(Def expertise, int level)
+    {
+        if (expertiseEffectsMethod == null || expertise == null) return string.Empty;
+        try { return (expertiseEffectsMethod.Invoke(expertise, new object[] { level, "  " }) as string)?.Trim('\n') ?? string.Empty; }
+        catch { return string.Empty; }
+    }
+
+    /// <summary>The skill an expertise belongs to, or null if it can't be read.</summary>
+    public static SkillDef SkillOf(Def expertise) => expertiseSkillField?.GetValue(expertise) as SkillDef;
+
+    /// <summary>The pawn's expertise and its level, in VSE's order. Empty when the pawn has none.</summary>
+    public static List<(Def def, int level)> CurrentExpertise(Pawn pawn)
+    {
+        var result = new List<(Def, int)>();
+        var records = Records(pawn);
+        if (records == null) return result;
+        foreach (var record in records)
+        {
+            if (record == null || expertiseDefField.GetValue(record) is not Def def) continue;
+            result.Add((def, (int)expertiseLevelProperty.GetValue(record)));
+        }
+        return result;
+    }
+
+    /// <summary>Whether VSE lets the pawn take this expertise now. The reason is VSE's own text.</summary>
+    public static bool CanApplyExpertise(Def expertise, Pawn pawn, out string reason)
+    {
+        var args = new object[] { pawn, null };
+        try
+        {
+            var allowed = (bool)canApplyOnMethod.Invoke(expertise, args);
+            reason = args[1] as string;
+            return allowed;
+        }
+        catch (Exception ex)
+        {
+            reason = ex.InnerException?.Message ?? ex.Message;
+            return false;
+        }
+    }
+
+    public static void AddExpertise(Pawn pawn, Def expertise)
+    {
+        var tracker = GetExpertiseTracker(pawn);
+        if (tracker == null) return;
+        try { addExpertiseMethod.Invoke(tracker, new object[] { expertise }); }
+        catch (Exception ex) { Log.Warning($"[Pawn Editor] VSE AddExpertise {expertise?.defName}: {ex.InnerException?.Message ?? ex.Message}"); }
+    }
+
+    public static void RemoveExpertise(Pawn pawn, Def expertise)
+    {
+        var records = Records(pawn);
+        var index = IndexOf(records, expertise);
+        if (index >= 0) records.RemoveAt(index);
+    }
+
+    /// <summary>Sets the level (0 to 20) and starts that level's progress from zero.</summary>
+    public static void SetExpertiseLevel(Pawn pawn, Def expertise, int level)
+    {
+        var records = Records(pawn);
+        var index = IndexOf(records, expertise);
+        if (index < 0) return;
+        SetRecordLevel(records[index], level);
+        expertiseXpField?.SetValue(records[index], 0f);
+    }
+
+    // VSE derives XpRequiredForLevelUp from the level only when it adds a record or loads a save, so setting
+    // the level alone left the bar measuring progress against level 0 until the next load.
+    private static void SetRecordLevel(object record, int level)
+    {
+        level = Mathf.Clamp(level, 0, MaxExpertiseLevel);
+        expertiseLevelProperty?.SetValue(record, level);
+        xpRequiredField?.SetValue(record, SkillRecord.XpRequiredToLevelUpFrom(level));
+    }
+
+    private static System.Collections.IList Records(Pawn pawn)
+    {
+        var tracker = GetExpertiseTracker(pawn);
+        if (tracker == null || allExpertiseProperty == null) return null;
+        try { return allExpertiseProperty.GetValue(tracker) as System.Collections.IList; }
+        catch { return null; }
+    }
+
+    private static int IndexOf(System.Collections.IList records, Def expertise)
+    {
+        if (records == null || expertise == null || expertiseDefField == null) return -1;
+        for (var i = 0; i < records.Count; i++)
+            if (records[i] != null && expertiseDefField.GetValue(records[i]) == expertise) return i;
+        return -1;
     }
 
     /// <summary>

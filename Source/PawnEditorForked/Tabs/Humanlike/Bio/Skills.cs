@@ -39,6 +39,10 @@ public partial class TabWorker_Bio_Humanlike
         GUI.color = Color.white;
         if (Widgets.ButtonText(header.TakeRightPart(PresetButtonWidth), "PawnEditor.Preset".Translate()))
             Find.WindowStack.Add(new FloatMenu(SkillPresetOptions(pawn)));
+        if (!ShowExpertise) return;
+        var expertiseRect = header.TakeRightPart(ExpertiseButtonWidth + 4f);
+        expertiseRect.xMax -= 4f;
+        DrawExpertiseButton(expertiseRect, pawn);
     }
 
     /// <summary>Set every skill to 0 or max, plus passion presets (VSE's own when it is active).</summary>

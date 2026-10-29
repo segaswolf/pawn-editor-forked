@@ -30,14 +30,14 @@ public partial class TabWorker_Bio_Humanlike
     }
 
     /// <summary>
-    /// Removes EVERY gene, then applies only the new xenotype's. For switching between very different
-    /// xenotypes (human to android) without leftovers.
+    /// Removes every gene (except mod-granted ones, see <see cref="GrantedGenes"/>), then applies only the
+    /// new xenotype's. For switching between very different xenotypes (human to android) without leftovers.
     /// </summary>
     public static void ResetAndSetXenotype(Pawn pawn, XenotypeDef xenotype)
     {
         if (pawn.genes == null) return;
-        RemoveAllGenes(pawn, pawn.genes.Endogenes, "endogene");
-        RemoveAllGenes(pawn, pawn.genes.Xenogenes, "xenogene");
+        RemoveAllGenes(pawn, GrantedGenes.WithoutGranted(pawn, pawn.genes.Endogenes), "endogene");
+        RemoveAllGenes(pawn, GrantedGenes.WithoutGranted(pawn, pawn.genes.Xenogenes), "xenogene");
         foreach (var gene in xenotype.genes)
             pawn.genes.AddGene(gene, !xenotype.inheritable);
         pawn.genes.SetXenotypeDirect(xenotype);
@@ -55,11 +55,13 @@ public partial class TabWorker_Bio_Humanlike
     }
 
     /// <summary>Removes the pawn's gene for each def, looking in endogenes or xenogenes as the xenotype says.</summary>
+    /// <remarks>Skips mod-granted genes: a quirk can grant the same def the xenotype has.</remarks>
     private static void RemoveXenotypeGenes(Pawn pawn, List<GeneDef> geneDefs, bool inheritable)
     {
         foreach (var geneDef in geneDefs.ToList())
         {
-            var gene = (inheritable ? pawn.genes.Endogenes : pawn.genes.Xenogenes)?.FirstOrDefault(g => g.def == geneDef);
+            var candidates = GrantedGenes.WithoutGranted(pawn, inheritable ? pawn.genes.Endogenes : pawn.genes.Xenogenes);
+            var gene = candidates.FirstOrDefault(g => g.def == geneDef);
             if (gene != null) pawn.genes.RemoveGene(gene);
         }
     }

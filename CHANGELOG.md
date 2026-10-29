@@ -3,6 +3,67 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+
+### Added
+- **The trait picker shows what each trait changes** (requested by xWOLFxz): skills, stats, pain,
+  needs and the rest, the same text as the trait's tooltip in Bio, so mod traits can be compared
+  before adding them. The expertise window does the same: what it changes per level on the left,
+  and at the pawn's level on the right.
+
+## [v3.2.5] - 2026-10-28 — Expertise editor, more mod support and 1.7 fixes
+
+### Added
+- **Vanilla Skills Expanded expertise can be picked and edited** (requested by Yamaraja777 and
+  xWOLFxz). An Expertise button next to the skills opens a two-column window, like the Life Lessons
+  one: pick an expertise on the left (with search, and sorting by skill or A-Z), and on the right
+  change its level or remove it. Vanilla Skills Expanded's own rules decide what can be picked: the
+  ones it refuses stay listed, greyed out, with its reason (for example, the skill is below 15).
+  Cancel undoes these changes too.
+  A note on the limit: Pawn Editor keeps Vanilla Skills Expanded's rules as they are. With a limit
+  of 5 you can pick up to 5; once a pawn is full, remove one to pick another. If you lower the limit,
+  pawns already above it keep what they have, because VSE only checks the limit when adding; to
+  change one of theirs, remove expertise until they are below the new limit. That's how VSE works,
+  and the editor follows it on purpose.
+- **Isekai RPG Leveling support** (requested by teo-lost2). An "Isekai stats" button in Bio opens its
+  window, and duplicating and blueprints keep level, XP and stats. Randomizing traits no longer
+  removes the rank trait.
+- **Gradient Hair pattern picker** (requested by Hijack Hornet and FormalCyborg). Choose the gradient
+  pattern in the appearance editor, next to the second color.
+- **Royal titles from any faction that has them** (requested by cole_boby and KaneDraco). The Royalty
+  tab has a faction selector, so Dynamic Mod Settlements and VFE Empire titles and honor work too.
+- **Prepare Carefully's equipment tab works alongside Pawn Editor** (reported by IkeFanboy64). Its
+  starting equipment can be edited and removed again, not only added.
+
+### Changed
+- **Adulthood backstories follow vanilla.** RimWorld only gives one to pawns generated at 20 or
+  older. Ageing a pawn past 20 in the editor now gives it one; adults from 13 to 19 show "None" and
+  can still pick one by hand.
+- **Trauma & Integrity rows follow that mod's settings** (requested by Kimo'). A stat you turned off
+  there no longer shows in the Bio tab.
+
+### Fixed
+- **The color sliders ignored clicks on RimWorld 1.7** (reported by Kita). The hue, saturation,
+  value and RGB sliders read the mouse in a way 1.7 no longer supports; they work again.
+- **Backstories, traits and thoughts added late by other mods were missing from the pickers**
+  (reported by Drestalos, for Backstory Constructor). The lists are now built when the picker opens.
+- **The appearance editor applied changes instantly and Cancel did not undo them** (reported by
+  OxTailSafu). Cancel now restores the pawn as it was.
+- **"Randomize > Traits" could leave a pawn with no traits** (reported by 2ScoopsPlz).
+- **"Randomize all" replaced the pawn with a new one** at the end of the list. It now randomizes the
+  same pawn, keeping name, faction, relations and gear.
+- **The repeat button repeated a different menu option**, and there is a new undo button.
+- **Randomize and undo removed genes granted by Character Development quirks.**
+- **"Randomize > Relations" seemed to do nothing.** It now lives in Social and asks for confirmation,
+  since it also changes relatives.
+- **Undo showed up where it could not undo anything** (Gear, Social), and two empty randomize options
+  were removed from Health.
+- **The appearance editor failed to open with Humanoid Alien Races** for pawns not drawn yet.
+- **A custom xenotype with a missing icon flooded the log with an error every frame.** It now warns
+  once, naming the mod, and shows the basic icon.
+- **The warning when turning a pawn into a child mentioned removing parent relations**, which never
+  happens; that line is gone.
+
 ## [v3.2.4] - 2026-10-13 — RimWorld 1.7 support, animated health bars and a big cleanup
 
 ### Fixed

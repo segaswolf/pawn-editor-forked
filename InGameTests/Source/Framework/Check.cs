@@ -11,6 +11,14 @@ public sealed class CheckFailure : Exception
     }
 }
 
+/// <summary>The test does not apply to this mod list. Reported as SKIP, never as a pass.</summary>
+public sealed class SkipTest : Exception
+{
+    public SkipTest(string reason) : base(reason)
+    {
+    }
+}
+
 /// <summary>
 /// Minimal assertions for in-game tests. The game has no test framework loaded, so these throw
 /// <see cref="CheckFailure"/> and the runner turns that into a readable failure line.
@@ -20,6 +28,12 @@ public sealed class CheckFailure : Exception
 /// </summary>
 public static class Check
 {
+    /// <summary>Skips the test unless <paramref name="condition"/> holds, e.g. a compat mod being loaded.</summary>
+    public static void Requires(bool condition, string reason)
+    {
+        if (!condition) throw new SkipTest(reason);
+    }
+
     public static void That(bool condition, string failureMessage)
     {
         if (!condition) throw new CheckFailure(failureMessage);

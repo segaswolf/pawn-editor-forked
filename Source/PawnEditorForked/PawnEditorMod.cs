@@ -54,6 +54,7 @@ public class PawnEditorMod : Mod
     public static bool OverrideVanilla(Rect rect, Page_ConfigureStartingPawns __instance)
     {
         PawnEditor.Pregame = true;
+        StartingThingsManager.EnsureScenarioProcessed(); // the editor replaces the page: take the items now
         PawnEditor.DoUI(rect, __instance.DoBack, __instance.DoNext);
         return false;
     }
@@ -178,9 +179,12 @@ public class PawnEditorMod : Mod
         };
     }
 
+    /// <remarks>
+    /// Doesn't take over the scenario's starting items: that waits until the editor opens
+    /// (<see cref="Dialog_PawnEditor_Pregame"/>), so Prepare Carefully can still edit them when ours is unused.
+    /// </remarks>
     public static void Notify_ConfigurePawns()
     {
-        StartingThingsManager.ProcessScenario();
         PawnEditor.ResetPoints();
         PawnEditor.CheckChangeTabGroup();
     }

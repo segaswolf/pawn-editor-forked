@@ -18,11 +18,11 @@ public partial class TabWorker_Bio_Humanlike
 
     public override IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn)
     {
-        yield return new("PawnEditor.All".Translate(), () => RandomizeAll(pawn));
+        // The template's xenotype comes from the pawn's kind and faction: mostly baseliner for a player colony.
+        yield return new("PawnEditor.AllFactionXenotype".Translate(), () => RandomizeAll(pawn));
         // Full reroll that keeps the pawn's xenotype (def or custom).
         yield return new("PawnEditor.AllKeepXenotype".Translate(), () => RandomizeAll(pawn, keepXenotype: true));
         yield return new("Appearance".Translate(), () => RandomizeAppearance(pawn));
-        yield return new("Relations".Translate(), () => RandomizeRelations(pawn));
         yield return new("Traits".Translate(), () => RandomizeTraits(pawn));
         // Separate option, so the plain "Traits" reroll never touches backstory-forced traits.
         if (HasBackstoryForcedTraits(pawn) || ProgressionEducationCompat.HasProficiencies(pawn))
@@ -33,107 +33,56 @@ public partial class TabWorker_Bio_Humanlike
             yield return new("PawnEditor.Aspirations".Translate(), () => VAspirECompat.ReinitializeAspirations(fulfillment));
     }
 
+    /// <summary>Rerolls the pawn in place: same pawn, name, faction, relations, gear and health.</summary>
     public static void RandomizeAll(Pawn pawn, bool keepXenotype = false)
     {
-        // Vanilla's pregame randomizer has no keep-xenotype option, so the flag does nothing there.
-        if (PawnEditor.Pregame) StartingPawnUtility.RandomizePawn(StartingPawnUtility.PawnIndex(pawn));
-        else ReplaceWithRandomPawn(pawn, keepXenotype);
-    }
-
-    /// <summary>Deletes the pawn and adds a freshly generated one in its place.</summary>
-    private static void ReplaceWithRandomPawn(Pawn oldPawn, bool keepXenotype)
-    {
-        // Captured before deleting, while the old pawn still has its genes.
-        var kept = keepXenotype ? KeptXenotype.From(oldPawn) : null;
-        var position = oldPawn.Position;
-        var map = oldPawn.Map;
-        PawnEditor.PawnList.OnDelete(oldPawn);
-
-        var request = new PawnGenerationRequest(oldPawn.kindDef, PawnEditor.selectedFaction);
-        if (kept?.HasRealDef == true) request.ForcedXenotype = kept.Def;
-        var pawn = PawnGenerator.GeneratePawn(request);
-        kept?.ApplyTo(pawn);
-
-        PawnEditor.AddPawn(pawn, PawnEditor.selectedCategory).HandleResult();
-        if (map != null)
-        {
-            GenSpawn.Spawn(pawn, position, map);
-            PawnEditor.PawnList.UpdateCache(PawnEditor.selectedFaction, PawnEditor.selectedCategory);
-        }
-
-        TabWorker_FactionOverview.RecachePawns(PawnEditor.selectedFaction);
-    }
-
-    /// <summary>A pawn's full xenotype identity: def, custom xenotype, name, icon and genes.</summary>
-    private sealed class KeptXenotype
-    {
-        public XenotypeDef Def;
-        public CustomXenotype Custom;
-        public string Name;
-        public XenotypeIconDef Icon;
-        public List<GeneDef> Endogenes;
-        public List<GeneDef> Xenogenes;
-
-        // A real def (Sanguophage, a modded species) is forced at generation. Custom and
-        // "named baseliner" xenotypes (e.g. Veldrak) only exist as genes, so they are rebuilt.
-        public bool HasRealDef => Def != null && Def != XenotypeDefOf.Baseliner && Custom == null;
-
-        public static KeptXenotype From(Pawn pawn)
-        {
-            if (!ModsConfig.BiotechActive || pawn.genes == null) return null;
-            var genes = pawn.genes;
-            return new KeptXenotype
-            {
-                Custom = genes.CustomXenotype,
-                Def = genes.Xenotype,
-                Name = genes.xenotypeName,
-                Icon = genes.iconDef,
-                Endogenes = genes.Endogenes.Select(g => g.def).Where(d => d != null).ToList(),
-                Xenogenes = genes.Xenogenes.Select(g => g.def).Where(d => d != null).ToList(),
-            };
-        }
-
-        public void ApplyTo(Pawn pawn)
-        {
-            if (pawn.genes == null) return;
-            if (Custom != null) ApplyCustomXenotypeTo(pawn, Custom);
-            else if (HasRealDef) RestoreNameAndIcon(pawn.genes, Name, Icon);
-            else ApplyKeptGenes(pawn, Endogenes, Xenogenes, Name, Icon);
-        }
-    }
-
-    /// <summary>Applies a saved custom xenotype to a new pawn. Same guards as Dialog_AppearanceEditor.ApplyCustomXenotype.</summary>
-    private static void ApplyCustomXenotypeTo(Pawn pawn, CustomXenotype customXenotype)
-    {
-        if (pawn?.genes == null || customXenotype == null) return;
+        var template = GenerateTemplate(pawn);
         try
         {
-            if (!pawn.IsBaseliner()) pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
-            pawn.genes.xenotypeName = customXenotype.name;
-            pawn.genes.iconDef = customXenotype.IconDef;
-            AddGenesSafely(pawn, customXenotype.genes, !customXenotype.inheritable, $"xenotype '{customXenotype.name}'");
+            if (!keepXenotype) CopyGenes(template, pawn);
+            if (template.gender != pawn.gender) SetGender(pawn, template.gender);
+            pawn.ageTracker.AgeBiologicalTicks = template.ageTracker.AgeBiologicalTicks;
+            pawn.ageTracker.AgeChronologicalTicks = template.ageTracker.AgeChronologicalTicks;
+        }
+        finally
+        {
+            template.Discard(true);
+        }
+
+        RandomizeBackstory(pawn);
+        RandomizeTraits(pawn);
+        RandomizeSkills(pawn); // after backstory and traits, which both affect skills
+        RandomizeAppearance(pawn);
+    }
+
+    /// <summary>A throwaway pawn of the same kind and life stage, used as the source of random values.</summary>
+    private static Pawn GenerateTemplate(Pawn pawn)
+    {
+        var request = new PawnGenerationRequest(pawn.kindDef, pawn.Faction)
+        {
+            AllowedDevelopmentalStages = pawn.DevelopmentalStage,
+            CanGeneratePawnRelations = false,
+            ForbidAnyTitle = true,
+        };
+        return PawnGenerator.GeneratePawn(request);
+    }
+
+    /// <summary>Replaces the pawn's xenotype and its genes with the template's. Quirk-granted genes stay.</summary>
+    private static void CopyGenes(Pawn from, Pawn to)
+    {
+        if (!ModsConfig.BiotechActive || from.genes == null || to.genes == null) return;
+        try
+        {
+            GrantedGenes.RemoveAllExceptGranted(to);
+            to.genes.SetXenotypeDirect(from.genes.Xenotype);
+            AddGenesSafely(to, from.genes.Endogenes.Select(g => g.def).ToList(), false, "randomized endogenes");
+            AddGenesSafely(to, from.genes.Xenogenes.Select(g => g.def).ToList(), true, "randomized xenogenes");
+            to.genes.xenotypeName = from.genes.xenotypeName;
+            to.genes.iconDef = from.genes.iconDef;
         }
         catch (Exception ex)
         {
-            Log.Error($"[Pawn Editor] Failed to re-apply custom xenotype '{customXenotype.name}': {ex.Message}");
-        }
-    }
-
-    /// <summary>Rebuilds a xenotype from its genes, name and icon on top of a baseliner.</summary>
-    private static void ApplyKeptGenes(Pawn pawn, List<GeneDef> endogenes, List<GeneDef> xenogenes,
-        string xenotypeName, XenotypeIconDef iconDef)
-    {
-        if (pawn?.genes == null) return;
-        try
-        {
-            pawn.genes.SetXenotype(XenotypeDefOf.Baseliner);
-            AddGenesSafely(pawn, endogenes, false, "keep-xenotype endogenes");
-            AddGenesSafely(pawn, xenogenes, true, "keep-xenotype xenogenes");
-            RestoreNameAndIcon(pawn.genes, xenotypeName, iconDef);
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"[Pawn Editor] keep-xenotype gene rebuild failed: {ex.Message}");
+            Log.Error($"[Pawn Editor] Randomizing the xenotype failed: {ex.Message}");
         }
     }
 
@@ -147,12 +96,6 @@ public partial class TabWorker_Bio_Humanlike
             try { pawn.genes.AddGene(geneDef, xenogene); }
             catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipped gene {geneDef.defName} ({context}): {ex.Message}"); }
         }
-    }
-
-    private static void RestoreNameAndIcon(Pawn_GeneTracker genes, string xenotypeName, XenotypeIconDef iconDef)
-    {
-        if (!xenotypeName.NullOrEmpty()) genes.xenotypeName = xenotypeName;
-        if (iconDef != null) genes.iconDef = iconDef;
     }
 
     public static void RandomizeBackstory(Pawn pawn)
@@ -273,10 +216,14 @@ public partial class TabWorker_Bio_Humanlike
         var previousTraits = traits.allTraits.Except(kept).ToList();
         foreach (var trait in previousTraits) traits.RemoveTrait(trait, true);
 
-        var targetCount = Mathf.Min(GrowthUtility.GrowthMomentAges.Length, PawnGenerator.TraitsCountRange.RandomInRange);
+        // Gene and proficiency traits don't count towards the target: with Progression: Education a pawn can
+        // already hold three proficiency traits, and counting them meant no trait was ever rolled.
+        var uncounted = kept.Count(trait => trait.sourceGene != null || ProgressionEducationCompat.IsProficiencyTrait(trait.def)
+                                            || IsekaiLevelingCompat.IsSystemTrait(trait.def));
+        var targetCount = uncounted + Mathf.Min(GrowthUtility.GrowthMomentAges.Length, PawnGenerator.TraitsCountRange.RandomInRange);
         GainGrowthMomentTraits(pawn, targetCount);
         FillRemainingTraits(pawn, targetCount);
-        RestoreTraitsIfEmpty(pawn, previousTraits);
+        RestoreTraitsIfNoneRolled(pawn, previousTraits, kept.Count);
 
         // Proficiencies are schooling, not personality: only the forced reroll touches them (within their track).
         if (includeForced) ProgressionEducationCompat.RandomizeProficiencies(pawn);
@@ -291,6 +238,8 @@ public partial class TabWorker_Bio_Humanlike
             .Where(trait => trait.sourceGene != null
                 // Proficiency traits have commonality 0: the generator could never roll them back.
                 || ProgressionEducationCompat.IsProficiencyTrait(trait.def)
+                // Isekai rank and title traits follow the level; they have commonality 0 too.
+                || IsekaiLevelingCompat.IsSystemTrait(trait.def)
                 || (!includeForced && IsRequiredTrait(trait, requirements)))
             .ToHashSet();
     }
@@ -319,11 +268,11 @@ public partial class TabWorker_Bio_Humanlike
         }
     }
 
-    /// <summary>If the reroll produced nothing, gives back the old traits instead of leaving none.</summary>
-    private static void RestoreTraitsIfEmpty(Pawn pawn, List<Trait> previousTraits)
+    /// <summary>If the reroll added nothing beyond the kept traits, gives back the old ones instead of leaving none.</summary>
+    private static void RestoreTraitsIfNoneRolled(Pawn pawn, List<Trait> previousTraits, int keptCount)
     {
         var traits = pawn.story.traits;
-        if (traits.allTraits.Count > 0 || previousTraits.Count == 0) return;
+        if (traits.allTraits.Count > keptCount || previousTraits.Count == 0) return;
         foreach (var trait in previousTraits)
             traits.GainTrait(new Trait(trait.def, trait.Degree, trait.ScenForced));
         Messages.Message("Pawn Editor: couldn't generate new traits for this pawn, kept the existing ones.",
@@ -341,13 +290,6 @@ public partial class TabWorker_Bio_Humanlike
 
         if (!ModsConfig.BiotechActive || pawn.ageTracker.AgeBiologicalYears >= SexualityTraitAge)
             PawnGenerator.TryGenerateSexualityTraitFor(pawn, true);
-    }
-
-    private static void RandomizeRelations(Pawn pawn)
-    {
-        var request = new PawnGenerationRequest(pawn.kindDef, pawn.Faction);
-        pawn.relations.ClearAllRelations();
-        PawnGenerator.GeneratePawnRelations(pawn, ref request);
     }
 
     private static void RandomizeSkills(Pawn pawn)

@@ -186,12 +186,13 @@ public partial class TabWorker_Bio_Humanlike
 
     /// <summary>
     /// Applies a new biological age to a pawn and handles dev stage transitions.
-    /// If the age change crosses a dev stage boundary (e.g., adult→child at 13),
-    /// removes or generates the adult backstory and adjusts body type.
+    /// Crossing a dev stage boundary (e.g., adult→child at 13) removes the adult backstory and adjusts body type;
+    /// reaching 20 gives one, as vanilla does (<see cref="BackstoryUtility.VanillaAdulthoodAge"/>).
     /// </summary>
     private void ApplyBiologicalAge(Pawn pawn, int newAge)
     {
         var oldDevStage = pawn.DevelopmentalStage;
+        var oldAge = pawn.ageTracker.AgeBiologicalYears;
         pawn.ageTracker.AgeBiologicalTicks = newAge * TicksPerYear;
         var newDevStage = pawn.DevelopmentalStage;
 
@@ -205,6 +206,7 @@ public partial class TabWorker_Bio_Humanlike
         // Handle backstory transitions when dev stage changes
         if (oldDevStage != newDevStage)
             BackstoryUtility.HandleDevStageTransition(pawn, newDevStage);
+        BackstoryUtility.GiveAdulthoodOnReachingVanillaAge(pawn, oldAge);
 
         PawnEditor.Notify_PointsUsed();
     }
@@ -227,16 +229,21 @@ public partial class TabWorker_Bio_Humanlike
                 (TipSignal)pawn.story.childhood.FullDescriptionFor(pawn).Resolve());
         }
 
-        if (pawn.story.Adulthood != null)
+        // Shown for every adult, even without an adulthood: vanilla leaves adults of 13 to 19 without one
+        // (BackstoryUtility.VanillaAdulthoodAge), and the player must still be able to pick one.
+        if (pawn.story.Adulthood != null || pawn.DevelopmentalStage == DevelopmentalStage.Adult)
         {
             inRect.yMin += 3;
             var adultRect = inRect.TakeTopPart(30);
             using (new TextBlock(TextAnchor.MiddleLeft))
                 Widgets.Label(adultRect.TakeLeftPart(leftWidth), adulthoodLabel);
-            if (Widgets.ButtonText(adultRect.LeftPart(0.6f), pawn.story.Adulthood.TitleCapFor(pawn.gender)))
+            var adulthood = pawn.story.Adulthood;
+            var buttonLabel = adulthood?.TitleCapFor(pawn.gender) ?? "None".Translate().CapitalizeFirst();
+            if (Widgets.ButtonText(adultRect.LeftPart(0.6f), buttonLabel))
                 Find.WindowStack.Add(new ListingMenu_Backstories(pawn, BackstorySlot.Adulthood));
-            TooltipHandler.TipRegion(adultRect.LeftPart(0.6f),
-                (TipSignal)pawn.story.adulthood.FullDescriptionFor(pawn).Resolve());
+            TooltipHandler.TipRegion(adultRect.LeftPart(0.6f), adulthood != null
+                ? (TipSignal)adulthood.FullDescriptionFor(pawn).Resolve()
+                : (TipSignal)"PawnEditor.AdulthoodNoneDesc".Translate(BackstoryUtility.VanillaAdulthoodAge));
         }
     }
 

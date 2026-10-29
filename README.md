@@ -12,7 +12,7 @@ A community-maintained fork of [Pawn Editor](https://steamcommunity.com/sharedfi
 
 Pawn Editor lets you edit your colonists, starting pawns and NPCs from one window: bio, traits, skills, genes, health, gear, relations, needs and appearance. This fork keeps it working on current RimWorld, fixes the crashes and save/load issues of the original, and adds compatibility with popular mods. It is tested with a 1000+ mod list.
 
-**Current version: v3.2.4** — tested on RimWorld 1.6 and on the 1.7 (Waylith) unstable branch.
+**Current version: v3.2.5** — tested on RimWorld 1.6 and on the 1.7 (Waylith) unstable branch.
 
 ---
 
@@ -38,7 +38,7 @@ Dedicated support for:
 | Mod | What works |
 |-----|------------|
 | Vanilla Psycasts Expanded | Paths, nodes, XP and level, in blueprints and duplicates |
-| Vanilla Skills Expanded | Passions and expertise |
+| Vanilla Skills Expanded | Passions and expertise (pick, switch, level; follows its own rules) |
 | Vanilla Aspirations Expanded | Aspirations, with safe life-stage changes |
 | Vanilla Races Expanded – Android | Energy need kept when duplicating |
 | Facial Animations | Every face part, editable and copied |

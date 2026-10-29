@@ -39,8 +39,11 @@ public static partial class PawnEditor
     private static bool showFactionInfo;
     public static PawnCategory selectedCategory;
     private static float cachedValue;
-    // Index of the last randomization option used (-1 = none yet), so "repeat" re-runs this frame's entry.
-    private static int lastRandomizationIndex = -1;
+    // Label of the last randomization option used (null = none yet). Matched by label, not index,
+    // because the option list changes with the pawn (some entries are conditional).
+    private static string lastRandomizationLabel;
+    // The selected pawn as it was before the last randomization, for the undo button.
+    private static PawnSnapshot randomizeUndo;
     private static TabGroupDef tabGroup;
     private static List<TabRecord> tabs;
     private static TabDef curTab;
@@ -183,7 +186,9 @@ public static partial class PawnEditor
         var row = BottomButtonRow.Within(inRect, Page.BottomButSize);
         var options = RandomizeMenuOptions();
         var randomizeRect = row.Randomize;
+        // Right to left: repeat at the edge, undo to its left, as in a text editor's undo/redo pair.
         DrawRepeatRandomizeButton(ref randomizeRect, options);
+        DrawUndoRandomizeButton(ref randomizeRect);
         DrawRandomizeButton(randomizeRect, options);
         DrawDeleteButton(row.Delete);
         DrawSaveLoadButton(row.Save, "Save".Translate(), item => item.MakeSaveOption());
@@ -211,23 +216,52 @@ public static partial class PawnEditor
 
         // A copy taken before adding the faction options, so "all - including faction" can never run itself.
         var tabOptions = options.ToList();
-        options.Add(new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + "PawnEditor.AllIncludingFaction".Translate(),
-            () => RandomizeAllIncludingFaction(tabOptions)));
-        options.Add(new FloatMenuOption("PawnEditor.SelectRandomFaction".Translate(), RandomizeSelectedPawnFaction));
+        AddRepeatable(options, "PawnEditor.Randomize".Translate() + " " + "PawnEditor.AllIncludingFaction".Translate(),
+            () => RandomizeAllIncludingFaction(tabOptions));
+        AddRepeatable(options, "PawnEditor.SelectRandomFaction".Translate(), RandomizeSelectedPawnFaction);
         return options;
+    }
+
+    private static void AddRepeatable(List<FloatMenuOption> options, string label, Action action)
+    {
+        options.Add(new FloatMenuOption(label, () => RunRandomization(label, action)));
+    }
+
+    /// <summary>Runs a randomization, remembering it for the repeat button and the pawn for undo.</summary>
+    /// <remarks>
+    /// Undo only for the Bio tab: <see cref="PawnSnapshot"/> covers Bio fields, not apparel (Gear) or
+    /// relations (Social), and an undo button that restores nothing is worse than none.
+    /// </remarks>
+    private static void RunRandomization(string label, Action action)
+    {
+        var snapshotCovers = selectedPawn != null && curTab == TabGroupDefOf.Humanlike.tabs[0];
+        randomizeUndo = snapshotCovers ? new PawnSnapshot(selectedPawn) : null;
+        action();
+        Notify_PointsUsed();
+        lastRandomizationLabel = label; // after: the action may run other repeatable options
+    }
+
+    /// <summary>Small square in the Randomize slot, left of repeat, that undoes the last randomization.</summary>
+    private static void DrawUndoRandomizeButton(ref Rect randomizeRect)
+    {
+        if (randomizeUndo?.IsValidFor(selectedPawn) != true || showFactionInfo) return;
+        if (randomizeRect.width < BottomButtonRow.MinButtonWidth + RepeatButtonSize) return;
+
+        var undoRect = randomizeRect.TakeRightPart(RepeatButtonSize);
+        TooltipHandler.TipRegion(undoRect, "PawnEditor.UndoRandomize".Translate());
+        if (!Widgets.ButtonImageWithBG(undoRect, TexUI.RotLeftTex, new Vector2(12, 12))) return;
+
+        randomizeUndo.Restore();
+        randomizeUndo = null;
+        if (selectedPawn.Faction != null) selectedFaction = selectedPawn.Faction;
+        DoRecache();
+        Notify_PointsUsed();
     }
 
     private static void RandomizeAllIncludingFaction(List<FloatMenuOption> tabOptions)
     {
-        foreach (var option in tabOptions)
-        {
-            // Skips the tab's own "all" entry, which would repeat the others. Matches the English label
-            // only; in other languages that entry runs too, which is redundant but harmless.
-            if (option.Label.Contains("all")) continue;
-            option.action();
-        }
-
-        Notify_PointsUsed();
+        // The first entry is the tab's "all", which already covers every other entry.
+        tabOptions[0].action();
         RandomizeSelectedPawnFaction();
     }
 
@@ -243,12 +277,13 @@ public static partial class PawnEditor
     /// <summary>Small square at the right end of the Randomize slot that repeats the last option.</summary>
     private static void DrawRepeatRandomizeButton(ref Rect randomizeRect, List<FloatMenuOption> options)
     {
-        var canRepeat = lastRandomizationIndex >= 0 && lastRandomizationIndex < options.Count;
-        if (!canRepeat || randomizeRect.width < BottomButtonRow.MinButtonWidth + RepeatButtonSize) return;
+        var last = lastRandomizationLabel == null ? null : options.FirstOrDefault(option => option.Label == lastRandomizationLabel);
+        if (last == null || randomizeRect.width < BottomButtonRow.MinButtonWidth + RepeatButtonSize) return;
 
         var repeatRect = randomizeRect.TakeRightPart(RepeatButtonSize);
-        if (Widgets.ButtonImageWithBG(repeatRect, TexUI.RotRightTex, new Vector2(12, 12)))
-            options[lastRandomizationIndex].action();
+        TooltipHandler.TipRegion(repeatRect, last.Label);
+        if (Widgets.ButtonImageWithBG(repeatRect, TexPawnEditor.Randomize, new Vector2(16, 16)))
+            last.action();
     }
 
     private static void DrawRandomizeButton(Rect rect, List<FloatMenuOption> options)

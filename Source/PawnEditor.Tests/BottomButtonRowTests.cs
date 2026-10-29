@@ -46,6 +46,17 @@ public class BottomButtonRowTests
     }
 
     [Test]
+    public void GapAfterDelete_IsWiderThanTheOtherGaps()
+    {
+        var row = BottomButtonRow.Within(new Rect(0f, 0f, 1000f, 50f), VanillaButton);
+
+        var deleteGap = row.Randomize.x - row.Delete.xMax;
+        var saveGap = row.Save.x - row.Randomize.xMax;
+        Assert.That(deleteGap, Is.EqualTo(saveGap * BottomButtonRow.DeleteGapFactor).Within(Tolerance),
+            "Delete queda más separado para no pulsarlo por error");
+    }
+
+    [Test]
     public void NarrowArea_SlotsNeverShrinkBelowTheClickableMinimum()
     {
         var row = BottomButtonRow.Within(new Rect(0f, 0f, 100f, 50f), VanillaButton);

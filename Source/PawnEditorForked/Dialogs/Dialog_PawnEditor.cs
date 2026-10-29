@@ -99,6 +99,12 @@ public class Dialog_PawnEditor_Pregame : Dialog_PawnEditor
 
     protected override bool Pregame => true;
 
+    public override void PreOpen()
+    {
+        StartingThingsManager.EnsureScenarioProcessed();
+        base.PreOpen();
+    }
+
     public override void DoWindowContents(Rect inRect)
     {
         PawnEditor.DoUI(inRect, () => Close(), doNext);

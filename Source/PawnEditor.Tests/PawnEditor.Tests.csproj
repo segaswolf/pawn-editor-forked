@@ -14,7 +14,7 @@
     Managed de 1.6), crea PawnEditor.Tests.csproj.user junto a este archivo:
         <Project><PropertyGroup>
           <RimWorldDir>D:\Steam\...\RimWorld</RimWorldDir>
-          <RimWorldManagedDir>C:\Git\RimWorld-1.6-Managed</RimWorldManagedDir>
+          <RimWorldManagedDir>$(MSBuildProjectDirectory)\..\..\..\RimWorld-1.6-Managed</RimWorldManagedDir>
         </PropertyGroup></Project>
 
     Ejecutar con:  dotnet test Source\PawnEditor.Tests

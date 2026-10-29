@@ -87,6 +87,9 @@ public static partial class PawnBlueprintSaveLoad
                 var colorBNode = gradientNode.SelectSingleNode("colorB");
                 var colorB = colorBNode != null ? ReadColor(colorBNode) : Color.white;
                 GradientHairCompat.Set(pawn, enabled, colorB);
+                // Older blueprints have no pattern attribute; then the pawn keeps its current one.
+                if (GradientHairCompat.PatternNamed(gradientNode.Attributes?["pattern"]?.Value) is { } pattern)
+                    GradientHairCompat.SetPattern(pawn, pattern);
             }
 
             // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).

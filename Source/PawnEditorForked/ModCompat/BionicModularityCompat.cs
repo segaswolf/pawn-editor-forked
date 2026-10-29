@@ -10,7 +10,7 @@ namespace PawnEditor;
 /// Support for Bionic Modularity (MrKociak.YABEMBionicModularity), which is a SECOND and completely
 /// different modular system from the EBSG one handled in <see cref="ModularModulesCompat" />.
 ///
-/// Verified in the decompiled assembly (C:\Git\Dev Notes\BionicModularity_decompiled):
+/// Verified in the decompiled assembly (Dev Notes repo, folder BionicModularity_decompiled):
 ///   HOST   = any HediffDef carrying the modExtension BionicModularity.DefExtension_ModularHediff
 ///            { isModular = true }.
 ///   MODULE = a hediff added by a recipe whose worker is BionicModularity.Recipe_InstallModule. That

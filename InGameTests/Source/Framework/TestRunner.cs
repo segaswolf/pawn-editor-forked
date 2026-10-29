@@ -81,17 +81,21 @@ public static class TestRunner
         }
         catch (TargetInvocationException wrapped) when (wrapped.InnerException != null)
         {
-            return TestResult.Fail(name, wrapped.InnerException, clock.Elapsed);
+            return Outcome(name, wrapped.InnerException, clock.Elapsed);
         }
         catch (Exception ex)
         {
-            return TestResult.Fail(name, ex, clock.Elapsed);
+            return Outcome(name, ex, clock.Elapsed);
         }
     }
+
+    private static TestResult Outcome(string name, Exception ex, TimeSpan duration) =>
+        ex is SkipTest skip ? TestResult.Skip(name, skip.Message, duration) : TestResult.Fail(name, ex, duration);
 
     private static void WriteResults(List<TestResult> results)
     {
         var passed = results.Count(result => result.Passed);
+        var skipped = results.Count(result => result.Skipped);
         var report = new StringBuilder()
             .AppendLine($"Pawn Editor in-game tests - {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
             .AppendLine($"RimWorld {VersionControl.CurrentVersionStringWithRev}, {ModsConfig.ActiveModsInLoadOrder.Count()} active mods")
@@ -99,11 +103,19 @@ public static class TestRunner
 
         foreach (var result in results)
         {
+            if (result.Skipped)
+            {
+                report.AppendLine($"SKIP  {result.Name}  ({result.Detail})");
+                continue;
+            }
+
             report.AppendLine($"{(result.Passed ? "PASS" : "FAIL")}  {result.Name}  ({result.Duration.TotalMilliseconds:0} ms)");
             if (!result.Passed) report.AppendLine($"      {result.Detail}");
         }
 
-        report.AppendLine().AppendLine($"RESULT: {passed} passed, {results.Count - passed} failed, {results.Count} total");
+        // The script reads "RESULT: X passed, Y failed"; keep that prefix as is.
+        report.AppendLine().AppendLine(
+            $"RESULT: {passed} passed, {results.Count - passed - skipped} failed, {results.Count} total, {skipped} skipped");
 
         try
         {

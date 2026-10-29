@@ -89,7 +89,7 @@ public static class AppearanceOptionsTests
     [InGameTest]
     public static void HairAndBeards_WithoutHar_OfferEveryLoadedDef()
     {
-        if (global::PawnEditor.HARCompat.Active) return; // HAR restricts on purpose; covered by its own profile.
+        Check.Requires(!global::PawnEditor.HARCompat.Active, "HAR loaded: it restricts styles per race on purpose");
 
         var editor = new AppearanceEditor(TestPawns.Colonist());
 

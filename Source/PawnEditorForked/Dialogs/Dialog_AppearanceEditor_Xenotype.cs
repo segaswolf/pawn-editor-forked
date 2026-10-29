@@ -230,7 +230,7 @@ public partial class Dialog_AppearanceEditor
     {
         var iconRect = row.TakeLeftPart(row.height).ContractedBy(2f);
         GUI.color = XenotypeDef.IconColor;
-        GUI.DrawTexture(iconRect, pawn.genes.XenotypeIcon);
+        GUI.DrawTexture(iconRect, XenotypeIconUtility.IconFor(pawn));
         GUI.color = Color.white;
         row.xMin += 4f;
 

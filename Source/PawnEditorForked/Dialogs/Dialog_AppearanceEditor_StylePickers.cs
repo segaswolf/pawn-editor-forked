@@ -282,6 +282,31 @@ public partial class Dialog_AppearanceEditor
         }
     }
 
+    /// <summary>Pattern (mask) picker under the gradient row. Hidden if the installed version doesn't expose it.</summary>
+    /// <remarks>Request: Hijack Hornet (Steam, 16 Oct) and FormalCyborg (11 May).</remarks>
+    private void DoGradientPatternRow(ref Rect inRect)
+    {
+        if (!GradientHairCompat.PatternsAvailable || GradientHairCompat.Patterns.Count == 0) return;
+
+        var row = inRect.TakeTopPart(30f);
+        inRect.yMin += 6f;
+        var current = GradientHairCompat.CurrentPattern(pawn);
+
+        using (new TextBlock(TextAnchor.MiddleLeft))
+            Widgets.Label(row.TakeLeftPart(Mathf.Min(190f, row.width * 0.5f)), "PawnEditor.GradientHairPattern".Translate());
+
+        var label = current?.LabelCap.ToString() ?? "PawnEditor.GradientHairPatternUnknown".Translate().ToString();
+        if (!Widgets.ButtonText(row, label)) return;
+
+        Find.WindowStack.Add(new FloatMenu(GradientHairCompat.Patterns
+            .Select(pattern => new FloatMenuOption(pattern.LabelCap, () =>
+            {
+                GradientHairCompat.SetPattern(pawn, pattern);
+                TabWorker_Bio_Humanlike.RecacheGraphics(pawn);
+            }, pattern.Icon, Color.white))
+            .ToList()));
+    }
+
     /// <summary>
     /// Draws the Gradient Hair controls (a toggle + a second-colour swatch) at the top of the hair grid.
     /// No-op unless the Gradient Hair mod is installed AND this pawn has its comp — so vanilla pawns,
@@ -325,6 +350,8 @@ public partial class Dialog_AppearanceEditor
 
         using (new TextBlock(TextAnchor.MiddleRight))
             Widgets.Label(row, "PawnEditor.GradientHairSecondColor".Translate());
+
+        DoGradientPatternRow(ref inRect);
 
         // Gentle heads-up (not our bug): without the "Gradient Hair Fixes" mod, older hairs using the
         // legacy _back/_side/_front texture naming render blank. We don't take over their render; we

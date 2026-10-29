@@ -5,6 +5,7 @@
   <packageId>segaswolf.pawneditor.ingametests</packageId>
   <supportedVersions>
     <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
   <description>Local test harness for Pawn Editor Forked. NOT for publishing.
 

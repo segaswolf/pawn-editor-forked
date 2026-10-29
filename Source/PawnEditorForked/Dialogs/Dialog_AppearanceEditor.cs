@@ -40,6 +40,9 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
 
     private readonly List<TabRecord> mainTabs = new(3);
     private readonly Pawn pawn;
+    // The pawn as it was on open. Restored on close unless the user accepted (#29).
+    private readonly PawnSnapshot original;
+    private bool accepted;
     private readonly List<TabRecord> subTabs = new(2);
     private bool ignoreXenotype;
 
@@ -92,6 +95,7 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
     public Dialog_AppearanceEditor(Pawn pawn)
     {
         this.pawn = pawn;
+        original = new PawnSnapshot(pawn);
         closeOnClickedOutside = false;
         doCloseX = false;
         doCloseButton = false;
@@ -107,6 +111,14 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
     }
 
     public override float Margin => 8;
+
+    public override void PostClose()
+    {
+        base.PostClose();
+        if (accepted) return;
+        original.Restore();
+        PawnEditor.Notify_PointsUsed();
+    }
 
     public override Vector2 InitialSize => new(1000, 700);
 
@@ -221,6 +233,7 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
     {
         if (Widgets.ButtonText(inRect.TakeLeftPart(BottomButtonWidth).ContractedBy(5), "PawnEditor.GotoGearTab".Translate()))
         {
+            accepted = true;
             Close();
             PawnEditor.Select(pawn);
             PawnEditor.GotoTab(PawnEditorDefOf.Gear);
@@ -228,9 +241,13 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
 
         if (Widgets.ButtonText(inRect.TakeRightPart(BottomButtonWidth).ContractedBy(5), "Accept".Translate()))
         {
+            accepted = true;
             OnAcceptKeyPressed();
             Close();
         }
+
+        if (Widgets.ButtonText(inRect.TakeRightPart(BottomButtonWidth).ContractedBy(5), "CancelButton".Translate()))
+            Close();
 
         DrawRandomizeButtons(inRect);
     }

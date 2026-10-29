@@ -44,7 +44,10 @@
     <PawnEditor.Randomize>Randomize</PawnEditor.Randomize>
     <PawnEditor.AllIncludingFaction>all - including faction</PawnEditor.AllIncludingFaction>
     <PawnEditor.AllKeepXenotype>all - keep xenotype</PawnEditor.AllKeepXenotype>
+    <PawnEditor.AllFactionXenotype>all - faction's usual xenotype</PawnEditor.AllFactionXenotype>
     <PawnEditor.SelectRandomFaction>Randomize faction</PawnEditor.SelectRandomFaction>
+    <PawnEditor.UndoRandomize>Undo last randomize</PawnEditor.UndoRandomize>
+    <PawnEditor.RandomizeRelationsWarning>This removes {0}'s family relations (parents, partners, children), also from the related pawns, and lets the game generate new ones. It often generates none.\n\nThis can't be undone. Continue?</PawnEditor.RandomizeRelationsWarning>
     <PawnEditor.WithRandomFaction>With random faction</PawnEditor.WithRandomFaction>
     <PawnEditor.FactionHidden>Faction hidden</PawnEditor.FactionHidden>
     <PawnEditor.NoFaction>No faction</PawnEditor.NoFaction>
@@ -292,6 +295,21 @@
     <PawnEditor.TraitsIncludingForced>Traits (including forced ones)</PawnEditor.TraitsIncludingForced>
     <PawnEditor.GradientHair>Gradient hair</PawnEditor.GradientHair>
     <PawnEditor.GradientHairSecondColor>Second color</PawnEditor.GradientHairSecondColor>
+    <PawnEditor.GradientHairPattern>Gradient pattern</PawnEditor.GradientHairPattern>
+    <PawnEditor.GradientHairPatternUnknown>Choose a pattern</PawnEditor.GradientHairPatternUnknown>
+    <PawnEditor.IsekaiStats>Isekai stats</PawnEditor.IsekaiStats>
+    <PawnEditor.IsekaiStatsDesc>Opens Isekai RPG Leveling's own editor: level, stats and constellation. Changes apply when you press Apply in that window.</PawnEditor.IsekaiStatsDesc>
+    <PawnEditor.AdulthoodNoneDesc>No adulthood backstory yet. RimWorld only gives one to pawns generated at {0} or older, so younger adults have a childhood only. Click to pick one if you want.</PawnEditor.AdulthoodNoneDesc>
+    <PawnEditor.EditExpertise>Edit expertise</PawnEditor.EditExpertise>
+    <PawnEditor.ExpertiseToPick>Click to add</PawnEditor.ExpertiseToPick>
+    <PawnEditor.ExpertiseAvailable>Available</PawnEditor.ExpertiseAvailable>
+    <PawnEditor.ExpertiseUnavailable>Not available yet</PawnEditor.ExpertiseUnavailable>
+    <PawnEditor.ExpertiseOwned>Current expertise</PawnEditor.ExpertiseOwned>
+    <PawnEditor.ExpertiseNone>No expertise yet</PawnEditor.ExpertiseNone>
+    <PawnEditor.ExpertisePerLevel>Per level:</PawnEditor.ExpertisePerLevel>
+    <PawnEditor.ExpertiseAtLevel>At level {0}:</PawnEditor.ExpertiseAtLevel>
+    <PawnEditor.SortBySkill>Sort: by skill</PawnEditor.SortBySkill>
+    <PawnEditor.SortAlphabetical>Sort: A-Z</PawnEditor.SortAlphabetical>
     <PawnEditor.GradientHairFixesHint>Some older hairs may render blank with Gradient Hair. The "Gradient Hair Fixes" mod resolves this.</PawnEditor.GradientHairFixesHint>
     <PawnEditor.RemoveFilter>Remove this filter</PawnEditor.RemoveFilter>
     <PawnEditor.FilterInverted>(inverted)</PawnEditor.FilterInverted>
@@ -479,8 +497,6 @@
     <PawnEditor.Development.ClearAllBetrayersConfirm>{0} pawn(s) are currently flagged as betrayers.\n\nClear the flag on all of them? This also clears flags you set on purpose, and any set by Trauma and Integrity's own gameplay.</PawnEditor.Development.ClearAllBetrayersConfirm>
     <PawnEditor.Development.BetrayersCleared>Cleared the betrayer flag on {0} pawn(s).</PawnEditor.Development.BetrayersCleared>
     <PawnEditor.Development.NoBetrayers>No pawns are flagged as betrayers.</PawnEditor.Development.NoBetrayers>
-    <PawnEditor.Development.TraumaDisabled>Trauma is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.TraumaDisabled>
-    <PawnEditor.Development.IntegrityDisabled>Integrity is disabled in Trauma &amp; Integrity's settings. The stored value can still be edited here.</PawnEditor.Development.IntegrityDisabled>
     <PawnEditor.Development.IntegrityHidden>Integrity is hidden in normal gameplay by the mod's settings. Pawn Editor still exposes it here.</PawnEditor.Development.IntegrityHidden>
     <PawnEditor.Development.IntegrityUninitialized>This pawn's integrity has not been initialized. Applying a value will initialize and roll its betrayal state.</PawnEditor.Development.IntegrityUninitialized>
     <!-- Developmental stage change warning -->
@@ -488,7 +504,6 @@
     <PawnEditor.DevStage.WarnFooter>This cannot be undone. Continue?</PawnEditor.DevStage.WarnFooter>
     <PawnEditor.DevStage.WarnAdulthood>- Remove adulthood backstory ({0})</PawnEditor.DevStage.WarnAdulthood>
     <PawnEditor.DevStage.WarnRomance>- Remove romantic relations (Spouse, Lover, Fiancée, Ex)</PawnEditor.DevStage.WarnRomance>
-    <PawnEditor.DevStage.WarnParents>- Remove parent relations</PawnEditor.DevStage.WarnParents>
     <PawnEditor.DevStage.WarnPregnancy>- Remove pregnancy / parasitic infestation</PawnEditor.DevStage.WarnPregnancy>
     <PawnEditor.DevStage.WarnWeapons>- Move weapons to inventory</PawnEditor.DevStage.WarnWeapons>
     <PawnEditor.DevStage.WarnAspirations>- Remove all aspirations (children cannot have them)</PawnEditor.DevStage.WarnAspirations>

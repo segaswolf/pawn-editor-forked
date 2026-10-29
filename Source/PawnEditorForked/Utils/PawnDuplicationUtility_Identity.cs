@@ -124,7 +124,11 @@ public static partial class PawnEditor
         // Gradient Hair (optional mod): duplicate and blueprint are separate paths (see the audit note
         // in PawnDuplicationUtility), so the clone needs colour B copied here too, not just on load.
         if (GradientHairCompat.Active && GradientHairCompat.TryGet(src, out var gEnabled, out var gColorB))
+        {
             GradientHairCompat.Set(dst, gEnabled, gColorB);
+            if (GradientHairCompat.CurrentPattern(src) is { } pattern)
+                GradientHairCompat.SetPattern(dst, pattern);
+        }
 
         // Invalidate all cached render data so the game re-bakes from the new values.
         // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).

@@ -1,4 +1,4 @@
-# run-ingame-tests.ps1
+﻿# run-ingame-tests.ps1
 # Runs Pawn Editor's in-game tests end to end, without anyone playing:
 #   1. builds the local test mod (InGameTests\)
 #   2. copies it into RimWorld's Mods folder (it is never published)
@@ -18,6 +18,9 @@
 #                  plus their dependencies, in your own load order. The targeted middle ground: tests
 #                  exactly the integrations we maintain, without needing 1000+ mods to fit in video
 #                  memory. The list builds itself from the [ModCompat] attributes in the source.
+#                  Compat mods that are INSTALLED but not in your list are added too (with their
+#                  dependencies), to the test profile only: your real mod list is never changed.
+#                  -OnlyActive turns that off.
 #
 # USO: .\run-ingame-tests.ps1
 #      .\run-ingame-tests.ps1 -Mods Compat
@@ -35,7 +38,9 @@ param(
     # Windowed at 1280x720 and running in background. Less video memory than fullscreen, and more
     # tolerant of display changes. Off by default so the modpack profile stays as close to a normal
     # launch as possible; turn it on for unattended runs or if the GPU runs out of memory.
-    [switch]$Windowed
+    [switch]$Windowed,
+    # Compat profile: test only the compat mods you have active, not the installed-but-inactive ones.
+    [switch]$OnlyActive
 )
 
 if (-not $DataFolder) {
@@ -56,7 +61,19 @@ $repo        = $PSScriptRoot
 $testsModSrc = Join-Path $repo "InGameTests"
 $testsProj   = Join-Path $testsModSrc "Source"
 $testsModDst = Join-Path $RimWorldDir "Mods\Pawn Editor InGame Tests"
-$exe         = Join-Path $RimWorldDir "RimWorldWin64.exe"
+# The executable changed name with the engine (Unity: RimWorldWin64.exe). Find whichever this install has.
+$exe = @("RimWorldWin64.exe", "RimWorld.exe") | ForEach-Object { Join-Path $RimWorldDir $_ } |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $exe) {
+    $exe = Get-ChildItem $RimWorldDir -Filter "RimWorld*.exe" -File -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+if (-not $exe) {
+    Write-Host "No RimWorld executable found in $RimWorldDir. Executables there:" -ForegroundColor Red
+    Get-ChildItem $RimWorldDir -Filter *.exe -File -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+    exit 1
+}
+$gameProcessName = [System.IO.Path]::GetFileNameWithoutExtension($exe)
 $results     = Join-Path $DataFolder "PawnEditorTestResults.txt"
 $modsConfig  = Join-Path $DataFolder "Config\ModsConfig.xml"
 
@@ -83,7 +100,11 @@ Copy-Item (Join-Path $testsModSrc "1.6")   $testsModDst -Recurse
 # mechanisms for the same job is refactor debt in itself; until they are unified, those mods are listed
 # here by packageId so the Compat profile does not silently skip them.
 $extraCompatTargets = @(
-    "ferny.progressioneducation"
+    "ferny.progressioneducation",
+    # No compat code: covered by LateDefsTests (its backstories must reach the picker).
+    "dimonsever000.backstoryconstructor.specific",
+    # GradientHairCompat detects it by type name; covered by GradientHairTests.
+    "automatic.gradienthair"
 )
 
 function Get-CompatTargets {
@@ -118,6 +139,54 @@ function Get-Dependencies([string]$aboutPath) {
     try { [xml]$about = Get-Content $aboutPath -Raw } catch { return @() }
     $nodes = $about.SelectNodes("/ModMetaData/modDependencies/li/packageId | /ModMetaData/modDependenciesByVersion/v1.6/li/packageId")
     @($nodes | ForEach-Object { $_.InnerText.Trim().ToLowerInvariant() })
+}
+
+function Get-LoadAfter([string]$aboutPath) {
+    try { [xml]$about = Get-Content $aboutPath -Raw } catch { return @() }
+    $nodes = $about.SelectNodes("/ModMetaData/loadAfter/li | /ModMetaData/modDependencies/li/packageId")
+    @($nodes | ForEach-Object { $_.InnerText.Trim().ToLowerInvariant() })
+}
+
+function Add-InstalledCompatTargets($config, $activeMods) {
+    # Installed compat targets missing from the list, plus their missing dependencies. Written into the
+    # PROFILE's ModsConfig only. Each goes right after the last thing it must load after (at least after
+    # the official content), so dependencies and load order stay sane.
+    $index   = Get-ModIndex
+    $present = @($activeMods.SelectNodes("li") | ForEach-Object { $_.InnerText.Trim().ToLowerInvariant() })
+    $toAdd   = New-Object 'System.Collections.Generic.List[string]'
+    $queue   = New-Object 'System.Collections.Generic.Queue[string]'
+    foreach ($id in (Get-CompatTargets | Where-Object { $present -notcontains $_ -and $index.ContainsKey($_) })) {
+        $queue.Enqueue($id)
+    }
+    while ($queue.Count -gt 0) {
+        $id = $queue.Dequeue()
+        if ($present -contains $id -or $toAdd.Contains($id)) { continue }
+        if (-not $index.ContainsKey($id)) {
+            Write-Host "  Dependency not installed, skipped: $id" -ForegroundColor DarkYellow
+            continue
+        }
+        $toAdd.Add($id)
+        foreach ($dependency in Get-Dependencies $index[$id]) { $queue.Enqueue($dependency) }
+    }
+
+    $toAdd.Reverse() # dependencies were found after the mods that need them
+    foreach ($id in $toAdd) {
+        $nodes = @($activeMods.SelectNodes("li"))
+        $ids   = @($nodes | ForEach-Object { $_.InnerText.Trim().ToLowerInvariant() })
+        $after = -1
+        for ($i = 0; $i -lt $ids.Count; $i++) {
+            if ($ids[$i] -like "ludeon.*" -or $ids[$i] -eq "brrainz.harmony") { $after = $i }
+        }
+        foreach ($required in Get-LoadAfter $index[$id]) {
+            $position = [array]::IndexOf($ids, $required)
+            if ($position -gt $after) { $after = $position }
+        }
+        $entry = $config.CreateElement("li")
+        $entry.InnerText = $id
+        if ($after -ge 0) { $activeMods.InsertAfter($entry, $nodes[$after]) | Out-Null }
+        else { $activeMods.PrependChild($entry) | Out-Null }
+    }
+    , $toAdd
 }
 
 function Get-CompatKeepSet([string[]]$activeIds) {
@@ -194,6 +263,14 @@ if ($Mods -in @("Modpack", "Compat")) {
         }
         $activeIds = @($activeMods.SelectNodes("li") | ForEach-Object { $_.InnerText })
 
+        if (-not $OnlyActive) {
+            $added = Add-InstalledCompatTargets $config $activeMods
+            if ($added.Count -gt 0) {
+                Write-Host "  Added for this run only (not in your list): $($added -join ', ')" -ForegroundColor DarkGray
+            }
+            $activeIds = @($activeMods.SelectNodes("li") | ForEach-Object { $_.InnerText })
+        }
+
         $targets = Get-CompatTargets
         $present = @($targets | Where-Object { $activeIds -contains $_ })
         Write-Host "  Compat profile: $($activeIds.Count) of your $totalMods mods" -ForegroundColor DarkGray
@@ -255,7 +332,7 @@ if ($Windowed) {
 # 4. Run. A stale results file must never be mistaken for this run's.
 if (Test-Path $results) { Remove-Item $results }
 
-Write-Host "Launching RimWorld (isolated profile)..." -ForegroundColor Yellow
+Write-Host "Launching $(Split-Path $exe -Leaf) (isolated profile)..." -ForegroundColor Yellow
 $game = Start-Process -FilePath $exe -PassThru -ArgumentList @(
     "-quicktest",
     "-savedatafolder=`"$DataFolder`"",
@@ -273,7 +350,7 @@ $deadline   = (Get-Date).AddMinutes($TimeoutMinutes)
 
 function Get-TestGames {
     # Only games started by this run: never touch a RimWorld the user opened on their own.
-    Get-Process -Name "RimWorldWin64" -ErrorAction SilentlyContinue |
+    Get-Process -Name $gameProcessName -ErrorAction SilentlyContinue |
         Where-Object { $_.StartTime -ge $launchedAt }
 }
 

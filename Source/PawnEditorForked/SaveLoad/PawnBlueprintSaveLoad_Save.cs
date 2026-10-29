@@ -98,6 +98,8 @@ public static partial class PawnBlueprintSaveLoad
         {
             w.WriteStartElement("gradientHair");
             w.WriteAttributeString("enabled", gEnabled.ToString());
+            if (GradientHairCompat.CurrentPattern(pawn) is { } pattern)
+                w.WriteAttributeString("pattern", pattern.defName);
             WriteColor(w, "colorB", gColorB);
             w.WriteEndElement();
         }

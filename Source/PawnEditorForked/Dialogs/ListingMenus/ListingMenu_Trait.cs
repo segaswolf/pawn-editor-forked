@@ -6,12 +6,40 @@ using Verse;
 
 namespace PawnEditor;
 
-[StaticConstructorOnStartup]
+// Built on first open (no [StaticConstructorOnStartup]): defs added late by other mods are included,
+// and mod compat (IsekaiLevelingCompat) is active by then for IsBlockedTrait.
 public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
 {
     private static readonly List<TraitInfo> items;
     private static readonly Func<TraitInfo, string> labelGetter = t => t?.TraitDegreeData.LabelCap;
-    private static readonly Func<TraitInfo, Pawn, string> descGetter = (t, p) => t?.TraitDegreeData.description.Formatted(p.Named("PAWN")).AdjustedFor(p);
+    private static readonly Func<TraitInfo, Pawn, string> descGetter = Describe;
+
+    // The same text as the trait's tooltip in Bio (vanilla Trait.TipString): description plus skill
+    // gains, stat offsets and factors, pain, needs and so on, so mod traits show what they change before
+    // you add them. Built once per trait and pawn, not every frame. Request: xWOLFxz (Steam, 28 Oct).
+    private static readonly Dictionary<TraitInfo, string> descCache = new();
+    private static Pawn descCachePawn;
+
+    internal static string Describe(TraitInfo info, Pawn pawn)
+    {
+        if (info == null) return null;
+        if (descCachePawn != pawn)
+        {
+            descCache.Clear();
+            descCachePawn = pawn;
+        }
+        if (descCache.TryGetValue(info, out var text)) return text;
+
+        try { text = info.Trait.TipString(pawn).TrimEnd(); }
+        catch (Exception ex)
+        {
+            // A mod trait whose tooltip throws still gets its plain description.
+            Log.Warning($"[Pawn Editor] Tooltip of trait {info.Trait.def.defName} failed, showing its description only: {ex.Message}");
+            text = info.TraitDegreeData.description.Formatted(pawn.Named("PAWN")).AdjustedFor(pawn);
+        }
+        descCache[info] = text;
+        return text;
+    }
     private static readonly List<Filter<TraitInfo>> filters;
 
 	static ListingMenu_Trait()
@@ -91,6 +119,9 @@ public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
 	{
 		if (traitDef == null || degree == null)
 			return false;
+		// Set through the level in the Isekai editor, not by hand.
+		if (IsekaiLevelingCompat.IsSystemTrait(traitDef))
+			return true;
 	
 		string label = degree.LabelCap?.ToString() ?? degree.label ?? traitDef.label ?? traitDef.defName;
 		return blockedTraitLabels.Contains(label);

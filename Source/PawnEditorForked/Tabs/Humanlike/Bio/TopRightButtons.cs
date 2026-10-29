@@ -7,7 +7,7 @@ using Verse;
 
 namespace PawnEditor;
 
-// The Bio tab's top-right buttons: developmental stage, xenotype, sex, body shape, appearance editor.
+// The Bio tab's top-right buttons: developmental stage, xenotype, sex, body shape, appearance editor, Isekai stats.
 public partial class TabWorker_Bio_Humanlike
 {
     private const float margin = 6f;
@@ -42,6 +42,9 @@ public partial class TabWorker_Bio_Humanlike
             Find.WindowStack.Add(new FloatMenu(BodyTypeMenuOptions(pawn)));
         if (listing.ButtonText("PawnEditor.EditAppearance".Translate(), ButtonColumns))
             Find.WindowStack.Add(new Dialog_AppearanceEditor(pawn));
+        if (IsekaiLevelingCompat.CanEdit(pawn)
+            && listing.ButtonText("PawnEditor.IsekaiStats".Translate(), ButtonColumns, "PawnEditor.IsekaiStatsDesc".Translate()))
+            IsekaiLevelingCompat.OpenEditor(pawn);
 
         listing.End();
         height = listing.curHeight;
@@ -75,7 +78,7 @@ public partial class TabWorker_Bio_Humanlike
     {
         var label = pawn.genes.XenotypeLabelCap;
         var tip = label.Colorize(ColoredText.TipSectionTitleColor) + "\n\n" + "XenotypeSelectionDesc".Translate();
-        if (listing.ButtonImageLabeledVStack(label, pawn.genes.XenotypeIcon, ButtonColumns, tip))
+        if (listing.ButtonImageLabeledVStack(label, XenotypeIconUtility.IconFor(pawn), ButtonColumns, tip))
             OpenXenotypePicker(pawn);
     }
 

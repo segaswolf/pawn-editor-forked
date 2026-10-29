@@ -169,18 +169,14 @@ public static partial class PawnEditor
         }
         else
         {
-            // Remember WHICH option was used by index, not by object: the list is rebuilt every frame
-            // (each entry closing over the currently selected pawn), so the repeat button must re-run
-            // the fresh entry, not a stale one. The previous code stored the option and then re-found
-            // it by substring-matching the TRANSLATED label, which silently stopped working in any
-            // language where the wrapper text doesn't contain the inner label.
+            // The list is rebuilt every frame, each entry closing over the selected pawn, so the repeat
+            // button remembers the label and re-runs this frame's entry.
             List<FloatMenuOption> options = curTab.GetRandomizationOptions(selectedPawn)
-                .Select((option, index) => new FloatMenuOption("PawnEditor.Randomize".Translate() + " " + option.Label.ToLower(), () =>
+                .Select(option =>
                 {
-                    lastRandomizationIndex = index;
-                    option.action();
-                    Notify_PointsUsed();
-                })).ToList();
+                    var label = "PawnEditor.Randomize".Translate() + " " + option.Label.ToLower();
+                    return new FloatMenuOption(label, () => RunRandomization(label, option.action));
+                }).ToList();
             return options as IEnumerable<FloatMenuOption>;
         }
     }

@@ -39,7 +39,7 @@ public partial class TabWorker_Bio_Humanlike : TabWorker<Pawn>
         // Layout.Columns guarantees the three always fit, however narrow the window gets.
         const float columnSpacing = 15f;
         const float minColumnWidth = 120f;
-        var groupsWeight = TraumaIntegrityCompat.Available ? 1.2f : 1f;
+        var groupsWeight = TraumaIntegrityCompat.AnyStatEnabled ? 1.2f : 1f;
 
         var columns = Layout.Columns(
             rect,

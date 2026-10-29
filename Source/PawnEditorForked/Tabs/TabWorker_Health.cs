@@ -65,13 +65,6 @@ public class TabWorker_Health : TabWorker_Table<Pawn>
         });
     }
 
-    public override IEnumerable<FloatMenuOption> GetRandomizationOptions(Pawn pawn)
-    {
-        yield return new("PawnEditor.Hediffs".Translate(), () => { });
-        if (pawn.RaceProps.Humanlike)
-            yield return new("PawnEditor.Prosthetics".Translate(), () => { });
-    }
-
     private void DoBottomOptions(Rect inRect, Pawn pawn)
     {
         if (UIUtility.DefaultButtonText(ref inRect, "PawnEditor.QuickActions".Translate(), 80f))

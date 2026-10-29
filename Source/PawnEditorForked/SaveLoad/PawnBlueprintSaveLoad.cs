@@ -95,6 +95,7 @@ public static partial class PawnBlueprintSaveLoad
         WriteAspirations(writer, pawn);
         WriteExpertise(writer, pawn);
         WriteProficiencies(writer, pawn);
+        IsekaiLevelingCompat.WriteBlueprint(writer, pawn);
         WriteModList(writer);
 
             writer.WriteEndElement(); // PawnBlueprint

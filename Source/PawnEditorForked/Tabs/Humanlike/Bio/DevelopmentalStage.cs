@@ -32,7 +32,7 @@ public partial class TabWorker_Bio_Humanlike
     private static List<string> BecomingAdultWarnings(Pawn pawn)
     {
         var warnings = new List<string>();
-        if (pawn.story?.Adulthood == null)
+        if (pawn.story?.Adulthood == null && AdultMinAge(pawn) >= BackstoryUtility.VanillaAdulthoodAge)
             warnings.Add("PawnEditor.DevStage.WarnNewAdulthood".Translate());
         warnings.Add("PawnEditor.DevStage.WarnBodyType".Translate());
         return warnings;
@@ -45,9 +45,6 @@ public partial class TabWorker_Bio_Humanlike
             warnings.Add("PawnEditor.DevStage.WarnAdulthood".Translate(pawn.story.Adulthood.TitleCapFor(pawn.gender)));
         if (pawn.relations != null && HasRomanticRelation(pawn))
             warnings.Add("PawnEditor.DevStage.WarnRomance".Translate());
-        // Unverified: SetDevStage does not remove parent relations, yet this warns that it will (BUG_LEDGER #26).
-        if (pawn.relations != null && pawn.relations.DirectRelations.Any(r => r.def == PawnRelationDefOf.Parent))
-            warnings.Add("PawnEditor.DevStage.WarnParents".Translate());
         if (pawn.health?.hediffSet != null && pawn.health.hediffSet.hediffs.Any(h => IsPregnancyOrParasite(h.def)))
             warnings.Add("PawnEditor.DevStage.WarnPregnancy".Translate());
         if (pawn.equipment?.AllEquipmentListForReading?.Any() == true)
@@ -93,6 +90,7 @@ public partial class TabWorker_Bio_Humanlike
     public static void SetDevStage(Pawn pawn, DevelopmentalStage stage)
     {
         var oldStage = pawn.DevelopmentalStage;
+        var oldAge = pawn.ageTracker.AgeBiologicalYears;
         SetAgeToStageMinimum(pawn, stage);
         // Compared with the REQUESTED stage: on modded races with overlapping life stages, the stage the
         // pawn reports may not follow its new age.
@@ -103,7 +101,7 @@ public partial class TabWorker_Bio_Humanlike
         if (leavingAdulthood)
             MoveEquipmentToInventory(pawn);
         pawn.story.bodyType = PawnGenerator.GetBodyTypeFor(pawn);
-        UpdateAdulthoodBackstory(pawn, stage);
+        UpdateAdulthoodBackstory(pawn, stage, oldAge);
         if (leavingAdulthood)
         {
             Diagnostics.Run("Removing pregnancy and parasites (developmental stage change)", pawn, () => RemovePregnancyAndParasites(pawn));
@@ -133,17 +131,21 @@ public partial class TabWorker_Bio_Humanlike
         }
     }
 
-    /// <summary>Becoming adult generates a fitting adulthood backstory; leaving adulthood removes it.</summary>
-    private static void UpdateAdulthoodBackstory(Pawn pawn, DevelopmentalStage stage)
+    /// <summary>
+    /// Leaving adulthood removes the adulthood backstory. Becoming adult adds one only if the new age reaches
+    /// <see cref="BackstoryUtility.VanillaAdulthoodAge"/>, as vanilla (an adult of 13 has none until the player picks one).
+    /// </summary>
+    private static void UpdateAdulthoodBackstory(Pawn pawn, DevelopmentalStage stage, int oldAge)
     {
-        if (stage == DevelopmentalStage.Adult && pawn.story.Adulthood == null)
-        {
-            pawn.story.Adulthood = BackstoryUtility.GenerateAdultBackstory(pawn);
-            Log.Message($"[Pawn Editor] Backstory: assigned={pawn.story.Adulthood?.defName}");
-        }
-        else if (stage is DevelopmentalStage.Child or DevelopmentalStage.Baby or DevelopmentalStage.Newborn)
+        if (stage == DevelopmentalStage.Adult)
+            BackstoryUtility.GiveAdulthoodOnReachingVanillaAge(pawn, oldAge);
+        else
             pawn.story.Adulthood = null;
     }
+
+    /// <summary>The age at which the pawn's race becomes adult (13 for humans; modded races may differ).</summary>
+    private static float AdultMinAge(Pawn pawn) =>
+        pawn.RaceProps.lifeStageAges.FirstOrDefault(ls => ls.def.developmentalStage == DevelopmentalStage.Adult)?.minAge ?? 0f;
 
     private static void RemovePregnancyAndParasites(Pawn pawn)
     {

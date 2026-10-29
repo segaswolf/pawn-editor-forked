@@ -180,14 +180,15 @@ public class ListingMenu_CustomXenotypes : Window, IMinWindowSize
 
     private static void DrawIcon(Rect iconRect, CustomXenotype custom)
     {
-        if (custom.IconDef?.Icon == null)
+        var icon = custom.IconDef == null ? null : XenotypeIconUtility.IconFor(custom.IconDef);
+        if (icon == null)
         {
             GUI.DrawTexture(iconRect, Widgets.PlaceholderIconTex);
             return;
         }
 
         GUI.color = XenotypeDef.IconColor;
-        GUI.DrawTexture(iconRect, custom.IconDef.Icon);
+        GUI.DrawTexture(iconRect, icon);
         GUI.color = Color.white;
     }
 

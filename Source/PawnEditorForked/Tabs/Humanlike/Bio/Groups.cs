@@ -40,7 +40,8 @@ public partial class TabWorker_Bio_Humanlike
             inRect.yMin += GroupSectionGap;
         }
 
-        if (TraumaIntegrityCompat.Available)
+        // Hidden when both stats are off in the mod's settings (request: Kimo', Steam, 8 Oct).
+        if (TraumaIntegrityCompat.AnyStatEnabled)
             DrawTraumaIntegrityControls(ref inRect, pawn);
     }
 

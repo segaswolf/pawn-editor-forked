@@ -476,6 +476,27 @@ public static class CharacterDevelopmentCompat
     public static string PickerLabel(Def def) =>
         (def?.LabelCap.ToString() ?? string.Empty).Replace("{0}", "...").CapitalizeFirst();
 
+    /// <summary>Genes granted by the pawn's quirks. Empty when the mod is off or the pawn has none.</summary>
+    /// <remarks>
+    /// Character Development links each one to its quirk by object reference and hides it from the vanilla
+    /// gene UI. Removing it breaks the link (stale part count, quirk without its gene), so bulk gene resets
+    /// must leave these alone.
+    /// </remarks>
+    public static HashSet<Gene> GetGrantedGenes(Pawn pawn)
+    {
+        var granted = new HashSet<Gene>();
+        var data = TryGetExistingData(pawn);
+        if (data == null)
+            return granted;
+
+        foreach (var link in ToObjectList(grantedGenesField.GetValue(data)))
+        {
+            if (grantedGeneLinkGeneField.GetValue(link) is Gene gene)
+                granted.Add(gene);
+        }
+        return granted;
+    }
+
     public static void CopyData(Pawn source, Pawn destination)
     {
         if (!Available || source == null || destination == null)
