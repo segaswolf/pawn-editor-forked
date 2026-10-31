@@ -95,7 +95,7 @@ public partial class Dialog_AppearanceEditor
         var hair = new ColorSlot(() => pawn.story.HairColor, color => pawn.story.HairColor = color, ColorType.Hair,
             "colHair", () => DefDatabase<ColorDef>.AllDefs.Where(static def => def.colorType == ColorType.Hair).Select(static def => def.color));
 
-        return new Dictionary<MainTab, IStylePicker[]>
+        var pickers = new Dictionary<MainTab, IStylePicker[]>
         {
             [MainTab.Shape] = new IStylePicker[]
             {
@@ -134,6 +134,40 @@ public partial class Dialog_AppearanceEditor
                     def => pawn.style.FaceTattoo = def, static def => def.Icon, def => pawn.style.FaceTattoo == def, null)
             }
         };
+
+        // Body Hair Framework (optional mod): one sub-tab per slot. It renders with the hair colour.
+        if (BodyHairCompat.Active && BodyHairCompat.HasBodyHair(pawn))
+            pickers[MainTab.BodyHair] = BodyHairCompat.Slots.Select(slot => (IStylePicker)BodyHairPicker(slot, hair)).ToArray();
+
+        return pickers;
+    }
+
+    /// <summary>
+    /// One body hair slot. Lists only what the framework's CanUse allows for this pawn (body type, genes,
+    /// textures), plus "none". The Source filter never hides "none", so the slot can always be cleared.
+    /// </summary>
+    private StylePicker<StyleItemDef> BodyHairPicker(Def slot, ColorSlot hair) =>
+        new(this, slot.LabelCap,
+            () => ("bodyHair", slot.defName, sourceFilter, pawn.story.bodyType, pawn.gender),
+            bySource => BodyHairCompat.StylesFor(slot, pawn).Where(def => !bySource || def == BodyHairCompat.None || MatchesSource(def)),
+            def => BodyHairCompat.Set(pawn, slot, def), static def => def.Icon,
+            def => BodyHairCompat.Current(pawn, slot) == def, hair)
+        {
+            BeforeGrid = (ref Rect inRect) => DoBodyHairBlockedNote(ref inRect, slot)
+        };
+
+    /// <summary>Says why a slot only offers "none", so it doesn't look broken.</summary>
+    private void DoBodyHairBlockedNote(ref Rect inRect, Def slot)
+    {
+        if (BodyHairCompat.AnyUsable(slot, pawn)) return;
+        var note = inRect.TakeTopPart(Text.LineHeight * 2);
+        inRect.yMin += 4f;
+        using (new TextBlock(GameFont.Tiny))
+        {
+            GUI.color = ColoredText.SubtleGrayColor;
+            Widgets.Label(note, "PawnEditor.BodyHairNoneUsable".Translate());
+            GUI.color = Color.white;
+        }
     }
 
     /// <summary>Draws a main tab made of style pickers: its sub-tabs, then the selected picker.</summary>

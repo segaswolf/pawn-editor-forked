@@ -359,6 +359,7 @@ public static partial class PawnEditor
                     if (thing.TryGetComp<CompQuality>() is { } srcQ && copy.TryGetComp<CompQuality>() is { } dstQ)
                         dstQ.SetQuality(srcQ.Quality, ArtGenerationContext.Outsider);
 
+                    UniqueWeaponUtility.CopyTo(thing, copy);
                     dst.inventory.innerContainer.TryAdd(copy);
                 }
                 catch (Exception ex)

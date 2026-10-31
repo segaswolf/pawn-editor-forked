@@ -55,6 +55,7 @@ public sealed class PawnSnapshot
     private readonly bool gradientEnabled;
     private readonly Color gradientColorB;
     private readonly StyleItemDef gradientPattern;
+    private readonly Dictionary<Def, StyleItemDef> bodyHair; // Body Hair Framework; empty without it
 
     public PawnSnapshot(Pawn pawn)
     {
@@ -104,6 +105,7 @@ public sealed class PawnSnapshot
 
         hasGradient = GradientHairCompat.TryGet(pawn, out gradientEnabled, out gradientColorB);
         if (hasGradient) gradientPattern = GradientHairCompat.CurrentPattern(pawn);
+        bodyHair = BodyHairCompat.Active ? BodyHairCompat.Capture(pawn) : new Dictionary<Def, StyleItemDef>();
     }
 
     public bool IsValidFor(Pawn pawn) => pawn != null && pawn == Pawn && !Pawn.Discarded;
@@ -202,6 +204,8 @@ public sealed class PawnSnapshot
             GradientHairCompat.Set(Pawn, gradientEnabled, gradientColorB);
             if (gradientPattern != null) GradientHairCompat.SetPattern(Pawn, gradientPattern);
         }
+
+        BodyHairCompat.Apply(Pawn, bodyHair);
 
         if (Pawn.style == null) return;
         Pawn.style.beardDef = beardDef;

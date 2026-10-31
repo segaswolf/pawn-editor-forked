@@ -126,6 +126,7 @@ public static partial class PawnBlueprintSaveLoad
                 w.WriteAttributeString("maxHp", equip.MaxHitPoints.ToString());
                 if (equip.TryGetQuality(out var quality))
                     w.WriteAttributeString("quality", quality.ToString());
+                UniqueWeaponUtility.Write(w, equip); // Odyssey: traits, color, name
                 w.WriteEndElement();
             }
             w.WriteEndElement();

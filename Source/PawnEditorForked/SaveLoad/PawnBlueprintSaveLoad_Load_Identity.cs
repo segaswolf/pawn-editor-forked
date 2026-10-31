@@ -92,6 +92,9 @@ public static partial class PawnBlueprintSaveLoad
                     GradientHairCompat.SetPattern(pawn, pattern);
             }
 
+            // Body Hair Framework (optional mod). Older blueprints have no node; the pawn keeps its own.
+            BodyHairCompat.LoadBlueprint(app.SelectSingleNode("bodyHair"), pawn);
+
             // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
             PawnEditor.RefreshPawnGraphics(pawn);
         }

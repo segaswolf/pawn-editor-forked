@@ -42,6 +42,8 @@ public partial class Dialog_AppearanceEditor
             ("PawnEditor.Head".Translate().CapitalizeFirst(), RandomizeHeadType)
         };
         if (ModsConfig.IdeologyActive) choices.Add(("Tattoos".Translate(), RandomizeTattoos));
+        if (BodyHairCompat.Active && BodyHairCompat.HasBodyHair(pawn))
+            choices.Add(("PawnEditor.BodyHair".Translate(), () => BodyHairCompat.Randomize(pawn)));
 
         return choices.Select(choice => new FloatMenuOption("Randomize".Translate() + " " + choice.label, () =>
             {

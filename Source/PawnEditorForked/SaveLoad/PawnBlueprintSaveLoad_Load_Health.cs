@@ -401,6 +401,7 @@ public static partial class PawnBlueprintSaveLoad
                         weapon.TryGetComp<CompQuality>()?.SetQuality(
                             ParseEnum<QualityCategory>(qualStr, QualityCategory.Normal), ArtGenerationContext.Outsider);
 
+                    UniqueWeaponUtility.Read(li, weapon); // after quality: making it rolled a new one
                     EquipmentPlacement.Equip(pawn, weapon);
                 }
             }

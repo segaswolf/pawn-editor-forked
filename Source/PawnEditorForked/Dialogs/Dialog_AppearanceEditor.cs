@@ -185,6 +185,8 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
         mainTabs.Clear();
         mainTabs.Add(new("PawnEditor.Shape".Translate(), () => SelectMainTab(MainTab.Shape), mainTab == MainTab.Shape));
         mainTabs.Add(new("PawnEditor.Hair".Translate().CapitalizeFirst(), () => SelectMainTab(MainTab.Hair), mainTab == MainTab.Hair));
+        if (BodyHairCompat.Active && BodyHairCompat.HasBodyHair(pawn))
+            mainTabs.Add(new("PawnEditor.BodyHair".Translate(), () => SelectMainTab(MainTab.BodyHair), mainTab == MainTab.BodyHair));
         if (ModsConfig.IdeologyActive)
             mainTabs.Add(new("Tattoos".Translate(), () => SelectMainTab(MainTab.Tattoos), mainTab == MainTab.Tattoos));
         if (ModsConfig.BiotechActive)
@@ -206,6 +208,7 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
             // Body, hair and tattoos are style pickers described as data (see _StylePickers).
             case MainTab.Shape:
             case MainTab.Hair:
+            case MainTab.BodyHair:
             case MainTab.Tattoos:
                 DrawStylePickers(rect, StylePickersFor(mainTab));
                 break;
@@ -260,6 +263,7 @@ public partial class Dialog_AppearanceEditor : Window, IDragLockable, IMinWindow
         Tattoos,
         Xenotype,
         HAR,
-        FacialAnimation
+        FacialAnimation,
+        BodyHair
     }
 }

@@ -278,6 +278,8 @@
     <PawnEditor.WouldDie>Adding {0} will kill {1}. Add anyway?</PawnEditor.WouldDie>
     <PawnEditor.WouldBeDowned>Adding {0} will cause {1} to be downed. Add anyway?</PawnEditor.WouldBeDowned>
     <PawnEditor.Beard>Beard</PawnEditor.Beard>
+    <PawnEditor.BodyHair>Body hair</PawnEditor.BodyHair>
+    <PawnEditor.BodyHairNoneUsable>No body hair style fits this pawn here: a gene, an android body or its body type rules them out.</PawnEditor.BodyHairNoneUsable>
     <PawnEditor.NoRandomOptions>No randomization options available for this tab</PawnEditor.NoRandomOptions>
     <PawnEditor.HARRestrictionViolated>{PAWN_possesive} race, {RACE}, cannot {VERB} {ITEM}.</PawnEditor.HARRestrictionViolated>
     <PawnEditor.Wear>wear</PawnEditor.Wear>

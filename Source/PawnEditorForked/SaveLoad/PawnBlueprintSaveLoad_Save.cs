@@ -104,6 +104,9 @@ public static partial class PawnBlueprintSaveLoad
             w.WriteEndElement();
         }
 
+        // Body Hair Framework (optional mod): one style per slot.
+        if (BodyHairCompat.Active) BodyHairCompat.WriteBlueprint(w, pawn);
+
         w.WriteEndElement();
     }
 

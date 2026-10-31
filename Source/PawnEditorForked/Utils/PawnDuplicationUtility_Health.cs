@@ -275,6 +275,7 @@ public static partial class PawnEditor
                     if (equip.TryGetQuality(out var quality))
                         copy.TryGetComp<CompQuality>()?.SetQuality(quality, ArtGenerationContext.Outsider);
 
+                    UniqueWeaponUtility.CopyTo(equip, copy);
                     EquipmentPlacement.Equip(dst, copy);
                 }
                 catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipping equipment {equip.def?.defName}: {ex.Message}"); }

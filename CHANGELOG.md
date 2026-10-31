@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Odyssey unique weapons lost their traits and name** (reported by ExoticButts). Blueprints,
+  duplicating and editing a weapon in Gear rebuilt it, so the game rolled new traits, color and
+  name. All three are now kept, equipped or carried.
+- **The durability slider was missing when editing gear.** It got lost when gear editing moved to the
+  current editor; it is back, and keeps the same percentage if you change material or quality.
+
 ### Added
+- **Body Hair Framework support** (requested by Lucius). A "Body hair" tab in the appearance editor
+  with one picker per slot (torso, lower body, back by default), for Morton's Body Hair and any other
+  style mod built on the framework. It lists only what the framework allows for the pawn (body type,
+  genes, androids) and uses the hair color. Randomize, duplicating, blueprints and Cancel keep it too.
 - **The trait picker shows what each trait changes** (requested by xWOLFxz): skills, stats, pain,
   needs and the rest, the same text as the trait's tooltip in Bio, so mod traits can be compared
   before adding them. The expertise window does the same: what it changes per level on the left,

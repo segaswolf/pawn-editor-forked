@@ -525,6 +525,8 @@ public class TabWorker_Gear : TabWorker<Pawn>
         private Color color = Color.white;
         private int stackCount = 1;
         private bool tainted;
+        // Durability as a fraction of max: stuff and quality change the max, so the share is what we keep.
+        private float condition = 1f;
         private bool dirty = true;
         private bool accepted;
         private bool detachedItems;
@@ -557,6 +559,9 @@ public class TabWorker_Gear : TabWorker<Pawn>
             {
                 tainted = apparel.WornByCorpse;
             }
+
+            if (original != null && original.def.useHitPoints)
+                condition = Mathf.Clamp01(original.HitPoints / (float)Mathf.Max(1, original.MaxHitPoints));
         }
 
         public Pawn Pawn { get; }
@@ -772,10 +777,22 @@ public class TabWorker_Gear : TabWorker<Pawn>
                 DrawPersonaTraits(listing.GetRect(60f), bladelink);
             }
 
-            listing.Gap(4f);
-            listing.Label("PawnEditor.Condition".Translate() + ": " +
-                          ((float)(candidate ?? original)?.HitPoints / Mathf.Max(1, (candidate ?? original)?.MaxHitPoints ?? 1)).ToStringPercent()
-                              .Colorize(ColoredText.SubtleGrayColor));
+            // Durability slider (it lived in the old edit dialog and was lost when gear editing moved here;
+            // reported on Steam, 31 Oct). Changes the item in place, no rebuild.
+            if (ThingDef.useHitPoints)
+            {
+                listing.Gap(4f);
+                var shown = candidate ?? original;
+                var maxHp = Mathf.Max(1, shown?.MaxHitPoints ?? 1);
+                var newCondition = listing.SliderLabeled("PawnEditor.Condition".Translate() + ": " +
+                    (Mathf.Max(1, Mathf.RoundToInt(condition * maxHp)) + " / " + maxHp + " (" + condition.ToStringPercent() + ")").Colorize(ColoredText.SubtleGrayColor),
+                    condition, 0.01f, 1f, 0.6f);
+                if (!Mathf.Approximately(newCondition, condition))
+                {
+                    condition = newCondition;
+                    if (candidate != null) candidate.HitPoints = HitPointsFor(candidate);
+                }
+            }
 
             listing.End();
             if (Event.current.type == EventType.Layout)
@@ -889,16 +906,21 @@ public class TabWorker_Gear : TabWorker<Pawn>
             ClearCaches();
         }
 
+        private int HitPointsFor(Thing thing) => Mathf.Clamp(Mathf.RoundToInt(condition * thing.MaxHitPoints), 1, thing.MaxHitPoints);
+
         private Thing MakeCandidate()
         {
             var made = ThingMaker.MakeThing(ThingDef, ThingDef.MadeFromStuff ? stuff : null);
-            made.HitPoints = Mathf.Clamp(original?.HitPoints ?? made.MaxHitPoints, 1, made.MaxHitPoints);
+            made.HitPoints = HitPointsFor(made);
             made.stackCount = Math.Max(1, stackCount);
             made.SetStyleDef(style);
             if (made.TryGetComp<CompQuality>() is { } compQuality)
             {
                 compQuality.SetQuality(quality, ArtGenerationContext.Outsider);
             }
+
+            // Editing a unique weapon rebuilds it, which rolled new traits and a new name every time.
+            if (original != null && original.def == made.def) UniqueWeaponUtility.CopyTo(original, made);
 
             if (made.TryGetComp<CompColorable>() is { } colorable)
             {

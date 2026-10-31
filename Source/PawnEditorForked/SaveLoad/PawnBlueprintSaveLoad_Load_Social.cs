@@ -228,6 +228,7 @@ public static partial class PawnBlueprintSaveLoad
                     cq.SetQuality(qual, ArtGenerationContext.Outsider);
                 }
 
+                UniqueWeaponUtility.Read(li, thing);
                 pawn.inventory.innerContainer.TryAdd(thing);
             }
         }

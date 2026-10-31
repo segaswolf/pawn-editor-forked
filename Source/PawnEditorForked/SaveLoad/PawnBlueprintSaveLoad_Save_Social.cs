@@ -188,6 +188,7 @@ public static partial class PawnBlueprintSaveLoad
                 w.WriteElementString("stackCount", thing.stackCount.ToString());
                 if (thing.TryGetComp<CompQuality>() is { } cq)
                     w.WriteElementString("quality", ((int)cq.Quality).ToString());
+                UniqueWeaponUtility.Write(w, thing); // a unique sidearm in the inventory
                 w.WriteEndElement();
             }
             w.WriteEndElement();

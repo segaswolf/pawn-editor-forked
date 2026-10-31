@@ -130,6 +130,9 @@ public static partial class PawnEditor
                 GradientHairCompat.SetPattern(dst, pattern);
         }
 
+        // Body Hair Framework (optional mod): duplicate and blueprint are separate paths, as for Gradient Hair.
+        if (BodyHairCompat.Active) BodyHairCompat.Apply(dst, BodyHairCompat.Capture(src));
+
         // Invalidate all cached render data so the game re-bakes from the new values.
         // Centralized, deferred, fully-guarded refresh (see PawnEditor.RefreshPawnGraphics).
         RefreshPawnGraphics(dst);
