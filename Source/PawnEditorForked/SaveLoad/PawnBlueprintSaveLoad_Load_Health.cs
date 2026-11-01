@@ -28,7 +28,7 @@ public static partial class PawnBlueprintSaveLoad
             // Two-pass approach: non-implants first, then implants sorted by depth.
             // RestorePart on a parent body part removes hediffs on child parts,
             // so implants must be added deepest-first (leaves before roots).
-            var normalNodes = new System.Collections.Generic.List<XmlNode>();
+            var normalNodes = new System.Collections.Generic.List<(XmlNode node, BodyPartRecord part)>();
             var implantNodes = new System.Collections.Generic.List<(XmlNode node, BodyPartRecord part, int depth)>();
             // Modules (arm blade, analyzer, mechanalyzer...) sit ON a modular prosthetic. They are NOT
             // implants, so they used to load in pass 1 — and then pass 2's RestorePart, cleaning the
@@ -54,10 +54,13 @@ public static partial class PawnBlueprintSaveLoad
                     {
                         var candidates = pawn.health.hediffSet.GetNotMissingParts()
                             .Where(p => p.def == bpDef).ToList();
+                        if (candidates.Count == 0)
+                            Warn($"'{defName}': this pawn has no '{bodyPartLabel ?? bodyPartDefName}' to put it on, skipping it");
                         part = ResolveSavedPart(candidates, bodyPartLabel, defName);
                     }
+                    else Warn($"'{defName}': body part '{bodyPartDefName}' is not loaded (removed mod?), skipping it");
                 }
-                if (bodyPartDefName != null && part == null) continue;
+                if (bodyPartDefName != null && part == null) continue; // warned above: never skip silently
 
                 bool isImplant = li.Attributes?["isImplant"]?.Value == "true";
                 bool isModule = BionicModularityCompat.IsModule(def) || ModularModulesCompat.GetModule(def) != null;
@@ -67,11 +70,20 @@ public static partial class PawnBlueprintSaveLoad
                 else if (isImplant)
                     implantNodes.Add((li, part, GetBodyPartDepthForLoad(part)));
                 else
-                    normalNodes.Add(li);
+                    normalNodes.Add((li, part));
             }
 
+            // A replaced limb's sub-parts (hand, fingers under a bionic arm) are saved as MissingBodyPart, but the
+            // game re-creates them when the prosthetic goes on (Hediff_AddedPart.PostAdd). Loading them first marked
+            // those parts missing and made the rest of the limb unresolvable, so they are left to the prosthetic.
+            var replacedRoots = implantNodes
+                .Where(n => n.part != null && typeof(Hediff_AddedPart).IsAssignableFrom(DefDatabase<HediffDef>.GetNamedSilentFail(n.node.Attributes?["defName"]?.Value ?? "")?.hediffClass))
+                .Select(n => n.part).ToList();
+            normalNodes.RemoveAll(n => n.part != null && n.node.Attributes?["defName"]?.Value == HediffDefOf.MissingBodyPart.defName
+                                       && replacedRoots.Any(root => IsUnder(n.part, root)));
+
             // Pass 1: Add non-implant hediffs
-            foreach (var li in normalNodes)
+            foreach (var (li, _) in normalNodes)
                 LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: null);
 
             // Pass 2: Add implants, deepest body parts first
@@ -124,8 +136,13 @@ public static partial class PawnBlueprintSaveLoad
             var unexpected = actual.Where(defName => !leftovers.Remove(defName)).ToList();
 
             if (missingFromPawn.Count > 0)
+            {
                 Log.Warning($"[Pawn Editor] '{pawn.LabelShortCap}': {missingFromPawn.Count} hediff(s) in the "
                             + $"blueprint did NOT end up on the pawn: {string.Join(", ", missingFromPawn)}");
+                // On screen too: a player who never opens the log should still know the pawn isn't complete.
+                Messages.Message("PawnEditor.BlueprintHediffsMissing".Translate(pawn.LabelShortCap, missingFromPawn.Count),
+                    MessageTypeDefOf.CautionInput, false);
+            }
 
             if (unexpected.Count > 0)
                 Log.Warning($"[Pawn Editor] '{pawn.LabelShortCap}': {unexpected.Count} hediff(s) on the pawn "
@@ -218,6 +235,61 @@ public static partial class PawnBlueprintSaveLoad
         return match;
     }
 
+    /// <summary>True when <paramref name="part"/> sits below <paramref name="root"/> (not the root itself).</summary>
+    private static bool IsUnder(BodyPartRecord part, BodyPartRecord root)
+    {
+        for (var current = part?.parent; current != null; current = current.parent)
+            if (current == root) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Same safeguard for genes: every gene the blueprint lists (from a loaded mod) is on the pawn, and, for
+    /// blueprints that record it, the same ones are active. Informational only; never changes the pawn.
+    /// </summary>
+    internal static void AuditLoadedGenes(Pawn pawn, XmlNode root)
+    {
+        try
+        {
+            var genesNode = root?.SelectSingleNode("genes");
+            if (!ModsConfig.BiotechActive || genesNode == null || pawn?.genes == null) return;
+            var problems = new List<string>();
+            Compare("endogenes", pawn.genes.Endogenes);
+            Compare("xenogenes", pawn.genes.Xenogenes);
+            if (problems.Count == 0) return;
+
+            Log.Warning($"[Pawn Editor] '{pawn.LabelShortCap}': genes differ from the blueprint: {string.Join("; ", problems)}");
+            Messages.Message("PawnEditor.BlueprintGenesDiffer".Translate(pawn.LabelShortCap, problems.Count),
+                MessageTypeDefOf.CautionInput, false);
+
+            void Compare(string element, List<Gene> actual)
+            {
+                var listNode = genesNode.SelectSingleNode(element);
+                if (listNode == null) return;
+                var recordsOverrides = genesNode.Attributes?["overrides"]?.Value == "1";
+                var left = new List<Gene>(actual);
+                foreach (XmlNode li in listNode.SelectNodes("li"))
+                {
+                    if (!IsAvailable(li)) continue;
+                    var defName = li.Attributes?["defName"]?.Value;
+                    if (DefDatabase<GeneDef>.GetNamedSilentFail(defName ?? "") == null) continue; // warned on load
+                    var gene = left.FirstOrDefault(g => g.def.defName == defName);
+                    if (gene == null) { problems.Add($"{defName} missing"); continue; }
+                    left.Remove(gene);
+                    if (!recordsOverrides) continue;
+                    var savedOverrider = li.Attributes?["overriddenBy"]?.Value;
+                    var actualOverrider = gene.Overridden ? gene.overriddenByGene?.def?.defName : null;
+                    if (savedOverrider != actualOverrider)
+                        problems.Add($"{defName} {(actualOverrider == null ? "active" : "overridden by " + actualOverrider)}, saved {(savedOverrider == null ? "active" : "overridden by " + savedOverrider)}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Gene audit failed for {pawn?.LabelShortCap}: {ex.Message}");
+        }
+    }
+
     private static int GetBodyPartDepthForLoad(BodyPartRecord part)
     {
         int depth = 0;
@@ -260,7 +332,8 @@ public static partial class PawnBlueprintSaveLoad
                 bool alreadyHas = pawn.health.hediffSet.hediffs.Any(h =>
                     h.Part == part && (h is Hediff_AddedPart || h is Hediff_Implant));
                 if (!alreadyHas)
-                    try { pawn.health.RestorePart(part, null, checkStateChange: false); } catch { }
+                    try { pawn.health.RestorePart(part, null, checkStateChange: false); }
+                    catch (Exception ex) { Warn($"'{defName}': could not clear {part.Label} before installing it: {ex.Message}"); }
             }
 
             var hediff = HediffMaker.MakeHediff(def, pawn, part);
@@ -281,6 +354,10 @@ public static partial class PawnBlueprintSaveLoad
                 hediff.ageTicks = ageTicks;
 
             pawn.health.hediffSet.AddDirect(hediff);
+
+            // AddDirect refuses quietly in some cases (part already missing, another mod's patch). Say so.
+            if (!pawn.health.hediffSet.hediffs.Any(h => h == hediff || (h.def == def && h.Part == part)))
+                Warn($"'{defName}'{(part == null ? "" : " on " + part.Label)} was not accepted by the game or another mod");
         }
         catch (Exception ex) { Warn($"Hediff '{defName}': {ex.Message}"); }
     }

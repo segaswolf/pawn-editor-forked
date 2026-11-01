@@ -9,6 +9,11 @@ All notable changes to this project will be documented in this file.
 - **Odyssey unique weapons lost their traits and name** (reported by ExoticButts). Blueprints,
   duplicating and editing a weapon in Gear rebuilt it, so the game rolled new traits, color and
   name. All three are now kept, equipped or carried.
+- **Blueprints now keep which of several conflicting genes is active** (reported by ExoticButts).
+  A pawn with, say, four horn genes came back with a different one active; blueprints now record it.
+- **Loading a blueprint no longer skips health entries silently.** Every entry that can't be placed
+  says why in the log, the sub-parts under a prosthetic are left to the prosthetic as the game does,
+  and if anything (health or genes) didn't come back, a message on screen says so.
 - **The durability slider was missing when editing gear.** It got lost when gear editing moved to the
   current editor; it is back, and keeps the same percentage if you change material or quality.
 

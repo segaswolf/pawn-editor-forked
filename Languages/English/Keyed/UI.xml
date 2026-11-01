@@ -279,6 +279,8 @@
     <PawnEditor.WouldBeDowned>Adding {0} will cause {1} to be downed. Add anyway?</PawnEditor.WouldBeDowned>
     <PawnEditor.Beard>Beard</PawnEditor.Beard>
     <PawnEditor.BodyHair>Body hair</PawnEditor.BodyHair>
+    <PawnEditor.BlueprintHediffsMissing>{0}: {1} health entries from the blueprint could not be loaded. The log lists them.</PawnEditor.BlueprintHediffsMissing>
+    <PawnEditor.BlueprintGenesDiffer>{0}: {1} gene(s) differ from the blueprint. The log lists them.</PawnEditor.BlueprintGenesDiffer>
     <PawnEditor.BodyHairNoneUsable>No body hair style fits this pawn here: a gene, an android body or its body type rules them out.</PawnEditor.BodyHairNoneUsable>
     <PawnEditor.NoRandomOptions>No randomization options available for this tab</PawnEditor.NoRandomOptions>
     <PawnEditor.HARRestrictionViolated>{PAWN_possesive} race, {RACE}, cannot {VERB} {ITEM}.</PawnEditor.HARRestrictionViolated>

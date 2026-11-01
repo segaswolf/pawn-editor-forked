@@ -118,6 +118,7 @@ public static partial class PawnBlueprintSaveLoad
         });
 
         AuditLoadedHediffs(pawn, root);
+        AuditLoadedGenes(pawn, root);
         GeneratorHediffs = new List<Hediff>();
 
         // Biotech extras not covered by LoadGenes

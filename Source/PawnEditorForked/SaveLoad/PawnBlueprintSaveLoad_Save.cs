@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Xml;
 using RimWorld;
 using UnityEngine;
@@ -151,29 +152,31 @@ public static partial class PawnBlueprintSaveLoad
     {
         if (!ModsConfig.BiotechActive || pawn.genes == null) return;
         w.WriteStartElement("genes");
+        // Marks blueprints that record which gene overrides which. Older ones don't, so on load the game
+        // re-resolves conflicts itself for them (and may pick a different one of several horn genes).
+        w.WriteAttributeString("overrides", "1");
+        WriteGeneList(w, "endogenes", pawn.genes.Endogenes, pawn);
+        WriteGeneList(w, "xenogenes", pawn.genes.Xenogenes, pawn);
+        w.WriteEndElement();
+    }
 
-        w.WriteStartElement("endogenes");
-        foreach (var gene in pawn.genes.Endogenes)
+    private static void WriteGeneList(XmlWriter w, string element, List<Gene> genes, Pawn pawn)
+    {
+        w.WriteStartElement(element);
+        foreach (var gene in genes)
         {
             if (gene?.def == null) continue;
             w.WriteStartElement("li");
             w.WriteAttributeString("defName", gene.def.defName);
             WriteSourceMod(w, gene.def);
+            // Which gene wins a conflict (e.g. four horn genes with one active). Reported by ExoticButts, 30 Oct.
+            if (gene.Overridden && gene.overriddenByGene?.def != null)
+            {
+                w.WriteAttributeString("overriddenBy", gene.overriddenByGene.def.defName);
+                w.WriteAttributeString("overriddenByXeno", pawn.genes.Xenogenes.Contains(gene.overriddenByGene) ? "true" : "false");
+            }
             w.WriteEndElement();
         }
-        w.WriteEndElement();
-
-        w.WriteStartElement("xenogenes");
-        foreach (var gene in pawn.genes.Xenogenes)
-        {
-            if (gene?.def == null) continue;
-            w.WriteStartElement("li");
-            w.WriteAttributeString("defName", gene.def.defName);
-            WriteSourceMod(w, gene.def);
-            w.WriteEndElement();
-        }
-        w.WriteEndElement();
-
         w.WriteEndElement();
     }
 

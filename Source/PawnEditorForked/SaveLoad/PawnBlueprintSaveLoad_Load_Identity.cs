@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using RimWorld;
@@ -188,8 +189,51 @@ public static partial class PawnBlueprintSaveLoad
                     pawn.genes.AddGene(def, xenogene: true);
                 }
             }
+
+            if (genesNode.Attributes?["overrides"]?.Value == "1")
+                RestoreGeneOverrides(pawn, endoNode, xenoNode);
         }
         catch (Exception ex) { Warn($"Genes: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Puts back which gene overrides which, as saved. AddGene lets the game re-resolve conflicts, which with
+    /// several genes of one kind (Alpha Genes horns) can activate a different one than the pawn had.
+    /// Matches saved entries to loaded genes in order, per def, so a skipped (missing) gene doesn't shift them.
+    /// </summary>
+    private static void RestoreGeneOverrides(Pawn pawn, XmlNode endoNode, XmlNode xenoNode)
+    {
+        var wanted = new List<(Gene gene, string overrider, bool overriderXeno)>();
+        Collect(endoNode, pawn.genes.Endogenes);
+        Collect(xenoNode, pawn.genes.Xenogenes);
+
+        foreach (var (gene, overriderName, overriderXeno) in wanted)
+        {
+            if (overriderName.NullOrEmpty())
+            {
+                gene.overriddenByGene = null;
+                continue;
+            }
+            var list = overriderXeno ? pawn.genes.Xenogenes : pawn.genes.Endogenes;
+            var overrider = list.FirstOrDefault(g => g != gene && g.def.defName == overriderName)
+                            ?? pawn.genes.GenesListForReading.FirstOrDefault(g => g != gene && g.def.defName == overriderName);
+            if (overrider == null) Warn($"Gene '{gene.def.defName}': its overriding gene '{overriderName}' was not loaded; the game decides");
+            else gene.overriddenByGene = overrider;
+        }
+
+        void Collect(XmlNode listNode, List<Gene> loaded)
+        {
+            if (listNode == null) return;
+            var used = new HashSet<Gene>();
+            foreach (XmlNode li in listNode.SelectNodes("li"))
+            {
+                var defName = li.Attributes?["defName"]?.Value;
+                var gene = loaded.FirstOrDefault(g => !used.Contains(g) && g.def.defName == defName);
+                if (gene == null) continue; // not loaded (missing mod): already warned above
+                used.Add(gene);
+                wanted.Add((gene, li.Attributes?["overriddenBy"]?.Value, li.Attributes?["overriddenByXeno"]?.Value == "true"));
+            }
+        }
     }
 
     // ── Load: Skills ──
