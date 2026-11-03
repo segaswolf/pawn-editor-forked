@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Blueprints lost every prosthetic and implant when the pawn also had an implant in the torso**
+  (reported by ExoticButts, with blueprints and a full log). Loading put an implant like a vacskin
+  gland or an aesthetic shaper the way a bionic arm goes in, clearing the whole torso first, and
+  the torso holds the entire body. Implants now go in the way surgery installs them. Duplicating
+  followed the same rule.
+- **Loading a blueprint gave the pawn the colony's ideoligion** (reported by ExoticButts). The
+  blueprint always saved it but never read it back. Now the pawn keeps its own if this game has
+  it; if not (ideoligions belong to each world), it follows the colony's and the load says so,
+  since you can load that ideoligion into the game with the ideoligion editor.
+
+## [v3.2.6] - 2026-11-02 — Body Hair Framework, unique weapons and blueprint fidelity
+
+### Fixed
 - **Odyssey unique weapons lost their traits and name** (reported by ExoticButts). Blueprints,
   duplicating and editing a weapon in Gear rebuilt it, so the game rolled new traits, color and
   name. All three are now kept, equipped or carried.
@@ -14,7 +27,7 @@ All notable changes to this project will be documented in this file.
 - **Loading a blueprint no longer skips health entries silently.** Every entry that can't be placed
   says why in the log, the sub-parts under a prosthetic are left to the prosthetic as the game does,
   and if anything (health or genes) didn't come back, a message on screen says so.
-- **The durability slider was missing when editing gear.** It got lost when gear editing moved to the
+- **The durability slider was missing when editing gear** (reported by OxTailSafu). It got lost when gear editing moved to the
   current editor; it is back, and keeps the same percentage if you change material or quality.
 
 ### Added

@@ -12,7 +12,7 @@ A community-maintained fork of [Pawn Editor](https://steamcommunity.com/sharedfi
 
 Pawn Editor lets you edit your colonists, starting pawns and NPCs from one window: bio, traits, skills, genes, health, gear, relations, needs and appearance. This fork keeps it working on current RimWorld, fixes the crashes and save/load issues of the original, and adds compatibility with popular mods. It is tested with a 1000+ mod list.
 
-**Current version: v3.2.5** — tested on RimWorld 1.6 and on the 1.7 (Waylith) unstable branch.
+**Current version: v3.2.6** — tested on RimWorld 1.6 and on the 1.7 (Waylith) unstable branch.
 
 ---
 
