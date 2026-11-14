@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [v3.2.7] - 2026-11-14 — Faithful blueprints: implants, genes and ideoligion
 
 ### Added
 - **Pick a pawn's ideoligion from your saved files** (requested by KING WORM D16). "Select
