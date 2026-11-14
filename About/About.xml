@@ -8,7 +8,7 @@
     <li>1.7</li>
   </supportedVersions>
   <packageId>segaswolf.pawneditor.fork</packageId>
-  <modVersion>3.2.7</modVersion>
+  <modVersion>3.2.8</modVersion>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>

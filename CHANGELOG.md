@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased]
+## [v3.2.8] - 2026-11-14 — Copy and paste traits, one editor hotkey
 
 ### Added
 - **Copy and paste traits between pawns** (requested by Blackthorn). Two icons next to "Add" in
