@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
@@ -163,7 +163,7 @@ public static partial class PawnBlueprintSaveLoad
             var endoNode = genesNode.SelectSingleNode("endogenes");
             if (endoNode != null)
             {
-                pawn.genes.Endogenes.Clear();
+                GeneSwapUtility.RemoveAll(pawn, xenogenes: false); // not Clear(): see GeneSwapUtility
                 foreach (XmlNode li in endoNode.SelectNodes("li"))
                 {
                     if (!IsAvailable(li)) continue;
@@ -178,7 +178,7 @@ public static partial class PawnBlueprintSaveLoad
             var xenoNode = genesNode.SelectSingleNode("xenogenes");
             if (xenoNode != null)
             {
-                pawn.genes.Xenogenes.Clear();
+                GeneSwapUtility.RemoveAll(pawn, xenogenes: true);
                 foreach (XmlNode li in xenoNode.SelectNodes("li"))
                 {
                     if (!IsAvailable(li)) continue;

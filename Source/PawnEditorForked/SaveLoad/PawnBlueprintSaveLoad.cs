@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -138,6 +138,7 @@ public static partial class PawnBlueprintSaveLoad
     private static Pawn LoadBlueprintInner(string filePath)
     {
         loadWarnings.Clear();
+        LastLoadWarnings = new List<string>();
 
         var doc = new XmlDocument();
         doc.Load(filePath);
@@ -203,8 +204,13 @@ public static partial class PawnBlueprintSaveLoad
 
     private static void Warn(string msg) => loadWarnings.Add(msg);
 
+    /// <summary>What the last blueprint load reported, kept after the flush so the in-game tests can say
+    /// why an entry didn't come back instead of only that it didn't.</summary>
+    internal static IReadOnlyList<string> LastLoadWarnings { get; private set; } = new List<string>();
+
     private static void FlushWarnings(Pawn pawn)
     {
+        LastLoadWarnings = loadWarnings.ToList();
         if (loadWarnings.Count == 0) return;
         var name = pawn?.Name?.ToStringFull ?? pawn?.LabelCap ?? "unknown";
         Log.Warning($"[Pawn Editor] Blueprint loaded '{name}' with {loadWarnings.Count} adjustment(s):");

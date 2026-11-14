@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace PawnEditor;
@@ -82,19 +83,22 @@ public static partial class PawnBlueprintSaveLoad
             normalNodes.RemoveAll(n => n.part != null && n.node.Attributes?["defName"]?.Value == HediffDefOf.MissingBodyPart.defName
                                        && replacedRoots.Any(root => IsUnder(n.part, root)));
 
+            // Leveled hediffs from this load stack; ones that showed up as a side effect take the saved level.
+            var leveledThisLoad = new System.Collections.Generic.HashSet<Hediff>();
+
             // Pass 1: Add non-implant hediffs
             foreach (var (li, _) in normalNodes)
-                LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: null);
+                LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: null, leveledThisLoad);
 
             // Pass 2: Add implants, deepest body parts first
             implantNodes.Sort((a, b) => b.depth.CompareTo(a.depth));
             foreach (var (li, part, _) in implantNodes)
-                LoadSingleHediff(pawn, li, isImplant: true, resolvedPart: part);
+                LoadSingleHediff(pawn, li, isImplant: true, resolvedPart: part, leveledThisLoad);
 
             // Pass 3: Add modules LAST. Their host prosthetic now exists and its RestorePart has already
             // run, so nothing wipes them. A module isn't an implant, so RestorePart is not called for it.
             foreach (var (li, part) in moduleNodes)
-                LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: part);
+                LoadSingleHediff(pawn, li, isImplant: false, resolvedPart: part, leveledThisLoad);
         }
         catch (Exception ex) { Log.Error($"[Pawn Editor] LoadHediffs: {ex}"); }
     }
@@ -154,6 +158,8 @@ public static partial class PawnBlueprintSaveLoad
         }
     }
 
+    private static string DeclaredKey(string defName, string partLabel) => defName + "@" + (partLabel ?? "");
+
     /// <summary>
     /// Removes the hediffs the PAWN GENERATOR invented for this body that the blueprint does not
     /// declare: age injuries, addictions, random scars. A blueprint describes a pawn completely, so
@@ -173,18 +179,21 @@ public static partial class PawnBlueprintSaveLoad
         try
         {
             // What the blueprint DOES declare, so we never remove something we are about to restore.
+            // By def AND part: by def alone, one amputated arm in the blueprint kept every generated
+            // MissingBodyPart, such as the eyes a Blindsight ideoligion takes at generation
+            // (PawnGenerator.AddBlindness). Syliki came back blind, 12 Nov fixture tests.
             var declared = new HashSet<string>();
             foreach (XmlNode li in hediffsNode.SelectNodes("li"))
             {
                 var defName = li.Attributes?["defName"]?.Value;
-                if (!defName.NullOrEmpty()) declared.Add(defName);
+                if (!defName.NullOrEmpty()) declared.Add(DeclaredKey(defName, li.Attributes?["bodyPartLabel"]?.Value));
             }
 
             var removed = new List<string>();
             foreach (var hediff in GeneratorHediffs)
             {
                 if (hediff?.def == null) continue;
-                if (declared.Contains(hediff.def.defName)) continue;
+                if (declared.Contains(DeclaredKey(hediff.def.defName, hediff.Part?.Label))) continue;
                 if (!pawn.health.hediffSet.hediffs.Contains(hediff)) continue;
 
                 try
@@ -298,7 +307,8 @@ public static partial class PawnBlueprintSaveLoad
         return depth;
     }
 
-    private static void LoadSingleHediff(Pawn pawn, XmlNode li, bool isImplant, BodyPartRecord resolvedPart)
+    private static void LoadSingleHediff(Pawn pawn, XmlNode li, bool isImplant, BodyPartRecord resolvedPart,
+        System.Collections.Generic.ISet<Hediff> leveledThisLoad)
     {
         var defName = li.Attributes?["defName"]?.Value;
         if (defName.NullOrEmpty()) return;
@@ -326,7 +336,12 @@ public static partial class PawnBlueprintSaveLoad
 
         try
         {
-            if (isImplant && part != null)
+            // RestorePart only for a part that REPLACES the body part (bionic arm, archotech eye), as the game's
+            // Recipe_InstallArtificialBodyPart does. An implant that sits inside a part (Recipe_InstallImplant:
+            // vacskin gland, aesthetic shaper) never restores it. RestorePart wipes the part AND everything
+            // below it, so an implant on the torso, loaded last (shallowest), erased every prosthetic and
+            // implant already placed on the body. Reported by ExoticButts (30 Oct, 3 Nov).
+            if (isImplant && part != null && typeof(Hediff_AddedPart).IsAssignableFrom(def.hediffClass))
             {
                 // Only RestorePart if no implant already on this exact part
                 bool alreadyHas = pawn.health.hediffSet.hediffs.Any(h =>
@@ -353,7 +368,12 @@ public static partial class PawnBlueprintSaveLoad
             if (!ageTicksStr.NullOrEmpty() && int.TryParse(ageTicksStr, out var ageTicks))
                 hediff.ageTicks = ageTicks;
 
-            pawn.health.hediffSet.AddDirect(hediff);
+            // Leveled ones (repair probe x6) by level. See TryAddLeveled for when they stack.
+            // Older blueprints have no "level": their severity is the level, synced every tick before saving.
+            var levelStr = li.Attributes?["level"]?.Value;
+            var level = int.TryParse(levelStr, out var savedLevel) ? savedLevel : Mathf.RoundToInt(hediff.Severity);
+            if (!LeveledHediffUtility.TryAddLeveled(pawn, hediff, level, leveledThisLoad))
+                pawn.health.hediffSet.AddDirect(hediff);
 
             // AddDirect refuses quietly in some cases (part already missing, another mod's patch). Say so.
             if (!pawn.health.hediffSet.hediffs.Any(h => h == hediff || (h.def == def && h.Part == part)))

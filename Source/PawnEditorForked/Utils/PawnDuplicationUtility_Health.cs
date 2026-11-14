@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -75,6 +75,7 @@ public static partial class PawnEditor
         if (src.health?.hediffSet == null || dst.health?.hediffSet == null) return;
 
         dst.health.hediffSet.hediffs.Clear();
+        var leveledThisCopy = new System.Collections.Generic.HashSet<Hediff>();
 
         // Modules (arm blade, analyzer...) sit ON a modular prosthetic and are NOT implants, so they'd
         // be copied in this first loop and then wiped by the implants' RestorePart below. Defer them to
@@ -110,7 +111,9 @@ public static partial class PawnEditor
             {
                 var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
                 copy.CopyFrom(hediff);
-                dst.health.hediffSet.AddDirect(copy);
+                // Leveled ones (repair probe) stack their level instead of merging it away.
+                if (!LeveledHediffUtility.TryAddLeveled(dst, copy, (hediff as Hediff_Level)?.level ?? 1, leveledThisCopy))
+                    dst.health.hediffSet.AddDirect(copy);
             }
             catch (Exception ex) { Log.Warning($"[Pawn Editor] Skipping hediff {hediff.def?.defName}: {ex.Message}"); }
         }
@@ -133,12 +136,16 @@ public static partial class PawnEditor
                 // was silently deleting an already-added child implant (e.g. the bionic jaw on the head).
                 bool wouldClobber = dst.health.hediffSet.hediffs.Any(h =>
                     (h is Hediff_AddedPart || h is Hediff_Implant) && h.Part != null && PartIsAtOrUnder(h.Part, hediff.Part));
-                if (!wouldClobber)
+                // And only for a part that replaces the body part, like the game's surgery: an implant inside a
+                // part (vacskin gland on the torso) never restores it (see LoadSingleHediff).
+                if (!wouldClobber && typeof(Hediff_AddedPart).IsAssignableFrom(hediff.def.hediffClass))
                     dst.health.RestorePart(hediff.Part, null, checkStateChange: false);
 
                 var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
                 copy.Severity = hediff.Severity;
-                dst.health.hediffSet.AddDirect(copy);
+                // Leveled ones (repair probe) stack their level instead of merging it away.
+                if (!LeveledHediffUtility.TryAddLeveled(dst, copy, (hediff as Hediff_Level)?.level ?? 1, leveledThisCopy))
+                    dst.health.hediffSet.AddDirect(copy);
             }
             catch (Exception ex)
             {
@@ -154,7 +161,9 @@ public static partial class PawnEditor
                 if (hediff.Part != null && !dst.health.hediffSet.HasBodyPart(hediff.Part)) continue;
                 var copy = HediffMaker.MakeHediff(hediff.def, dst, hediff.Part);
                 copy.CopyFrom(hediff);
-                dst.health.hediffSet.AddDirect(copy);
+                // Leveled ones (repair probe) stack their level instead of merging it away.
+                if (!LeveledHediffUtility.TryAddLeveled(dst, copy, (hediff as Hediff_Level)?.level ?? 1, leveledThisCopy))
+                    dst.health.hediffSet.AddDirect(copy);
             }
             catch (Exception ex)
             {

@@ -51,9 +51,7 @@ public static partial class PawnBlueprintSaveLoad
             xenotype = ResolveDef<XenotypeDef>(root, "xenotypeDef");
 
         // ── 2. Generate a fresh pawn base ──
-        Ideo ideo = null;
-        if (ModsConfig.IdeologyActive && Faction.OfPlayer?.ideos?.PrimaryIdeo != null)
-            ideo = Faction.OfPlayer.ideos.PrimaryIdeo;
+        var ideo = ResolveSavedIdeo(root);
 
         var request = new PawnGenerationRequest(
             kind:                    kindDef,
@@ -372,5 +370,57 @@ public static partial class PawnBlueprintSaveLoad
     {
         if (text.NullOrEmpty()) return fallback;
         return Enum.TryParse<T>(text, true, out var v) ? v : fallback;
+    }
+
+    /// <summary>
+    /// The ideoligion the blueprint was saved with ("ideoName"), if this game has one by that name; otherwise the
+    /// colony's primary one, with a warning. The name was always saved but never read, so every loaded pawn
+    /// took the colony's ideoligion (reported by ExoticButts, 3 Nov). Ideoligions belong to a world: in another
+    /// game the pawn's own one exists only if the player loaded it there (the ideoligion editor can).
+    /// </summary>
+    private static Ideo ResolveSavedIdeo(XmlNode root)
+    {
+        if (!ModsConfig.IdeologyActive) return null;
+        var colonyIdeo = Faction.OfPlayer?.ideos?.PrimaryIdeo;
+        var savedName = GetText(root, "ideoName");
+        if (savedName.NullOrEmpty()) return colonyIdeo;
+
+        var saved = Find.IdeoManager?.IdeosListForReading.FirstOrDefault(i => i.name == savedName);
+        if (saved != null) return saved;
+
+        // Not in this game, but maybe the player saved it to file: bring it in, as vanilla does at game start.
+        var fromFile = LoadIdeoFromFile(savedName);
+        if (fromFile != null)
+        {
+            Warn($"Ideoligion '{savedName}' was added to this game from your saved ideoligion files");
+            return fromFile;
+        }
+
+        if (colonyIdeo != null)
+            Warn($"Ideoligion '{savedName}' does not exist in this game or in your saved ideoligion files, so the pawn "
+                 + $"follows '{colonyIdeo.name}'. Save it to a file from the game that has it to keep it next time");
+        return colonyIdeo;
+    }
+
+    /// <summary>The saved ideoligion file whose ideoligion has this name, added to the game; null if none.</summary>
+    private static Ideo LoadIdeoFromFile(string ideoName)
+    {
+        // Ideoligion files load through Scribe; never start that inside another Scribe pass (colony load).
+        if (Scribe.mode != LoadSaveMode.Inactive) return null;
+        try
+        {
+            foreach (var file in GenFilePaths.AllCustomIdeoFiles)
+            {
+                if (!GameDataSaveLoader.TryLoadIdeo(file.FullName, out var ideo) || ideo?.name != ideoName) continue;
+                ideo = IdeoGenerator.InitLoadedIdeo(ideo);
+                Find.IdeoManager.Add(ideo);
+                return ideo;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Pawn Editor] Looking for ideoligion '{ideoName}' in saved files failed: {ex.Message}");
+        }
+        return null;
     }
 }

@@ -5,16 +5,36 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Pick a pawn's ideoligion from your saved files** (requested by KING WORM D16). "Select
+  ideoligion" in Bio now ends with "Load existing ideoligion...", the same list the game uses.
+
 ### Fixed
 - **Blueprints lost every prosthetic and implant when the pawn also had an implant in the torso**
   (reported by ExoticButts, with blueprints and a full log). Loading put an implant like a vacskin
   gland or an aesthetic shaper the way a bionic arm goes in, clearing the whole torso first, and
   the torso holds the entire body. Implants now go in the way surgery installs them. Duplicating
   followed the same rule.
-- **Loading a blueprint gave the pawn the colony's ideoligion** (reported by ExoticButts). The
-  blueprint always saved it but never read it back. Now the pawn keeps its own if this game has
-  it; if not (ideoligions belong to each world), it follows the colony's and the load says so,
-  since you can load that ideoligion into the game with the ideoligion editor.
+- **Blueprints skipped implants the game marks as "non-duplicable"** (reported by ExoticButts):
+  up to 36 per pawn with Ushanka's Hacking Expansion, Integrated Implants and similar mods. That
+  flag is the game's rule for cloning a pawn, and duplicating still follows it; a blueprint now
+  saves the pawn as it is. Only the mechlink is left out, since it is restored with the mechanitor.
+- **Leveled implants came back at level 1** (repair probe x6, jammer kit x3...) after a blueprint or
+  duplicating. They now keep their level.
+- **Loading a blueprint gave the pawn the colony's ideoligion** (reported by ExoticButts and KING
+  WORM D16). The blueprint always saved it but never read it back. Now the pawn keeps its own: from
+  this game if it has it, or from your saved ideoligion files if you saved it there. Only when it is
+  in neither does it follow the colony's, and the load says so.
+- **A blueprint pawn with an amputation could come back blind** when the colony's ideoligion blinds
+  its members. The game blinds new pawns of that ideoligion, and the load kept that "missing eyes"
+  because the blueprint had some other missing part. Now only the parts the blueprint actually lists
+  stay missing, and the eye implants go back in.
+- **Genes taken out of a pawn could leave their abilities behind** after a blueprint or duplicating:
+  a sanguophage saved without the xenogerm reimplanter gene still came back able to reimplant. The
+  pawn's generated genes are now removed the way the game does it, taking back what they gave.
+- **Duplicating could change which of two conflicting genes is active** (hair colors, horns...),
+  most often between a gene the pawn was born with and one from its xenotype. Duplicates now keep
+  the same active genes, as blueprints already did.
 
 ## [v3.2.6] - 2026-11-02 — Body Hair Framework, unique weapons and blueprint fidelity
 

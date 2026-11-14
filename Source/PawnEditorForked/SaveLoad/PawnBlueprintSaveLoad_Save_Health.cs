@@ -19,26 +19,27 @@ public static partial class PawnBlueprintSaveLoad
     {
         if (pawn.health?.hediffSet == null) return;
 
-        // Hediffs flagged duplicationAllowed=false are a DUPLICATION rule (the game blocks copying
-        // unique implants/quest markers onto a clone). The blueprint reuses this path for both
-        // duplicate and save, so it also skips them here. Rather than dropping them silently, we
-        // collect and log them per pawn — visible, auditable, no spam. (The mechanitor mechlink is
-        // one of these; its status is preserved separately via <mechanitor>, see WriteMechanitor.)
-        var skippedNonDuplicable = new List<string>();
+        // A blueprint describes the pawn as it is, so it keeps EVERY hediff, including the ones flagged
+        // duplicationAllowed=false. That flag is the game's rule for CLONING a pawn (duplicating keeps
+        // applying it in PawnDuplicationUtility); applied here, it dropped up to 36 implants per pawn from
+        // Ushanka's, Integrated Implants and others (reported by ExoticButts, 3 Nov; decided with Segas,
+        // 9 Nov). The one exception is what another section restores: the mechlink, via <mechanitor>.
+        var restoredElsewhere = new List<string>();
 
         w.WriteStartElement("hediffs");
         foreach (var hediff in pawn.health.hediffSet.hediffs)
         {
             if (hediff?.def == null) continue;
-            if (!hediff.def.duplicationAllowed)
+            if (hediff.def == HediffDefOf.MechlinkImplant)
             {
-                skippedNonDuplicable.Add(hediff.def.defName);
+                restoredElsewhere.Add(hediff.def.defName);
                 continue;
             }
 
             w.WriteStartElement("li");
             w.WriteAttributeString("defName",  hediff.def.defName);
             w.WriteAttributeString("severity", hediff.Severity.ToString("F3"));
+            if (LeveledHediffUtility.LevelOf(hediff) is { } level) w.WriteAttributeString("level", level.ToString());
             if (hediff.Part != null)
             {
                 w.WriteAttributeString("bodyPart", hediff.Part.def.defName);
@@ -55,9 +56,8 @@ public static partial class PawnBlueprintSaveLoad
         }
         w.WriteEndElement();
 
-        if (skippedNonDuplicable.Count > 0)
-            Log.Message($"[Pawn Editor] {pawn.LabelShortCap}: skipped {skippedNonDuplicable.Count} " +
-                        $"non-duplicable hediff(s) per game rules: {string.Join(", ", skippedNonDuplicable)}");
+        if (restoredElsewhere.Count > 0 && Prefs.DevMode)
+            Log.Message($"[Pawn Editor] {pawn.LabelShortCap}: {string.Join(", ", restoredElsewhere)} saved through its own section, not as a hediff");
     }
 
     // ── Save: Abilities ──

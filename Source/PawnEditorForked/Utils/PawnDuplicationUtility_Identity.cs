@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -50,52 +50,37 @@ public static partial class PawnEditor
 
     /// <summary>
     /// Copies xenogenes and endogenes, preserving override relationships.
-    /// No-op if Biotech DLC is not active.
+    /// No-op if Biotech DLC is not active. The rules (RemoveGene, overrides last) are in GeneSwapUtility.
+    /// Overrides used to be copied by position and found by def, set before the endogenes existed: the game
+    /// then re-resolved them, and an endogene/xenogene pair of one def could point at the wrong one.
     /// </summary>
     private static void CopyDup_Genes(Pawn src, Pawn dst)
     {
         if (!ModsConfig.BiotechActive) return;
         if (src.genes == null || dst.genes == null) return;
 
-        // ── Xenogenes (mod-added, non-inheritable) ──
-        dst.genes.Xenogenes.Clear();
-        var srcXeno = src.genes.Xenogenes;
-        foreach (var gene in srcXeno)
-        {
-            if (gene?.def == null || !DefDatabase<GeneDef>.AllDefsListForReading.Contains(gene.def))
-            {
-                Log.Warning($"[Pawn Editor] Skipping missing xenogene: {gene?.def?.defName ?? "null"}");
-                continue;
-            }
-            dst.genes.AddGene(gene.def, xenogene: true);
-        }
-        // Preserve which genes are overriding which
-        for (int i = 0; i < srcXeno.Count && i < dst.genes.Xenogenes.Count; i++)
-        {
-            var overriderDef = srcXeno[i].Overridden ? srcXeno[i].overriddenByGene?.def : null;
-            dst.genes.Xenogenes[i].overriddenByGene = overriderDef != null
-                ? dst.genes.GenesListForReading.FirstOrDefault(e => e.def == overriderDef)
-                : null;
-        }
+        GeneSwapUtility.RemoveAll(dst, xenogenes: true);
+        GeneSwapUtility.RemoveAll(dst, xenogenes: false);
 
-        // ── Endogenes (inheritable, part of xenotype) ──
-        dst.genes.Endogenes.Clear();
-        var srcEndo = src.genes.Endogenes;
-        foreach (var gene in srcEndo)
+        var copyOf = new Dictionary<Gene, Gene>();
+        CopyList(src.genes.Endogenes, xenogene: false);
+        CopyList(src.genes.Xenogenes, xenogene: true);
+
+        // Last: every AddGene above re-resolved the conflicts its own way.
+        GeneSwapUtility.CopyOverrides(src.genes.GenesListForReading, copyOf);
+
+        void CopyList(List<Gene> genes, bool xenogene)
         {
-            if (gene?.def == null || !DefDatabase<GeneDef>.AllDefsListForReading.Contains(gene.def))
+            foreach (var gene in genes.ToList())
             {
-                Log.Warning($"[Pawn Editor] Skipping missing endogene: {gene?.def?.defName ?? "null"}");
-                continue;
+                if (gene?.def == null || !DefDatabase<GeneDef>.AllDefsListForReading.Contains(gene.def))
+                {
+                    Log.Warning($"[Pawn Editor] Skipping missing {(xenogene ? "xenogene" : "endogene")}: {gene?.def?.defName ?? "null"}");
+                    continue;
+                }
+                var copy = dst.genes.AddGene(gene.def, xenogene);
+                if (copy != null) copyOf[gene] = copy;
             }
-            dst.genes.AddGene(gene.def, xenogene: false);
-        }
-        for (int i = 0; i < srcEndo.Count && i < dst.genes.Endogenes.Count; i++)
-        {
-            var overriderDef = srcEndo[i].Overridden ? srcEndo[i].overriddenByGene?.def : null;
-            dst.genes.Endogenes[i].overriddenByGene = overriderDef != null
-                ? dst.genes.GenesListForReading.FirstOrDefault(e => e.def == overriderDef)
-                : null;
         }
     }
 

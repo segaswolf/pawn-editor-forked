@@ -148,10 +148,34 @@ public partial class TabWorker_Bio_Humanlike
         if (!TryTakeLabeledRow(ref rect, leftWidth, "DifficultyIdeologySection".Translate(), out var field)) return;
         rect.yMin += GroupRowGap;
 
-        if (Widgets.ButtonText(field, "PawnEditor.SelectIdeo".Translate()))
-            Find.WindowStack.Add(new FloatMenu(Find.IdeoManager.IdeosInViewOrder
-                .Select(ideo => new FloatMenuOption(ideo.name, () => pawn.ideo.SetIdeo(ideo), ideo.Icon, ideo.Color))
-                .ToList()));
+        if (!Widgets.ButtonText(field, "PawnEditor.SelectIdeo".Translate())) return;
+
+        var options = Find.IdeoManager.IdeosInViewOrder
+            .Select(ideo => new FloatMenuOption(ideo.name, () => pawn.ideo.SetIdeo(ideo), ideo.Icon, ideo.Color))
+            .ToList();
+        // Ideoligions the player saved to file (vanilla's own load list). Request: KING WORM D16 (Steam, 9 Nov).
+        if (GenFilePaths.AllCustomIdeoFiles.Any())
+            options.Add(new FloatMenuOption("LoadExistingIdeoligion".Translate() + "...",
+                () => Find.WindowStack.Add(new Dialog_IdeoList_Load(loaded => AssignLoadedIdeo(pawn, loaded)))));
+        Find.WindowStack.Add(new FloatMenu(options));
+    }
+
+    /// <summary>
+    /// Gives the pawn an ideoligion loaded from file. If this game already has one by that name it is reused,
+    /// so loading the same file twice doesn't create twins; otherwise it joins the game (IdeoManager), as
+    /// vanilla does when a game starts with a loaded ideoligion. It isn't made the colony's primary one.
+    /// </summary>
+    private static void AssignLoadedIdeo(Pawn pawn, Ideo loaded)
+    {
+        if (loaded == null) return;
+        var ideo = Find.IdeoManager.IdeosListForReading.FirstOrDefault(i => i.name == loaded.name);
+        if (ideo == null)
+        {
+            Find.IdeoManager.Add(loaded);
+            ideo = loaded;
+        }
+        pawn.ideo.SetIdeo(ideo);
+        PawnEditor.Notify_PointsUsed();
     }
 
     private void DrawIdeoCard(ref Rect rect, Pawn pawn, float leftWidth)
