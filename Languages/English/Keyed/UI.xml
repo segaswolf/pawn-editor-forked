@@ -513,4 +513,19 @@
     <PawnEditor.DevStage.WarnAspirations>- Remove all aspirations (children cannot have them)</PawnEditor.DevStage.WarnAspirations>
     <PawnEditor.DevStage.WarnNewAdulthood>- Generate a random adulthood backstory</PawnEditor.DevStage.WarnNewAdulthood>
     <PawnEditor.DevStage.WarnBodyType>- Change body type to adult</PawnEditor.DevStage.WarnBodyType>
+    <PawnEditor.CopyTraits.Tip>Copy this pawn's traits, to paste them onto another pawn. Traits from genes and Isekai ranks are not copied. The full result of a paste is also written to the log.</PawnEditor.CopyTraits.Tip>
+    <PawnEditor.PasteTraits.Tip>Replace this pawn's traits with the ones copied from {0}. Traits from genes and Isekai ranks stay as they are; proficiencies (like fluent speech) replace the ones in the same track.</PawnEditor.PasteTraits.Tip>
+    <PawnEditor.PasteTraits.Empty>Copy a pawn's traits first.</PawnEditor.PasteTraits.Empty>
+    <PawnEditor.TraitsCopied>Copied {0} trait(s) from {PAWN_nameDef}.</PawnEditor.TraitsCopied>
+    <PawnEditor.TraitsPasted>Pasted the traits of {0} onto {PAWN_nameDef}.</PawnEditor.TraitsPasted>
+    <PawnEditor.TraitsPastedSkipped>Pasted the traits of {0} onto {PAWN_nameDef}, except: {2}</PawnEditor.TraitsPastedSkipped>
+    <PawnEditor.PasteTraits.Title>Paste traits</PawnEditor.PasteTraits.Title>
+    <PawnEditor.PasteTraits.Ask>Pasting the traits of {0} onto {PAWN_nameDef}.</PawnEditor.PasteTraits.Ask>
+    <PawnEditor.PasteTraits.OwnClashes>These copied traits clash with traits {PAWN_nameDef} has now:</PawnEditor.PasteTraits.OwnClashes>
+    <PawnEditor.PasteTraits.FixedClashes>These clash with traits {PAWN_nameDef} gets from genes or other mods, so they won't be pasted (change the gene to change them):</PawnEditor.PasteTraits.FixedClashes>
+    <PawnEditor.PasteTraits.Suppressed>A gene of {PAWN_nameDef} will suppress these: they go on, but stay inactive:</PawnEditor.PasteTraits.Suppressed>
+    <PawnEditor.PasteTraits.KeepTargets>Keep {PAWN_nameDef}'s</PawnEditor.PasteTraits.KeepTargets>
+    <PawnEditor.PasteTraits.UseCopied>Use the copied ones</PawnEditor.PasteTraits.UseCopied>
+    <PawnEditor.PasteTraits.Paste>Paste</PawnEditor.PasteTraits.Paste>
+    <PawnEditor.TraitKeptTargets>{0} (kept the one it clashed with)</PawnEditor.TraitKeptTargets>
 </LanguageData>

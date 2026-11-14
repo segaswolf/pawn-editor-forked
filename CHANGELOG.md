@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 
 
+## [Unreleased]
+
+### Added
+- **Copy and paste traits between pawns** (requested by Blackthorn). Two icons next to "Add" in
+  Traits: copy takes a pawn's traits, paste replaces another pawn's traits with them, Progression
+  proficiencies included (a pasted "fluent speech" replaces "non-speaker"). Traits from genes and
+  Isekai ranks are neither copied nor replaced. If a copied trait clashes with one the other pawn
+  has (gay and bisexual, kind and bloodlust...), or one of its genes would suppress it, you are asked
+  first: keep that pawn's traits or use the copied ones. Anything that can't go on is listed in the
+  message, which stays in the message history, and the log has the whole result.
+
+### Fixed
+- **The editor hotkey couldn't be turned off** (reported by IkeFanboy64). There were two hotkeys, both
+  on keypad minus: "Open editor" in Options > Controls and a separate one in the mod settings, and
+  either one opened the editor. Right-clicking the mod setting also started "Press any key..."
+  instead of clearing it. Now there is one hotkey, the one in Options > Controls; the mod settings
+  row edits that same key, with right-click to reset or clear it. A key you had set in the mod
+  settings moves to Controls the first time you start the game.
+
 ## [v3.2.7] - 2026-11-14 — Faithful blueprints: implants, genes and ideoligion
 
 ### Added

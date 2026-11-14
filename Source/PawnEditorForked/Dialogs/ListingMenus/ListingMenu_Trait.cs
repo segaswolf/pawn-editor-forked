@@ -58,7 +58,7 @@ public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
         "PawnEditor.Choose".Translate() + " " + "Trait".Translate().ToLower(),
         b => descGetter(b, pawn), null, filters, pawn) { }
 
-    private static AddResult TryAdd(TraitInfo traitInfo, Pawn pawn)
+    internal static AddResult TryAdd(TraitInfo traitInfo, Pawn pawn)
     {
         if (pawn.kindDef.disallowedTraits.NotNullAndContains(traitInfo.Trait.def)
          || pawn.kindDef.disallowedTraitsWithDegree.NotNullAndAny(t => t.def == traitInfo.Trait.def && t.degree == traitInfo.TraitDegreeData.degree)
@@ -115,7 +115,7 @@ public class ListingMenu_Trait : ListingMenu<ListingMenu_Trait.TraitInfo>
 		"Herculean"
 	};
 	
-	private static bool IsBlockedTrait(TraitDef traitDef, TraitDegreeData degree)
+	internal static bool IsBlockedTrait(TraitDef traitDef, TraitDegreeData degree)
 	{
 		if (traitDef == null || degree == null)
 			return false;

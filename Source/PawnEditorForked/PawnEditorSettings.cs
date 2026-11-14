@@ -28,7 +28,12 @@ public class PawnEditorSettings : ModSettings
     // monogamous ideology (which could trip precepts or mood). Players whose ideology/mods allow
     // polygamy can opt in here to keep those relations.
     public bool AllowPolygamyOnLoad;
-    public KeyCode EditorHotkey = KeyCode.KeypadMinus;
+    /// <summary>
+    /// Old, separate editor hotkey. The hotkey is now only the game's key binding (Options > Controls); this
+    /// is read once so a key someone set here moves there (PawnEditorHotkeyService.MoveLegacyHotkey).
+    /// </summary>
+    public KeyCode EditorHotkey = LegacyHotkeyDefault;
+    internal const KeyCode LegacyHotkeyDefault = KeyCode.KeypadMinus;
 
     // Debug-only: when enabled, PawnEditorProfiler logs timing/allocation "flags" for editor
     // events. Off by default so it never costs anything during normal play.
@@ -62,7 +67,7 @@ public class PawnEditorSettings : ModSettings
         Scribe_Values.Look(ref HideFactions, nameof(HideFactions));
         Scribe_Values.Look(ref CountNPCs, nameof(CountNPCs));
         Scribe_Values.Look(ref HediffLocationLimit, nameof(HediffLocationLimit), HediffLocation.RecipeDef);
-        Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), KeyCode.KeypadMinus);
+        Scribe_Values.Look(ref EditorHotkey, nameof(EditorHotkey), LegacyHotkeyDefault);
         Scribe_Values.Look(ref ProfilingEnabled, nameof(ProfilingEnabled));
         Scribe_Values.Look(ref AllowPolygamyOnLoad, nameof(AllowPolygamyOnLoad));
         Scribe_Values.Look(ref RememberWindowPositions, nameof(RememberWindowPositions));

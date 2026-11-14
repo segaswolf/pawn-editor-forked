@@ -23,5 +23,5 @@
     <PawnEditor.HideRandomFactions>Hide non-colony faction names</PawnEditor.HideRandomFactions>
     <PawnEditor.HideRandomFactions.Desc>Whether to hide non-colony factions while editing pawns before starting.</PawnEditor.HideRandomFactions.Desc>
     <PawnEditor.EditorHotkey>Editor hotkey</PawnEditor.EditorHotkey>
-    <PawnEditor.PressAnyKey>Press any key...</PawnEditor.PressAnyKey>
+    <PawnEditor.EditorHotkey.Tip>The same key as "Open editor" in Options > Controls. Left-click to change it, right-click to reset or clear it.</PawnEditor.EditorHotkey.Tip>
 </LanguageData>

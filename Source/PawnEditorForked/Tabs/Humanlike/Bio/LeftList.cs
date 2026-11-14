@@ -75,6 +75,7 @@ public partial class TabWorker_Bio_Humanlike
         var header = DrawStackHeader(ref viewRect, "Traits".Translate());
         if (Widgets.ButtonText(header.TakeRightPart(SectionAddButtonWidth), AddLabel))
             Find.WindowStack.Add(new ListingMenu_Trait(pawn));
+        DrawTraitCopyPaste(header, pawn);
 
         var rect = TakeStackRect(ref viewRect, traitsLastHeight);
         var traits = pawn.story.traits.allTraits;
@@ -84,6 +85,95 @@ public partial class TabWorker_Bio_Humanlike
         traitsLastHeight = Mathf.Max(StackMinHeight, traitsLastHeight);
         GUI.color = Color.white;
     }
+
+    /// <summary>Copy and paste icons, left of "Add". See <see cref="TraitClipboard"/>.</summary>
+    private static void DrawTraitCopyPaste(Rect header, Pawn pawn)
+    {
+        var size = header.height;
+        var paste = header.TakeRightPart(size + 4f).LeftPartPixels(size);
+        var copy = header.TakeRightPart(size + 4f).LeftPartPixels(size);
+
+        if (Widgets.ButtonImage(copy, TexButton.Copy))
+        {
+            var count = TraitClipboard.Copy(pawn);
+            Messages.Message("PawnEditor.TraitsCopied".Translate(count, pawn.Named("PAWN")), MessageTypeDefOf.SilentInput, historical: true);
+        }
+        TooltipHandler.TipRegion(copy, "PawnEditor.CopyTraits.Tip".Translate());
+
+        if (!TraitClipboard.HasTraits)
+        {
+            GUI.color = Color.gray;
+            GUI.DrawTexture(paste, TexButton.Paste);
+            GUI.color = Color.white;
+            TooltipHandler.TipRegion(paste, "PawnEditor.PasteTraits.Empty".Translate());
+            return;
+        }
+        if (Widgets.ButtonImage(paste, TexButton.Paste))
+            AskAndPasteTraits(pawn);
+        TooltipHandler.TipRegion(paste, "PawnEditor.PasteTraits.Tip".Translate(TraitClipboard.CopiedFrom));
+    }
+
+    /// <summary>
+    /// Pastes straight away when nothing fights; otherwise lists the fights and lets the player decide.
+    /// </summary>
+    private static void AskAndPasteTraits(Pawn pawn)
+    {
+        var plan = TraitClipboard.Plan(pawn);
+        if (!plan.NeedsAsking)
+        {
+            PasteTraits(pawn, false);
+            return;
+        }
+
+        var name = pawn.Named("PAWN");
+        var text = new System.Text.StringBuilder("PawnEditor.PasteTraits.Ask".Translate(TraitClipboard.CopiedFrom, name).Resolve());
+        AppendSection(text, "PawnEditor.PasteTraits.OwnClashes".Translate(name).Resolve(),
+            plan.OwnClashes.Select(c => $"{Label(c.def, c.degree)} vs {c.rival.LabelCap}"));
+        AppendSection(text, "PawnEditor.PasteTraits.FixedClashes".Translate(name).Resolve(),
+            plan.FixedClashes.Select(c => $"{Label(c.def, c.degree)} vs {c.rival.LabelCap}"
+                                          + (c.rival.sourceGene != null ? $" ({c.rival.sourceGene.LabelCap})" : "")));
+        AppendSection(text, "PawnEditor.PasteTraits.Suppressed".Translate(name).Resolve(),
+            plan.Suppressed.Select(c => $"{Label(c.def, c.degree)} ({c.gene.LabelCap})"));
+
+        Dialog_MessageBox box;
+        if (plan.OwnClashes.Count > 0)
+        {
+            box = new Dialog_MessageBox(text.ToString(),
+                "PawnEditor.PasteTraits.KeepTargets".Translate(name), () => PasteTraits(pawn, true),
+                "PawnEditor.PasteTraits.UseCopied".Translate(), () => PasteTraits(pawn, false),
+                "PawnEditor.PasteTraits.Title".Translate())
+            {
+                buttonCText = "Cancel".Translate()
+            };
+        }
+        else
+        {
+            box = new Dialog_MessageBox(text.ToString(),
+                "PawnEditor.PasteTraits.Paste".Translate(), () => PasteTraits(pawn, false),
+                "Cancel".Translate(), null, "PawnEditor.PasteTraits.Title".Translate());
+        }
+        Find.WindowStack.Add(box);
+    }
+
+    private static void PasteTraits(Pawn pawn, bool keepTargetOnClash)
+    {
+        var skipped = TraitClipboard.Paste(pawn, keepTargetOnClash);
+        if (skipped.Count == 0)
+            Messages.Message("PawnEditor.TraitsPasted".Translate(TraitClipboard.CopiedFrom, pawn.Named("PAWN")), MessageTypeDefOf.SilentInput, historical: true);
+        else
+            Messages.Message("PawnEditor.TraitsPastedSkipped".Translate(TraitClipboard.CopiedFrom, pawn.Named("PAWN"), string.Join(" ", skipped)),
+                MessageTypeDefOf.RejectInput, historical: true);
+    }
+
+    private static void AppendSection(System.Text.StringBuilder text, string title, IEnumerable<string> lines)
+    {
+        var list = lines.Distinct().ToList();
+        if (list.Count == 0) return;
+        text.Append("\n\n").Append(title);
+        foreach (var line in list) text.Append("\n  - ").Append(line);
+    }
+
+    private static string Label(TraitDef def, int degree) => def.DataAtDegree(degree).LabelCap;
 
     /// <remarks>
     /// <para>
